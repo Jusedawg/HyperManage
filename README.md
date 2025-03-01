@@ -71,16 +71,19 @@ Documentation is being created currently and will be available at https://ficsit
 The easiest place to contact myself, Jusedawg, is on the [Satisfactory Modding Discord Server](https://discord.gg/TShj39G) or here on Github.  My tag over there is @Jusedawg so I'm pretty easy to find.  I prefer DMs so as to not get BS responses from the peanut gallery or idiots just wanting to give their two cents.
 I would like to say that most poeple benefit from having conversations there, but if you criticize anything or ask questions as to why something isn't being updated in a reasonable time frame, the only feedback you will get is "it is being worked on", "you aren't owed anything because it's free", "any criticism or questioning anything is entitled", so history says otherwise.  If I haven't made updates in 2 years, I EXPECT people to complain, it would be weird if people didn't.
 
+I have offered to help several times and it is mostly crickets or some BS excuses as to why something isn't or can't be updated or I just have to wait.  Appparently, the only way to get respect and have anyone listen is just to just create a mod and start duplicating their features myself.  I am mostly doing this out of necessity, not because I give two shits about the notoriety, trying to make money from it, somneone's ego, feelings or being the author of a mod and keeping it closed to myself. I literally just want to be able to play the game and move shit around after it is placed.
+
 ## HyperManage Contributors and very very similar mods
 
 - TwoTwoEleven - MicroMange Creator/Programmer original inspiration (Nothing technically to do with this mod, but obviously this is to fill the same void that hasn't been updated in several years so giving credit where it is due)
 - Scordium - Original Rearchitector Creator/Programmer (Thank you for actually posting your code to Github and trying to orginially fill the void of MicroManage not being updated)
 - SirDigby - Orginal Inifinte Nudge Creator/Programmer (Thank you for trying to orginially fill the void of MicroManage not being updated among lots of other great mods )
-- Jusedawg - Picking up the slack and putting my money where my mouth is that gets me into trouble sometimes and hurt feelings.  The fact that I am now making a third or fourth mod is just plain dumb though, rather than just working together on the same mod.
+- Mircearoata - Original Area Actions Creator/Programmer (Thank you for actually posting your code to Github as well as lots of other great mods )
+- Jusedawg - Picking up the slack and putting my money where my mouth is, that gets me into trouble sometimes and hurt snowflake's feelings.  The fact that I am now making a third or fourth or fifth mod is just plain dumb though, rather than just working together on the same mod.
 
-Anyone can contribute, complain, give feedback, whatever, I welcome it.  That is how it should be.  Modding is about the community and everyone helping to make it better.  Nobody should have to be waiting 2+ years for something to be updated because of one person and their personal life or the code not being available for anyone to contribute and help.  Nobody should be hoarding something or keeping it private when there is literally no beenfit or use to it, outside of this game.
+Anyone can contribute, complain, give feedback, whatever, I welcome it.  That is how it should be.  Modding is about the community and everyone helping to make it better.  Nobody should have to be waiting 2+ years for something to be updated because of one person and their personal life or the code not being available for anyone to contribute and help.  Nobody should be hoarding something or keeping it private when there is literally no beenfit or use of it, outside of this game.
 
-This code will always remain open and updated.  If for some reason, I start to slack or cannot update it in a timely manner, I will have the decency and respect to the community to hand it over to someone else or anyone can freely make a copy and continue on.  All mods should be open source.  You can't do anything else with it, so what would be the point, otherwise.
+This code will always remain open and updated.  If for some reason, I start to slack or cannot update it in a timely manner, I will have the decency and respect to the community to hand it over to someone else or anyone can freely make a copy and continue on.  All mods should be open source.  You can't do anything else with it, so what is the point, otherwise.  I just don't get the mentality  of it.
 
 ## Disclaimer
 
