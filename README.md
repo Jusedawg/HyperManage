@@ -1,5 +1,5 @@
 # HyperManage
-## a.k.a. Rearchitector a.k.a. Infinite Nudge a.k.a. Micro Manage a.k.a. Area ACtions
+## a.k.a. Rearchitector a.k.a. Infinite Nudge a.k.a. Micro Manage a.k.a. Area Actions
 
 The name will likely become something else unless everyone comes to their senses and combines all these mods together into one mod.
 
@@ -20,6 +20,46 @@ It is recommended to use the Satisfactory Mod Manager (SMM) to install any mods 
 * Power lines, recipes, inventories, paint color, deconstruct refund, pipette tool all preserved
 * Settings and Key/Mouse configurations are customizable
 * Move and rotate vehicle path nodes to fix any recording problems
+
+## Other Features eventually added/supported
+
+### Infinite Nudge
+
+Removes the distance restrictions from the Nudge feature added to Vanilla in Update 8 and allows manipulation in all other ways. You enter Nudge Mode by pressing "H" (by default) while you are in Build Mode with a Hologram out.
+
+* Nudge Vertically (Up/Down) by holding Shift and pressing the Up/Down keys.
+* Nudge in smaller increments by using the Left Ctrl or Left Alt modifier keys. By default, Left Ctrl will Nudge 20cm and Left Alt will Nudge 50cm (Vanilla is 100cm). These can be done at the same time as vertical Nudge.
+* Rotate the hologram by 15-degree increments while it is locked by Scrolling (Yaw), Left Shift + Scroll (Pitch), and Right Shift + Scroll (Roll). Holding Ctrl while rotating will rotate by 1-degree increments.
+* Scale (resize) the hologram using the left bracket [ to shrink and the right bracket ] to grow.
+
+All distances and amounts can be adjusted in the Mod Config and all of the hotkeys can be changed in the Vanilla Keybinds menu.
+
+All buildings that couldn't be Nudged previously (miners, pumps, etc) can also be nudged, now.
+
+### Area Actions
+
+To use it, craft the Area Actions equipment in the Equipment Workshop. With it equipped, right click to open the menu. On the left side you will see the area selection and on the right the actions.
+
+#### Area selection:
+* Set corners. Click somewhere to place a corner (shown as a cylinder), click it again to remove it. This will also create some walls which define the area (note: the center of a building is used when checking if *it is inside or not)
+* Set minimum height.
+* Set maximum height. Minimum and maximum height can be used on multi floor factories when you only want to dismantle some floors. Click to create a plane which shows the set height, click it again to remove it.
+* Clear
+* Select all map
+* Select a building
+#### Actions:
+* Mass dismantle
+* Set recipe
+* Set truck/train station load/unload
+* Copy-Paste
+* Fill
+* Clear Inventories
+* Eyedropper: With Area Actions equipped, middle click on a building and it open the build gun with that building selected
+#### Notes:
+* The corners need to be in clockwise order, otherwise you will end up with a crossing shape
+* Acting on big areas takes a while
+* Anything that takes 2 clicks to place is not copied, but I am working on a fix for that
+* For Copy-Paste and Fill you can choose to use the build costs and if using build costs, max distance for a storage to take items from (min 0m - takes only from player, max 10km - more than the entire map)
 
 ---
 ## Documentation
