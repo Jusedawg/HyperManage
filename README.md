@@ -71,7 +71,15 @@ Documentation is being created currently and will be available at https://ficsit
 The easiest place to contact myself, Jusedawg, is on the [Satisfactory Modding Discord Server](https://discord.gg/TShj39G) or here on Github.  My tag over there is @Jusedawg so I'm pretty easy to find.  I prefer DMs so as to not get BS responses from the peanut gallery or idiots just wanting to give their two cents.
 I would like to say that most poeple benefit from having conversations there, but if you criticize anything or ask questions as to why something isn't being updated in a reasonable time frame, the only feedback you will get is "it is being worked on", "you aren't owed anything because it's free", "any criticism or questioning anything is entitled", so history says otherwise.  If I haven't made updates in 2 years, I EXPECT people to complain, it would be weird if people didn't.
 
-I have offered to help several times and it is mostly crickets or some BS excuses as to why something isn't or can't be updated or I just have to wait.  Appparently, the only way to get respect and have anyone listen is just to just create a mod and start duplicating their features myself.  I am mostly doing this out of necessity, not because I give two shits about the notoriety, trying to make money from it, somneone's ego, feelings or being the author of a mod and keeping it closed to myself. I literally just want to be able to play the game and move shit around after it is placed.
+## About the Author
+
+I do this shit for a living on real games and software, not just making mods like most people making mods for games.  I have offered to help several times and it is mostly crickets or some BS excuses as to why something isn't or can't be updated or I just have to wait.  Appparently, the only way to get respect and have anyone listen is to just create a mod and start duplicating their features myself.  I am mostly doing this out of necessity, not because I give two shits about the notoriety, trying to make money from it, somneone's ego, feelings or being the author of a mod and keeping it closed to myself. I literally just want to be able to play the game and move shit around after it is placed.
+
+![alt text](https://github.com/Jusedawg/HyperManage/blob/main/3b55ab07e7b07799a09d2b3c8e35a095.jpg?raw=true)
+![alt text](https://github.com/Jusedawg/HyperManage/blob/main/45713822c85518a13da3ebef9a1ba561.jpg?raw=true)
+![alt text](https://github.com/Jusedawg/HyperManage/blob/main/656baddc724ae9d7704dd13dfb5c2aed.jpg?raw=true)
+![alt text](https://github.com/Jusedawg/HyperManage/blob/main/c52851af669ef6665ca54c66ac3328ce.jpg?raw=true)
+![alt text](https://github.com/Jusedawg/HyperManage/blob/main/de872cea9f9a690b3c407c78b3f5d3e8.jpg?raw=true)
 
 ## HyperManage Contributors and very very similar mods
 
