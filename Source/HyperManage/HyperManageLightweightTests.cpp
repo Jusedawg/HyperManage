@@ -223,6 +223,21 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Clear yaw input"), Tools->OffsetYaw->GetValue(), 0.f);
 	TestEqual(TEXT("Clear pitch input"), Tools->OffsetPitch->GetValue(), 0.f);
 	TestEqual(TEXT("Clear roll input"), Tools->OffsetRoll->GetValue(), 0.f);
+	TestNotNull(TEXT("Exact scale X created"), Tools->ScaleX.Get());
+	TestFalse(TEXT("Scale apply starts disabled"), Tools->ApplyScaleButton->GetIsEnabled());
+	auto ScaleCombo = Tools->ScalePreset->TakeWidget();
+	Tools->ScalePreset->SetSelectedOption(TEXT("125"));
+	TestEqual(TEXT("Uniform preset fills X"), Tools->ScaleX->GetValue(), 125.f);
+	TestEqual(TEXT("Uniform preset fills Y"), Tools->ScaleY->GetValue(), 125.f);
+	TestEqual(TEXT("Uniform preset fills Z"), Tools->ScaleZ->GetValue(), 125.f);
+	Tools->ScaleY->SetValue(80.f);
+	Tools->ScaleY->OnValueChanged.Broadcast(80.f); // Simulate typing in the headless widget.
+	Tools->ScalePreset->SetSelectedOption(TEXT("125"));
+	TestEqual(TEXT("Same preset can be reapplied after manual edits"), Tools->ScaleY->GetValue(), 125.f);
+	Tools->ResetScaleFields();
+	TestEqual(TEXT("Reset prepares original X size"), Tools->ScaleX->GetValue(), 100.f);
+	TestEqual(TEXT("Reset prepares original Y size"), Tools->ScaleY->GetValue(), 100.f);
+	TestEqual(TEXT("Reset prepares original Z size"), Tools->ScaleZ->GetValue(), 100.f);
 	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
@@ -242,7 +257,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.19")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.20")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -455,6 +470,34 @@ bool FHyperManageWorldRotationOffsetTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Reject invalid pivot"), UHyperManageTransform::MakeWorldRotationOffset(Compound, true, FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), Data));
 	Data.WorldRotationOffset = true; Data.WorldAlignment = true; Data.Rot = FRotator(0, 181, 0);
 	TestTrue(TEXT("Invalid replay leaves transform unchanged"), Transform->ComputeTransform(First, Data).Equals(First));
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageExactScaleTest, "HyperManage.Transform.ExactScale", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageExactScaleTest::RunTest(const FString& Parameters)
+{
+	const FTransform Original(FRotator(15, 70, -25), FVector(-100, 200, 500), FVector(2, 0.75, 3));
+	const FVector Percent(125, 50, 200);
+	TestTrue(TEXT("Accept independent axis percentages"), UHyperManageTransform::IsValidScalePercent(Percent));
+	FTransform Result;
+	TestTrue(TEXT("Absolute scale is accepted"), UHyperManageTransform::MakeAbsoluteScale(Original, Percent / 100.0, Result));
+	TestTrue(TEXT("Absolute scale replaces rather than multiplies"), Result.GetScale3D().Equals(FVector(1.25, 0.5, 2)));
+	TestTrue(TEXT("Scaling preserves world origin"), Result.GetLocation().Equals(Original.GetLocation()));
+	TestTrue(TEXT("Scaling preserves rotation"), Result.GetRotation().Equals(Original.GetRotation()));
+	FTransform Repeated;
+	TestTrue(TEXT("Repeated apply accepted"), UHyperManageTransform::MakeAbsoluteScale(Result, Percent / 100.0, Repeated));
+	TestTrue(TEXT("Repeated apply does not compound"), Repeated.Equals(Result));
+	TestTrue(TEXT("Reset original size accepted"), UHyperManageTransform::MakeAbsoluteScale(Result, FVector::OneVector, Repeated));
+	TestTrue(TEXT("Reset yields unit scale"), Repeated.GetScale3D().Equals(FVector::OneVector));
+	for (const FVector Invalid : {FVector(0, 100, 100), FVector(-50, 100, 100), FVector(100, 1001, 100), FVector(100, 100, 0.5),
+		FVector(std::numeric_limits<double>::quiet_NaN(), 100, 100), FVector(100, std::numeric_limits<double>::infinity(), 100)}) {
+		TestFalse(TEXT("Reject invalid UI percentages"), UHyperManageTransform::IsValidScalePercent(Invalid));
+	}
+	TestTrue(TEXT("UI lower bound accepted"), UHyperManageTransform::IsValidScalePercent(FVector(1)));
+	TestTrue(TEXT("UI upper bound accepted"), UHyperManageTransform::IsValidScalePercent(FVector(1000)));
+	const FTransform Sentinel = Repeated;
+	TestFalse(TEXT("Reject degenerate transport scale"), UHyperManageTransform::MakeAbsoluteScale(Original, FVector(0, 1, 1), Repeated));
+	TestTrue(TEXT("Rejected scale leaves output untouched"), Repeated.Equals(Sentinel));
+	TestTrue(TEXT("Existing mirrored match-scale remains supported"), UHyperManageTransform::MakeAbsoluteScale(Original, FVector(-1, 1, 1), Repeated));
 	return true;
 }
 #endif

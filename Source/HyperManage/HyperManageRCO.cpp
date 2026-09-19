@@ -330,7 +330,8 @@ void UHyperManageRCO::RequestAbsoluteTransforms(const TArray<AActor*>& Actors, c
 	TArray<FHyperManageLightweightEdit> Edits;
 	for (auto* Actor : Actors) {
 		if (!IsValid(Actor)) continue;
-		FTransform Transform = Actor->GetActorTransform(); Transform.SetScale3D(Scale);
+		FTransform Transform;
+		if (!UHyperManageTransform::MakeAbsoluteScale(Actor->GetActorTransform(), Scale, Transform)) continue;
 		if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
 			Proxy->BeginRequest();
 			FHyperManageLightweightEdit Edit; Edit.Ref = Proxy->Ref; Edit.Transform = Transform; Edits.Add(Edit);

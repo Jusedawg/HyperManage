@@ -15,6 +15,7 @@ public:
 	void PerformRedo();
 	void PerformHistory(bool Redo);
 	bool ApplyWorldRotationOffset(const FRotator& Degrees);
+	bool ApplyScalePercent(const FVector& Percent);
 	bool ApplyWorldOffset(const FVector& Meters);
 	void AlignToWorld(EActionNameIdx Action);
 

@@ -390,3 +390,18 @@ bool UHyperManageTransform::MakeWorldRotationOffset(const FRotator& Degrees, boo
 	Data.PivotLoc = Pivot;
 	return true;
 }
+
+
+bool UHyperManageTransform::IsValidScalePercent(const FVector& Percent)
+{
+	return !Percent.ContainsNaN() && Percent.GetMin() >= 1.0 && Percent.GetMax() <= 1000.0;
+}
+
+bool UHyperManageTransform::MakeAbsoluteScale(const FTransform& Original, const FVector& Scale, FTransform& Result)
+{
+	FTransform Candidate = Original;
+	Candidate.SetScale3D(Scale);
+	if (!HyperManageLightweight::IsValidTransform(Candidate)) return false;
+	Result = Candidate;
+	return true;
+}

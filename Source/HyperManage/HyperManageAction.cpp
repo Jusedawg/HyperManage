@@ -511,3 +511,22 @@ bool UHyperManageAction::ApplyWorldRotationOffset(const FRotator& Degrees)
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 	return true;
 }
+
+
+bool UHyperManageAction::ApplyScalePercent(const FVector& Percent)
+{
+	if (!System || !System->Selection || !System->Undo || !System->GetMMRCO() || System->Selection->HasPendingOperations()) return false;
+	if (!UHyperManageTransform::IsValidScalePercent(Percent)) return false;
+	const FVector Scale = Percent / 100.0;
+	TArray<AActor*> Actors;
+	System->Selection->SelectedActorsNoTarget(Actors);
+	Actors.RemoveAll([&](AActor* Actor) {
+		if (!System->Selection->IsValidActor(Actor) || Actor->GetActorScale3D().Equals(Scale, 0.000001)) return true;
+		FTransform Result;
+		return !UHyperManageTransform::MakeAbsoluteScale(Actor->GetActorTransform(), Scale, Result);
+	});
+	if (Actors.IsEmpty()) return false;
+	System->Undo->PushUndoTransforms(Actors);
+	System->GetMMRCO()->RequestAbsoluteTransforms(Actors, Scale);
+	return true;
+}

@@ -66,6 +66,12 @@ Under **World rotation offset (deg)**, enter yaw, pitch and roll changes, then c
 
 In **Group: together** mode, objects rotate around the selected anchor, or the center of the selected object origins if no anchor is selected. In **Group: individual** mode, each object rotates in place. The target stays stationary and scale is preserved. The panel describes the active pivot behavior. **Zero fields** clears only the inputs; each Apply is one undoable edit.
 
+## Exact scale
+
+Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply scale**. **100%** is original size, **50%** is half size, and **200%** is double size. Values are absolute rather than repeated multipliers, so applying 125% twice still leaves an object at 125%. Each axis accepts 1-1,000%.
+
+A **Uniform preset** fills all three fields. **100% fields** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
+
 ## Undo and redo
 
 Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint and box selection, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections and individual selection clicks are not recorded.

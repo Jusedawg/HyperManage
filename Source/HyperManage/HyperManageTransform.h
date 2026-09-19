@@ -111,6 +111,8 @@ public:
 	// Applies Transform on the root component of Actor
 
 	void TransformActor(AActor* Actor, const FTransform& Transform);
+	static bool IsValidScalePercent(const FVector& Percent);
+	static bool MakeAbsoluteScale(const FTransform& Original, const FVector& Scale, FTransform& Result);
 	static bool IsValidRotationOffset(const FRotator& Degrees);
 	static bool MakeWorldRotationOffset(const FRotator& Degrees, bool Grouped, const FVector& Pivot, FHyperManageTransformData& Data);
 	static bool MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data);

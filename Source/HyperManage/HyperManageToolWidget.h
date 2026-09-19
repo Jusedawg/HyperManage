@@ -63,6 +63,16 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> RotationStatus;
 	UFUNCTION() void ApplyWorldRotationOffset();
 	UFUNCTION() void ClearRotationOffset();
+	UPROPERTY(Transient) TObjectPtr<USpinBox> ScaleX;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> ScaleY;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> ScaleZ;
+	UPROPERTY(Transient) TObjectPtr<UButton> ApplyScaleButton;
+	UPROPERTY(Transient) TObjectPtr<UComboBoxString> ScalePreset;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> ScaleStatus;
+	UFUNCTION() void ApplyScalePercent();
+	UFUNCTION() void ResetScaleFields();
+	UFUNCTION() void ClearScalePreset(float Value);
+	UFUNCTION() void ChangeScalePreset(FString Value, ESelectInfo::Type SelectionType);
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;

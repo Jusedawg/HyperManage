@@ -154,7 +154,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.19")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.20")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -297,6 +297,49 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	RotationStatus = WidgetTree->ConstructWidget<UTextBlock>(); RotationStatus->SetFont(OffsetFont); RotationStatus->SetAutoWrapText(true);
 	RotationStatus->SetText(FText::FromString(TEXT("Select objects, then enter rotation offsets.")));
 	Rows->AddChildToVerticalBox(RotationStatus);
+	auto* ScaleHeading = WidgetTree->ConstructWidget<UTextBlock>();
+	ScaleHeading->SetText(FText::FromString(TEXT("EXACT LOCAL SCALE (%)")));
+	ScaleHeading->SetFont(OffsetFont); ScaleHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+	Rows->AddChildToVerticalBox(ScaleHeading);
+	auto* ScaleRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto AddScale = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
+		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
+		ScaleRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
+		Input = WidgetTree->ConstructWidget<USpinBox>();
+		Input->SetMinValue(1.f); Input->SetMaxValue(1000.f); Input->SetValue(100.f);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(88.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(2);
+		Input->SetToolTipText(FText::FromString(TEXT("Absolute local-axis scale: 100% is original size, 50% is half, 200% is double. Range 1-1000%. Apply changes size without moving object origins.")));
+		Input->OnValueChanged.AddDynamic(this, &UHyperManageToolWidget::ClearScalePreset);
+		ScaleRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
+	};
+	AddScale(TEXT("X"), ScaleX); AddScale(TEXT("Y"), ScaleY); AddScale(TEXT("Z"), ScaleZ);
+	Rows->AddChildToVerticalBox(ScaleRow);
+	auto* ScalePresetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto* PresetLabel = WidgetTree->ConstructWidget<UTextBlock>(); PresetLabel->SetText(FText::FromString(TEXT("Uniform preset")));
+	ScalePresetRow->AddChildToHorizontalBox(PresetLabel)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	ScalePreset = WidgetTree->ConstructWidget<UComboBoxString>();
+	for (const TCHAR* Option : {TEXT("25"), TEXT("50"), TEXT("75"), TEXT("100"), TEXT("125"), TEXT("150"), TEXT("200")}) ScalePreset->AddOption(Option);
+	ScalePreset->SetToolTipText(FText::FromString(TEXT("Fill all three fields with a percentage, then click Apply scale. Choosing a preset alone does not change objects.")));
+	ScalePreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeScalePreset);
+	ScalePresetRow->AddChildToHorizontalBox(ScalePreset)->SetPadding(FMargin(4));
+	Rows->AddChildToVerticalBox(ScalePresetRow);
+	auto* ScaleActions = WidgetTree->ConstructWidget<UHorizontalBox>();
+	ApplyScaleButton = WidgetTree->ConstructWidget<UButton>();
+	auto* ScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ScaleText->SetText(FText::FromString(TEXT("Apply scale")));
+	AddFieldIcon(WidgetTree, ApplyScaleButton, ScaleText, 6); ApplyScaleButton->SetIsEnabled(false);
+	ApplyScaleButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyScalePercent);
+	ApplyScaleButton->SetToolTipText(FText::FromString(TEXT("Set the selected objects to these absolute local scales. Target is excluded. Position and rotation stay unchanged regardless of group mode. Ctrl+Z undoes the edit.")));
+	ScaleActions->AddChildToHorizontalBox(ApplyScaleButton)->SetPadding(FMargin(4));
+	auto* ResetScale = WidgetTree->ConstructWidget<UButton>();
+	auto* ResetScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ResetScaleText->SetText(FText::FromString(TEXT("100% fields")));
+	ResetScale->SetContent(ResetScaleText); StyleFieldButton(ResetScale);
+	ResetScale->SetToolTipText(FText::FromString(TEXT("Fill X/Y/Z with 100%. Click Apply scale to restore original size.")));
+	ResetScale->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ResetScaleFields);
+	ScaleActions->AddChildToHorizontalBox(ResetScale)->SetPadding(FMargin(4));
+	Rows->AddChildToVerticalBox(ScaleActions);
+	ScaleStatus = WidgetTree->ConstructWidget<UTextBlock>(); ScaleStatus->SetFont(OffsetFont); ScaleStatus->SetAutoWrapText(true);
+	ScaleStatus->SetText(FText::FromString(TEXT("Select objects to resize. 100% is original size.")));
+	Rows->AddChildToVerticalBox(ScaleStatus);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -409,6 +452,14 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 			Count <= 0 ? TEXT("Select objects to rotate. The target stays in place.") :
 			!System->Config->MMConfig.IsGrouped ? TEXT("Individual: rotate each object in place") :
 			HasAnchor ? TEXT("Group: rotate around the selected anchor") : TEXT("Group: rotate around the selection center")));
+	}
+	if (ApplyScaleButton && ScaleX && ScaleY && ScaleZ && System->Selection) {
+		const FVector Percent(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue());
+		const int32 Count = System->Selection->SelectCount() - (System->Selection->Contains(System->Selection->TargetActor) ? 1 : 0);
+		const bool Pending = System->Selection->HasPendingOperations();
+		ApplyScaleButton->SetIsEnabled(Count > 0 && UHyperManageTransform::IsValidScalePercent(Percent) && !Pending);
+		if (ScaleStatus) ScaleStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
+			Count <= 0 ? TEXT("Select objects to resize. The target stays in place.") : TEXT("Absolute local scale | origins and rotation unchanged")));
 	}
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
@@ -542,4 +593,37 @@ void UHyperManageToolWidget::ClearRotationOffset()
 	if (OffsetYaw) OffsetYaw->SetValue(0.f);
 	if (OffsetPitch) OffsetPitch->SetValue(0.f);
 	if (OffsetRoll) OffsetRoll->SetValue(0.f);
+}
+
+
+void UHyperManageToolWidget::ApplyScalePercent()
+{
+	if (!ScaleX || !ScaleY || !ScaleZ) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
+		System->Action->ApplyScalePercent(FVector(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue()));
+	}
+}
+
+void UHyperManageToolWidget::ResetScaleFields()
+{
+	ClearScalePreset(100.f);
+	if (ScaleX) ScaleX->SetValue(100.f);
+	if (ScaleY) ScaleY->SetValue(100.f);
+	if (ScaleZ) ScaleZ->SetValue(100.f);
+}
+
+void UHyperManageToolWidget::ChangeScalePreset(FString Value, ESelectInfo::Type SelectionType)
+{
+	float Percent = 0.f;
+	if (LexTryParseString(Percent, *Value) && UHyperManageTransform::IsValidScalePercent(FVector(Percent))) {
+		if (ScaleX) ScaleX->SetValue(Percent);
+		if (ScaleY) ScaleY->SetValue(Percent);
+		if (ScaleZ) ScaleZ->SetValue(Percent);
+	}
+}
+
+
+void UHyperManageToolWidget::ClearScalePreset(float Value)
+{
+	if (ScalePreset && !ScalePreset->GetSelectedOption().IsEmpty()) ScalePreset->ClearSelection();
 }
