@@ -13,7 +13,7 @@ struct HYPERMANAGE_API FHyperManageKeyConfig
 	GENERATED_BODY()
 
 public:
-	TEnumAsByte<EActionNameIdx> ActionIndex;
+	TEnumAsByte<EActionNameIdx> ActionIndex = EActionNameIdx::NoAction;
 	
 	FKey Key;
 
@@ -24,16 +24,16 @@ public:
 	FString KeyName;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool Ctrl;
+	bool Ctrl = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool Alt;
+	bool Alt = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool Shift;
+	bool Shift = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool UseRepeats;
+	bool UseRepeats = false;
 
 public:
 	FHyperManageKeyConfig() { }
@@ -76,16 +76,16 @@ public:
 	UPROPERTY()
 	FString Size;
 
-	TEnumAsByte<EIncrementSize> IncrementSize;
+	TEnumAsByte<EIncrementSize> IncrementSize = EIncrementSize::Medium;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	float CentimetersToMove;
+	float CentimetersToMove = 10.f;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	float DegreesToRotate;
+	float DegreesToRotate = 5.f;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	float PercentToGrow;
+	float PercentToGrow = 5.f;
 
 public:
 	FHyperManageIncrement() { }
@@ -110,38 +110,38 @@ public:
 	TArray<struct FHyperManageIncrement> IncrementSettings;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	float MaxTargetRangeMeters;
+	float MaxTargetRangeMeters = 100.f;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	float SelectionTolerance;
+	float SelectionTolerance = 0.5f;
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
 	float AlignmentGridCm = 800.f;
 
-	TEnumAsByte<EIncrementSize> IncrementSize;
+	TEnumAsByte<EIncrementSize> IncrementSize = EIncrementSize::Medium;
 
 	UPROPERTY(BlueprintReadOnly, Category = "HyperManage")
-	FString CurrentIncrementSize;
+	FString CurrentIncrementSize = TEXT("Medium");
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	int CurrentSelectedMaterial;
+	int CurrentSelectedMaterial = 0;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool IsGrouped;
+	bool IsGrouped = true;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool IsViewBased;
+	bool IsViewBased = true;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool IsScaleLockedLR;
+	bool IsScaleLockedLR = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool IsScaleLockedTB;
+	bool IsScaleLockedTB = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool IsScaleLockedFB;
+	bool IsScaleLockedFB = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
-	bool WarningShownForLargeMoveLag;
+	bool WarningShownForLargeMoveLag = true;
 
 	UPROPERTY()
 	FString DoNotEditConfigFormatVersion;
@@ -149,6 +149,8 @@ public:
 public:
 	FORCEINLINE ~FHyperManageConfig() = default;
 };
+
+enum class EHyperManagePrecisionSetting : uint8 { Movement, Rotation, Grid };
 
 UCLASS(BlueprintType)
 class HYPERMANAGE_API UHyperManageConfiguration : public UHyperManageComponent
@@ -169,6 +171,7 @@ public:
 
 public:
 	virtual void Init() override;
+	bool SetPrecisionValue(EHyperManagePrecisionSetting Setting, float Value);
 
 	UFUNCTION(BlueprintCallable, Category = "HyperManage")
 	void SaveHyperManageConfig();

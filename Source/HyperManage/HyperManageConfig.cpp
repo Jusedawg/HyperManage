@@ -8,6 +8,29 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogHyperManageConfig, Log, All);
 
+bool UHyperManageConfiguration::SetPrecisionValue(EHyperManagePrecisionSetting Setting, float Value)
+{
+	if (!FMath::IsFinite(Value)) return false;
+	if (Setting == EHyperManagePrecisionSetting::Grid) {
+		if (Value < 0.01f || Value > 1000.f || MMConfig.AlignmentGridCm == Value * 100.f) return false;
+		MMConfig.AlignmentGridCm = Value * 100.f;
+		return true;
+	}
+	if (!MMConfig.IncrementSettings.IsValidIndex(MMConfig.IncrementSize)) return false;
+	auto& Increment = MMConfig.IncrementSettings[MMConfig.IncrementSize];
+	if (Setting == EHyperManagePrecisionSetting::Movement) {
+		if (Value < 0.01f || Value > 1000.f || Increment.CentimetersToMove == Value * 100.f) return false;
+		Increment.CentimetersToMove = Value * 100.f;
+		return true;
+	}
+	if (Setting == EHyperManagePrecisionSetting::Rotation) {
+		if (Value < 0.1f || Value > 180.f || Increment.DegreesToRotate == Value) return false;
+		Increment.DegreesToRotate = Value;
+		return true;
+	}
+	return false;
+}
+
 void UHyperManageConfiguration::Init()
 {
 	Super::Init();
@@ -95,7 +118,7 @@ void UHyperManageConfiguration::LoadHyperManageConfig()
 	{
 		for (const auto& Loaded : MMConfig.IncrementSettings) {
 			if (!Loaded.Size.Equals(DefaultIncrement.Size, ESearchCase::IgnoreCase)) continue;
-			if (FMath::IsFinite(Loaded.CentimetersToMove) && Loaded.CentimetersToMove > 0.f) DefaultIncrement.CentimetersToMove = Loaded.CentimetersToMove;
+			if (FMath::IsFinite(Loaded.CentimetersToMove) && Loaded.CentimetersToMove >= 1.f && Loaded.CentimetersToMove <= 100000.f) DefaultIncrement.CentimetersToMove = Loaded.CentimetersToMove;
 			if (FMath::IsFinite(Loaded.DegreesToRotate) && Loaded.DegreesToRotate >= 0.1f && Loaded.DegreesToRotate <= 180.f) DefaultIncrement.DegreesToRotate = Loaded.DegreesToRotate;
 			if (FMath::IsFinite(Loaded.PercentToGrow) && Loaded.PercentToGrow > 0.f && Loaded.PercentToGrow < 100.f) DefaultIncrement.PercentToGrow = Loaded.PercentToGrow;
 			break;

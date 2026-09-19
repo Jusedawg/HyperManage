@@ -150,7 +150,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.13")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.14")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -165,20 +165,33 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Title->SetColorAndOpacity(FSlateColor(FLinearColor(0.96f, 0.86f, 0.65f)));
 	HeaderPlate->SetContent(Header); Rows->AddChildToVerticalBox(HeaderPlate);
 	auto* Presets = WidgetTree->ConstructWidget<UVerticalBox>();
-	auto AddPreset = [&](const TCHAR* Label, const TArray<FString>& Options) {
+	PrecisionProfileLabel = WidgetTree->ConstructWidget<UTextBlock>();
+	PrecisionProfileLabel->SetText(FText::FromString(TEXT("Exact steps | type a value or choose a preset")));
+	auto ProfileFont = PrecisionProfileLabel->GetFont(); ProfileFont.Size = 13; PrecisionProfileLabel->SetFont(ProfileFont);
+	Presets->AddChildToVerticalBox(PrecisionProfileLabel);
+	auto AddPreset = [&](const TCHAR* Label, const TArray<FString>& Options, TObjectPtr<USpinBox>& Input, float Minimum, float Maximum) {
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
 		Text->SetText(FText::FromString(Label));
 		auto* PresetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 		Presets->AddChildToVerticalBox(PresetRow);
 		PresetRow->AddChildToHorizontalBox(Text)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		Input = WidgetTree->ConstructWidget<USpinBox>();
+		Input->SetMinValue(Minimum); Input->SetMaxValue(Maximum); Input->SetValue(Minimum);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(92.f);
+		Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetToolTipText(FText::FromString(TEXT("Type an exact value. Enter or leaving the field saves it. Movement and rotation use the active increment profile; the grid is shared.")));
+		PresetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
 		auto* Combo = WidgetTree->ConstructWidget<UComboBoxString>();
 		for (const FString& Option : Options) Combo->AddOption(Option);
 		PresetRow->AddChildToHorizontalBox(Combo)->SetPadding(FMargin(4));
 		return Combo;
 	};
-	MovementPreset = AddPreset(TEXT("Move (m)"), {TEXT("0.01"), TEXT("0.1"), TEXT("0.25"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")});
-	RotationPreset = AddPreset(TEXT("Rotate (deg)"), {TEXT("1"), TEXT("5"), TEXT("10"), TEXT("15"), TEXT("30"), TEXT("45"), TEXT("90")});
-	GridPreset = AddPreset(TEXT("Grid XY (m)"), {TEXT("0.1"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")});
+	MovementPreset = AddPreset(TEXT("Move (m)"), {TEXT("0.01"), TEXT("0.1"), TEXT("0.25"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")}, MovementValue, 0.01f, 1000.f);
+	RotationPreset = AddPreset(TEXT("Rotate (deg)"), {TEXT("1"), TEXT("5"), TEXT("10"), TEXT("15"), TEXT("30"), TEXT("45"), TEXT("90")}, RotationValue, 0.1f, 180.f);
+	GridPreset = AddPreset(TEXT("Grid XY (m)"), {TEXT("0.1"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")}, GridValue, 0.01f, 1000.f);
+	MovementValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitMovementValue);
+	RotationValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitRotationValue);
+	GridValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitGridValue);
 	MovementPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeMovementPreset);
 	RotationPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeRotationPreset);
 	GridPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeGridPreset);
@@ -285,15 +298,17 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
 	const auto& Increment = Config.IncrementSettings[Config.IncrementSize];
-	auto Sync = [](UComboBoxString* Combo, float Value) {
+	auto Sync = [](UComboBoxString* Combo, USpinBox* Input, float Value) {
+		if (Input && !Input->HasKeyboardFocus() && !Input->HasFocusedDescendants() && Input->GetValue() != Value) Input->SetValue(Value);
 		if (!Combo) return;
 		const FString Text = FString::Printf(TEXT("%g"), Value);
 		if (Combo->FindOptionIndex(Text) == INDEX_NONE) Combo->AddOption(Text);
 		if (Combo->GetSelectedOption() != Text) Combo->SetSelectedOption(Text);
 	};
-	Sync(MovementPreset, Increment.CentimetersToMove / 100.f);
-	Sync(RotationPreset, Increment.DegreesToRotate);
-	Sync(GridPreset, Config.AlignmentGridCm / 100.f);
+	Sync(MovementPreset, MovementValue, Increment.CentimetersToMove / 100.f);
+	Sync(RotationPreset, RotationValue, Increment.DegreesToRotate);
+	Sync(GridPreset, GridValue, Config.AlignmentGridCm / 100.f);
+	if (PrecisionProfileLabel) PrecisionProfileLabel->SetText(FText::FromString(FString::Printf(TEXT("Exact steps | %s profile | grid shared"), *UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString())));
 	if (btnIsGrouped) {
 		if (auto* Text = FieldButtonLabel(btnIsGrouped)) Text->SetText(FText::FromString(Config.IsGrouped ? TEXT("Group: together") : TEXT("Group: individual")));
 	}
@@ -302,36 +317,44 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	}
 }
 
+void UHyperManageToolWidget::CommitMovementValue(float Value, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod == ETextCommit::OnCleared) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Config) {
+		if (System->Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, Value)) System->Config->SaveHyperManageConfig();
+	}
+}
+
+void UHyperManageToolWidget::CommitRotationValue(float Value, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod == ETextCommit::OnCleared) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Config) {
+		if (System->Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, Value)) System->Config->SaveHyperManageConfig();
+	}
+}
+
+void UHyperManageToolWidget::CommitGridValue(float Value, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod == ETextCommit::OnCleared) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Config) {
+		if (System->Config->SetPrecisionValue(EHyperManagePrecisionSetting::Grid, Value)) System->Config->SaveHyperManageConfig();
+	}
+}
+
 void UHyperManageToolWidget::ChangeRotationPreset(FString Value, ESelectInfo::Type SelectionType)
 {
-	if (SelectionType == ESelectInfo::Direct) return;
-	auto* System = UHyperManageSystem::Get();
-	const float Step = FCString::Atof(*Value);
-	if (!System || !System->Config || !FMath::IsFinite(Step) || Step < 0.1f || Step > 180.f) return;
-	System->Config->MMConfig.IncrementSettings[System->Config->CurrentIncrementSize()].DegreesToRotate = Step;
-	System->Config->SaveHyperManageConfig();
+	if (SelectionType != ESelectInfo::Direct) CommitRotationValue(FCString::Atof(*Value), ETextCommit::OnEnter);
 }
 
 void UHyperManageToolWidget::ChangeMovementPreset(FString Value, ESelectInfo::Type SelectionType)
 {
-	if (SelectionType == ESelectInfo::Direct) return;
-	auto* System = UHyperManageSystem::Get();
-	const float Step = FCString::Atof(*Value) * 100.f;
-	if (!System || !System->Config || !FMath::IsFinite(Step) || Step < 1.f || Step > 100000.f) return;
-	System->Config->MMConfig.IncrementSettings[System->Config->CurrentIncrementSize()].CentimetersToMove = Step;
-	System->Config->SaveHyperManageConfig();
+	if (SelectionType != ESelectInfo::Direct) CommitMovementValue(FCString::Atof(*Value), ETextCommit::OnEnter);
 }
 
 void UHyperManageToolWidget::ChangeGridPreset(FString Value, ESelectInfo::Type SelectionType)
 {
-	if (SelectionType == ESelectInfo::Direct) return;
-	auto* System = UHyperManageSystem::Get();
-	const float Step = FCString::Atof(*Value) * 100.f;
-	if (!System || !System->Config || !FMath::IsFinite(Step) || Step < 1.f || Step > 100000.f) return;
-	System->Config->MMConfig.AlignmentGridCm = Step;
-	System->Config->SaveHyperManageConfig();
+	if (SelectionType != ESelectInfo::Direct) CommitGridValue(FCString::Atof(*Value), ETextCommit::OnEnter);
 }
-
 void UHyperManageToolWidget::RepairQuickActions()
 {
  if (!WidgetTree) return;

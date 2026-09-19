@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/Button.h"
 #include "Components/ComboBoxString.h"
+#include "Components/SpinBox.h"
 #include "Blueprint/UserWidget.h"
 #include "UI/FGInteractWidget.h"
 #include "HyperManageSystem.h"
@@ -48,6 +49,13 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> RotationValue;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> GridValue;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> PrecisionProfileLabel;
+	UFUNCTION() void CommitMovementValue(float Value, ETextCommit::Type CommitMethod);
+	UFUNCTION() void CommitRotationValue(float Value, ETextCommit::Type CommitMethod);
+	UFUNCTION() void CommitGridValue(float Value, ETextCommit::Type CommitMethod);
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> RotationPreset;
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> MovementPreset;
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> GridPreset;

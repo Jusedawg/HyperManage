@@ -10,6 +10,9 @@
 #include "Materials/Material.h"
 #include "Engine/World.h"
 #include "HyperManageToolWidget.h"
+#include "HyperManageConfig.h"
+#include "JsonObjectConverter.h"
+#include <limits>
 #include "HyperManageClipboardWidget.h"
 #include "Components/Image.h"
 #include "Components/CanvasPanelSlot.h"
@@ -204,6 +207,10 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
 	TestNotNull(TEXT("Rotation presets created"), Tools->RotationPreset.Get());
 	TestNotNull(TEXT("Grid presets created"), Tools->GridPreset.Get());
+	TestNotNull(TEXT("Exact movement field created"), Tools->MovementValue.Get());
+	TestNotNull(TEXT("Exact rotation field created"), Tools->RotationValue.Get());
+	TestNotNull(TEXT("Exact grid field created"), Tools->GridValue.Get());
+	TestFalse(TEXT("Numeric fields cannot consume drag gestures as a slider"), Tools->MovementValue->GetEnableSlider());
 	TestNotNull(TEXT("Toolbar body has an explicit size"), Cast<USizeBox>(Content->GetParent()));
 	TArray<FString> Labels;
 	Tree->ForEachWidget([&](UWidget* Widget) {
@@ -214,7 +221,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.13")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.14")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -242,6 +249,43 @@ bool FHyperManageClipboardLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("One original clipboard background"), Images, 1);
 	TestEqual(TEXT("Clipboard cannot block gameplay input"), Clipboard->GetVisibility(), ESlateVisibility::HitTestInvisible);
 	Clipboard->ReleaseSlateResources(true);
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManagePrecisionSettingsTest, "HyperManage.Settings.PrecisionValues", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManagePrecisionSettingsTest::RunTest(const FString& Parameters)
+{
+	auto* Config = NewObject<UHyperManageConfiguration>();
+	Config->MMConfig.IncrementSettings = {
+		FHyperManageIncrement(EIncrementSize::Tiny, 1.f, 1.f, 1.f), FHyperManageIncrement(EIncrementSize::Medium, 10.f, 5.f, 5.f),
+		FHyperManageIncrement(EIncrementSize::Large, 25.f, 10.f, 10.f), FHyperManageIncrement(EIncrementSize::Huge, 100.f, 45.f, 20.f)
+	};
+	Config->MMConfig.IncrementSize = EIncrementSize::Medium;
+	Config->MMConfig.CurrentIncrementSize = TEXT("Medium");
+	TestTrue(TEXT("Accept custom movement in meters"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 0.375f));
+	TestTrue(TEXT("Accept fractional degrees"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, 22.5f));
+	TestTrue(TEXT("Accept custom world grid in meters"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Grid, 1.25f));
+	TestEqual(TEXT("Movement converts to centimeters"), Config->MMConfig.IncrementSettings[1].CentimetersToMove, 37.5f);
+	TestEqual(TEXT("Other profiles remain unchanged"), Config->MMConfig.IncrementSettings[0].CentimetersToMove, 1.f);
+	TestEqual(TEXT("Grid converts to centimeters"), Config->MMConfig.AlignmentGridCm, 125.f);
+	TestFalse(TEXT("Unchanged value does not request another write"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 0.375f));
+	for (float Invalid : {-1.f, 0.f, 1001.f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
+		TestFalse(TEXT("Reject invalid movement"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, Invalid));
+		TestFalse(TEXT("Reject invalid grid"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Grid, Invalid));
+		TestFalse(TEXT("Reject invalid rotation"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, Invalid));
+	}
+	TestFalse(TEXT("Reject subminimum rotation"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, 0.01f));
+	TestFalse(TEXT("Reject rotation above the supported maximum"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, 181.f));
+	TestEqual(TEXT("Rejected values preserve previous movement"), Config->MMConfig.IncrementSettings[1].CentimetersToMove, 37.5f);
+	FString Json;
+	TestTrue(TEXT("Custom settings serialize"), FJsonObjectConverter::UStructToJsonObjectString(Config->MMConfig, Json));
+	FHyperManageConfig Restored;
+	TestTrue(TEXT("Custom settings deserialize"), FJsonObjectConverter::JsonObjectStringToUStruct(Json, &Restored));
+	if (Restored.IncrementSettings.Num() != 4) { AddError(TEXT("Saved profiles did not round-trip")); return false; }
+	TestEqual(TEXT("Saved custom movement survives round-trip"), Restored.IncrementSettings[1].CentimetersToMove, 37.5f);
+	TestEqual(TEXT("Saved custom rotation survives round-trip"), Restored.IncrementSettings[1].DegreesToRotate, 22.5f);
+	TestEqual(TEXT("Saved custom grid survives round-trip"), Restored.AlignmentGridCm, 125.f);
+	Config->MMConfig.IncrementSettings.Empty();
+	TestFalse(TEXT("Missing active profile cannot cause an out-of-bounds write"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 1.f));
 	return true;
 }
 #endif

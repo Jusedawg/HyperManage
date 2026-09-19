@@ -44,7 +44,7 @@ Press **right click** to open the tools panel. Pick your movement and rotation i
 
 ## Aligning objects
 
-Choose **Move (m)** for the distance of each movement and **Rotate (deg)** for the angle of each rotation.
+Choose **Move (m)** for the distance of each movement and **Rotate (deg)** for the angle of each rotation. Type an exact value beside a preset—for example, **0.375 m** or **22.5°**—then press Enter or leave the field to save. Movement and rotation apply to the active increment profile; the grid setting is shared. The panel shows which profile you are editing.
 
 Set **Grid XY (m)**, then use **Snap XY** to align the selection to that world grid. XY snapping adjusts horizontal placement; it does not snap elevation. Use **Snap rotation** to align rotation to the selected angle increment, or **Level** to remove pitch and roll.
 
