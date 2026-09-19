@@ -10,7 +10,7 @@ One toolkit for precise placement, editing existing builds, and bulk factory ope
 - Choose movement and rotation increments for fine adjustments or larger changes.
 - Snap selections to the world XY grid, snap rotation and level objects.
 - Use anchors and targets to align your builds.
-- Undo edits and access controls from a panel that slides out from the right edge of the screen.
+- Undo and redo edits and access controls from a panel that slides out from the right edge of the screen.
 - Keep a clipboard of keyboard shortcuts visible while you work.
 
 HyperManage is currently a preview for Satisfactory 1.2. Object coverage, save persistence and multiplayer support are still being tested. Hologram editing, bulk copy and fill, persistent selection groups and bulk machine settings are planned features.
@@ -33,6 +33,7 @@ Press **right click** to open the tools panel. Pick your movement and rotation i
 | Toggle anchor | Shift + left click |
 | Toggle target | Shift + right click |
 | Undo | Ctrl + Z |
+| Redo | Ctrl + Y |
 | Move up / down | Ctrl + I / K |
 | Rotate left / right | Ctrl + J / L |
 | Move away / toward you | Alt + I / K |
@@ -49,6 +50,12 @@ Choose **Move (m)** for the distance of each movement and **Rotate (deg)** for t
 Set **Grid XY (m)**, then use **Snap XY** to align the selection to that world grid. XY snapping adjusts horizontal placement; it does not snap elevation. Use **Snap rotation** to align rotation to the selected angle increment, or **Level** to remove pitch and roll.
 
 Start with larger increments for positioning, then switch to smaller increments for the finishing adjustments.
+
+## Undo and redo
+
+Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint and box selection, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections and individual selection clicks are not recorded.
+
+History pauses while a lightweight building edit is awaiting acknowledgement. History is not saved with your game.
 
 ## Feedback
 

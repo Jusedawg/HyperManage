@@ -1,5 +1,7 @@
 #include "HyperManageToolWidget.h"
 #include "HyperManageConfig.h"
+#include "HyperManageUndo.h"
+#include "HyperManageSelection.h"
 #include "HyperManageActionGlyph.h"
 #include "Brushes/SlateColorBrush.h"
 #include "Components/UniformGridPanel.h"
@@ -117,7 +119,7 @@ void UHyperManageToolWidget::NativeConstruct()
 	HookWidget(EActionNameIdx::IsViewBased, btnIsViewBased, "View or Object Relative Actions");
 	HookWidget(EActionNameIdx::NextHologram, btnNextHologram, "Refresh Selection Highlight");
 	HookWidget(EActionNameIdx::Settings, btnSettings, "(Coming Soon) Settings");
-	HookWidget(EActionNameIdx::ClearUndo, btnClearUndo, "Clear Saved Undo Information");
+	HookWidget(EActionNameIdx::ClearUndo, btnClearUndo, "Clear undo and redo history for this session");
 }
 
 void UHyperManageToolWidget::CloseTools()
@@ -150,7 +152,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.15")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.16")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -210,6 +212,18 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddAlignment(TEXT("Snap rotation"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
 	AddAlignment(TEXT("Level"), EActionNameIdx::LevelWorldRotation, TEXT("Set world pitch and roll to zero, retaining yaw. Group mode levels around the anchor/reference."));
 	Rows->AddChildToVerticalBox(Alignments);
+	auto* HistoryRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto AddHistory = [&](TObjectPtr<UButton>& Button, const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
+		Button = WidgetTree->ConstructWidget<UButton>();
+		auto* Text = WidgetTree->ConstructWidget<UTextBlock>(); Text->SetText(FText::FromString(Label));
+		AddFieldIcon(WidgetTree, Button, Text, 18);
+		if (Action == EActionNameIdx::Redo) Cast<UHorizontalBox>(Button->GetContent())->GetChildAt(0)->SetRenderScale(FVector2D(-1, 1));
+		HookWidget(Action, Button, Tip); Button->SetIsEnabled(false);
+		HistoryRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(6, 4));
+	};
+	AddHistory(UndoButton, TEXT("Undo (0)"), EActionNameIdx::Undo, TEXT("Undo the last recorded edit [Ctrl+Z]. Waiting for a lightweight edit to finish temporarily disables history."));
+	AddHistory(RedoButton, TEXT("Redo (0)"), EActionNameIdx::Redo, TEXT("Restore an undone edit [Ctrl+Y]. A new recorded edit clears redo history."));
+	Rows->AddChildToVerticalBox(HistoryRow);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -260,7 +274,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		};
 		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear selection")}, {btnSelectBoxSides, TEXT("Box: edges")}, {btnSelectBoxPivot, TEXT("Box: centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
 		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("Move to target")}, {btnSameRotation, TEXT("Match rotation")}, {btnSameScale, TEXT("Match scale")}, {btnSamePaint, TEXT("Match paint")}});
-		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear undo history")}});
+		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear history")}});
 	}
 	Body->SetContent(Content);
 	Rows->AddChildToVerticalBox(Body);
@@ -295,6 +309,13 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	if (DockedTray) DockedTray->SetRenderTranslation(FVector2D(520.f * FMath::Square(1.f - TrayOpenTime / 0.2f), 0));
 	auto* System = UHyperManageSystem::Get();
 	if (!System || !System->Config) return;
+	if (System->Undo) {
+		const bool Pending = System->Selection && System->Selection->HasPendingOperations();
+		if (auto* Text = FieldButtonLabel(UndoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Undo (%d)"), System->Undo->GetUndoCount())));
+		if (auto* Text = FieldButtonLabel(RedoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Redo (%d)"), System->Undo->GetRedoCount())));
+		if (UndoButton) UndoButton->SetIsEnabled(!Pending && System->Undo->CanUndo());
+		if (RedoButton) RedoButton->SetIsEnabled(!Pending && System->Undo->CanRedo());
+	}
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
 	const auto& Increment = Config.IncrementSettings[Config.IncrementSize];

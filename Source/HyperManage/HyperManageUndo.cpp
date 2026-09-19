@@ -12,102 +12,121 @@ void FUndoInfo::Clear()
 
 void UHyperManageUndo::ClearUndoStack()
 {
-	while (UndoCount > 0) {
-		UndoInfoArr[UndoHead].Clear();
-		Pop();
+	UndoStack.Empty();
+	RedoStack.Empty();
+}
+
+bool UHyperManageUndo::HasPending(const FUndoInfo& Info) const
+{
+	for (const auto& Item : Info.Lightweights) if (IsValid(Item.Proxy) && Item.Proxy->IsPending()) return true;
+	for (const auto& Item : Info.SelectItems) {
+		if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Item.Actor); IsValid(Proxy) && Proxy->IsPending()) return true;
 	}
+	return false;
 }
 
-void UHyperManageUndo::Pop()
+void UHyperManageUndo::Push(FUndoInfo&& Info)
 {
-	UndoCount--;
-	UndoHead = (UndoHead + (MAXUNDO - 1)) % MAXUNDO;
+	if (Info.TransformActors.IsEmpty() && Info.TransformComponents.IsEmpty() && Info.Lightweights.IsEmpty() && Info.ColorSlotItems.IsEmpty() && Info.SelectItems.IsEmpty()) return;
+	RedoStack.Empty();
+	if (UndoStack.Num() == MAXUNDO) UndoStack.RemoveAt(0);
+	UndoStack.Add(MoveTemp(Info));
 }
 
-bool UHyperManageUndo::PopUndo(FUndoInfo& UndoInfo)
+bool UHyperManageUndo::Transfer(TArray<FUndoInfo>& From, TArray<FUndoInfo>& To, FUndoInfo& Info)
 {
-	if (UndoCount > 0) {
-		UndoInfo = UndoInfoArr[UndoHead];
-		Pop();
+	Info.Clear();
+	while (!From.IsEmpty()) {
+		if (HasPending(From.Last())) return false;
+		Info = From.Pop();
+		Info.TransformActors.RemoveAll([](const auto& Item) { return !IsValid(Item.Actor); });
+		Info.TransformComponents.RemoveAll([](const auto& Item) { return !IsValid(Item.Component) || !IsValid(Item.Component->GetOwner()); });
+		Info.ColorSlotItems.RemoveAll([](const auto& Item) { return !IsValid(Item.Buildable); });
+		Info.Lightweights.RemoveAll([](const auto& Item) { return !IsValid(Item.Proxy) || !Item.Proxy->IsAvailable(); });
+		FUndoInfo Inverse;
+		for (const auto& Item : Info.TransformActors) {
+			FUndoTransformActor Current; Current.Actor = Item.Actor; Current.Transform = Item.Actor->GetActorTransform(); Inverse.TransformActors.Add(Current);
+		}
+		for (const auto& Item : Info.TransformComponents) {
+			FUndoTransformComponent Current; Current.Component = Item.Component; Current.Transform = Item.Component->GetComponentTransform(); Inverse.TransformComponents.Add(Current);
+		}
+		for (const auto& Item : Info.ColorSlotItems) {
+			FUndoColorSlot Current; Current.Buildable = Item.Buildable; Current.CustomizationData = Item.Buildable->GetCustomizationData_Implementation(); Inverse.ColorSlotItems.Add(Current);
+		}
+		for (const auto& Item : Info.Lightweights) {
+			FUndoLightweight Current; Current.Proxy = Item.Proxy; Current.Paint = Item.Paint;
+			Current.Transform = Item.Proxy->GetActorTransform(); Current.Customization = Item.Proxy->Customization; Inverse.Lightweights.Add(Current);
+		}
+		if (Info.SelectItems.Num() >= 2 && System && System->Selection) {
+			for (int32 Index = 0; Index < Info.SelectItems.Num(); ++Index) {
+				auto& Item = Info.SelectItems[Index];
+				if (!IsValid(Item.Actor)) Item.Actor = nullptr;
+				FUndoSelect Current;
+				Current.Actor = Index == 0 ? System->Selection->AnchorActor : Index == 1 ? System->Selection->TargetActor : Item.Actor;
+				Current.Select = IsValid(Current.Actor) && System->Selection->Contains(Current.Actor);
+				Inverse.SelectItems.Add(Current);
+			}
+		} else {
+			Info.SelectItems.Empty();
+		}
+		if (Inverse.TransformActors.IsEmpty() && Inverse.TransformComponents.IsEmpty() && Inverse.ColorSlotItems.IsEmpty() && Inverse.Lightweights.IsEmpty() && Inverse.SelectItems.IsEmpty()) continue;
+		if (To.Num() == MAXUNDO) To.RemoveAt(0);
+		To.Add(MoveTemp(Inverse));
 		return true;
 	}
 	return false;
 }
 
-void UHyperManageUndo::Push()
-{
-	UndoCount = FMath::Min(UndoCount + 1, MAXUNDO);
-	UndoHead = (UndoHead + 1) % MAXUNDO;
-}
+bool UHyperManageUndo::PopUndo(FUndoInfo& Info) { return Transfer(UndoStack, RedoStack, Info); }
+bool UHyperManageUndo::PopRedo(FUndoInfo& Info) { return Transfer(RedoStack, UndoStack, Info); }
 
 void UHyperManageUndo::PushUndoTransforms(TArray<AActor*>& Actors)
 {
-	Push();
-	UndoInfoArr[UndoHead].Clear();
-	UndoInfoArr[UndoHead].TransformActors.Reserve(Actors.Num());
-	for (const auto& Actor : Actors) {
+	FUndoInfo Info;
+	for (auto* Actor : Actors) {
+		if (!IsValid(Actor)) continue;
 		if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
-			FUndoLightweight Item; Item.Proxy = Proxy; Item.Transform = Proxy->GetActorTransform();
-			UndoInfoArr[UndoHead].Lightweights.Add(Item);
+			if (!Proxy->IsAvailable() || Proxy->IsPending()) continue;
+			FUndoLightweight Item; Item.Proxy = Proxy; Item.Transform = Proxy->GetActorTransform(); Info.Lightweights.Add(Item);
 			continue;
 		}
-		// push all "root" components to TransformActors/Components
-		for (const auto& ActorComp : TInlineComponentArray<USceneComponent*>(Actor)) {
-			USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp);
-			if (SceneComp && !SceneComp->GetAttachParent()) {
-				if (SceneComp == Actor->GetRootComponent()) {
-					FUndoTransformActor UndoTransformActor;
-					UndoTransformActor.Actor = Actor;
-					UndoTransformActor.Transform = SceneComp->GetComponentTransform();
-					UndoInfoArr[UndoHead].TransformActors.Add(UndoTransformActor);
-				} else {
-					FUndoTransformComponent UndoTransformComponent;
-					UndoTransformComponent.Component = SceneComp;
-					UndoTransformComponent.Transform = SceneComp->GetComponentTransform();
-					UndoInfoArr[UndoHead].TransformComponents.Add(UndoTransformComponent);
-				}
+		for (auto* Component : TInlineComponentArray<USceneComponent*>(Actor)) {
+			if (!IsValid(Component) || Component->GetAttachParent()) continue;
+			if (Component == Actor->GetRootComponent()) {
+				FUndoTransformActor Item; Item.Actor = Actor; Item.Transform = Component->GetComponentTransform(); Info.TransformActors.Add(Item);
+			} else {
+				FUndoTransformComponent Item; Item.Component = Component; Item.Transform = Component->GetComponentTransform(); Info.TransformComponents.Add(Item);
 			}
 		}
 	}
+	Push(MoveTemp(Info));
 }
 
 void UHyperManageUndo::PushUndoColorSlot(TArray<AActor*>& Actors)
 {
-	Push();
-	UndoInfoArr[UndoHead].Clear();
-	UndoInfoArr[UndoHead].ColorSlotItems.Reserve(Actors.Num());
-	for (const auto& Actor : Actors) {
+	FUndoInfo Info;
+	for (auto* Actor : Actors) {
+		if (!IsValid(Actor)) continue;
 		if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
-			FUndoLightweight Item; Item.Proxy = Proxy; Item.Paint = true; Item.Customization = Proxy->Customization;
-			UndoInfoArr[UndoHead].Lightweights.Add(Item);
-			continue;
-		}
-		AFGBuildable* Buildable = Cast<AFGBuildable>(Actor);
-		if (Buildable) {
-			FUndoColorSlot UndoColorSlot;
-			UndoColorSlot.Buildable = Buildable;
-			UndoColorSlot.CustomizationData = Buildable->GetCustomizationData_Implementation();
-			UndoInfoArr[UndoHead].ColorSlotItems.Add(UndoColorSlot);
+			if (!Proxy->IsAvailable() || Proxy->IsPending()) continue;
+			FUndoLightweight Item; Item.Proxy = Proxy; Item.Paint = true; Item.Customization = Proxy->Customization; Info.Lightweights.Add(Item);
+		} else if (auto* Buildable = Cast<AFGBuildable>(Actor)) {
+			FUndoColorSlot Item; Item.Buildable = Buildable; Item.CustomizationData = Buildable->GetCustomizationData_Implementation(); Info.ColorSlotItems.Add(Item);
 		}
 	}
+	Push(MoveTemp(Info));
 }
 
 void UHyperManageUndo::PushUndoSelection(TArray<AActor*>& Actors)
 {
-	auto AddUndoSelect = [&](AActor* Actor)
-	{
-		FUndoSelect UndoSelect;
-		UndoSelect.Actor = Actor;
-		UndoSelect.Select = (Actor != nullptr) && System->Selection->Contains(Actor);
-		UndoInfoArr[UndoHead].SelectItems.Add(UndoSelect);
+	if (!System || !System->Selection) return;
+	FUndoInfo Info;
+	auto Add = [&](AActor* Actor) {
+		FUndoSelect Item; Item.Actor = IsValid(Actor) ? Actor : nullptr;
+		Item.Select = Item.Actor && System->Selection->Contains(Item.Actor); Info.SelectItems.Add(Item);
 	};
-
-	Push();
-	UndoInfoArr[UndoHead].Clear();
-	UndoInfoArr[UndoHead].SelectItems.Reserve(Actors.Num() + 2);
-	AddUndoSelect(System->Selection->AnchorActor);
-	AddUndoSelect(System->Selection->TargetActor);
-	for (const auto& Actor : Actors) {
-		AddUndoSelect(Actor);
-	}
+	Add(System->Selection->AnchorActor);
+	Add(System->Selection->TargetActor);
+	for (auto* Actor : Actors) Add(Actor);
+	Push(MoveTemp(Info));
 }

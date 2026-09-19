@@ -11,6 +11,7 @@
 #include "Engine/World.h"
 #include "HyperManageToolWidget.h"
 #include "HyperManageConfig.h"
+#include "HyperManageUndo.h"
 #include "JsonObjectConverter.h"
 #include <limits>
 #include "HyperManageClipboardWidget.h"
@@ -204,6 +205,8 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNull(TEXT("Old traversal cannot find reparented Content"), Tools->GetWidgetFromName(TEXT("Content")));
 	Tools->RepairToolbarLayout();
 	TestTrue(TEXT("Content is reachable after replacing the legacy window"), Tools->GetWidgetFromName(TEXT("Content")) == Content);
+	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
+	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
 	TestNotNull(TEXT("Rotation presets created"), Tools->RotationPreset.Get());
 	TestNotNull(TEXT("Grid presets created"), Tools->GridPreset.Get());
@@ -221,7 +224,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.15")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.16")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -286,6 +289,63 @@ bool FHyperManagePrecisionSettingsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Saved custom grid survives round-trip"), Restored.AlignmentGridCm, 125.f);
 	Config->MMConfig.IncrementSettings.Empty();
 	TestFalse(TEXT("Missing active profile cannot cause an out-of-bounds write"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 1.f));
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageHistoryTest, "HyperManage.History.UndoRedo", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageHistoryTest::RunTest(const FString& Parameters)
+{
+	auto* World = UWorld::CreateWorld(EWorldType::Game, false);
+	auto* Actor = World->SpawnActor<AStaticMeshActor>();
+	Actor->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
+	auto* History = NewObject<UHyperManageUndo>();
+	TArray<AActor*> Actors = {Actor, nullptr};
+	const FTransform Before(FRotator(0, 15, 0), FVector(100, 200, 300));
+	const FTransform After(FRotator(0, 45, 0), FVector(400, 500, 600));
+	Actor->SetActorTransform(Before);
+	History->PushUndoTransforms(Actors);
+	Actor->SetActorTransform(After);
+	FUndoInfo Info;
+	for (int32 Index = 0; Index < 3; ++Index) {
+		TestTrue(TEXT("Undo is available"), History->PopUndo(Info));
+		if (Info.TransformActors.Num() != 1) { AddError(TEXT("Expected one valid transform record")); break; }
+		TestTrue(TEXT("Undo restores the original transform"), Info.TransformActors[0].Transform.Equals(Before));
+		Actor->SetActorTransform(Info.TransformActors[0].Transform);
+		TestTrue(TEXT("Redo is available"), History->PopRedo(Info));
+		if (Info.TransformActors.Num() != 1) { AddError(TEXT("Expected one redo transform")); break; }
+		TestTrue(TEXT("Redo restores the edited transform"), Info.TransformActors[0].Transform.Equals(After));
+		Actor->SetActorTransform(Info.TransformActors[0].Transform);
+	}
+	History->PopUndo(Info);
+	TArray<AActor*> Empty;
+	History->PushUndoTransforms(Empty);
+	TestEqual(TEXT("Empty edit preserves redo"), History->GetRedoCount(), 1);
+	History->PushUndoTransforms(Actors);
+	TestEqual(TEXT("New edit discards redo"), History->GetRedoCount(), 0);
+	for (int32 Index = 0; Index < 1005; ++Index) History->PushUndoTransforms(Actors);
+	TestEqual(TEXT("History stays bounded"), History->GetUndoCount(), 1000);
+	History->ClearUndoStack();
+	TestFalse(TEXT("Clear removes undo"), History->CanUndo());
+	TestFalse(TEXT("Clear removes redo"), History->CanRedo());
+	History->PushUndoTransforms(Actors);
+	Actor->Destroy();
+	TestFalse(TEXT("Destroyed objects cannot be replayed"), History->PopUndo(Info));
+
+	auto* System = NewObject<UHyperManageSystem>();
+	System->Selection = InitComponent<UHyperManageSelection>(System);
+	auto* SelectionHistory = InitComponent<UHyperManageUndo>(System);
+	auto* Proxy = World->SpawnActor<AHyperManageLightweightProxy>();
+	Actors = {Proxy}; SelectionHistory->PushUndoSelection(Actors);
+	Proxy->BeginRequest();
+	TestFalse(TEXT("Pending selection proxy disables undo"), SelectionHistory->CanUndo());
+	TestFalse(TEXT("Pending record cannot be popped"), SelectionHistory->PopUndo(Info));
+	TestEqual(TEXT("Pending record stays in history"), SelectionHistory->GetUndoCount(), 1);
+	Proxy->ApplyAcknowledgement(FHyperManageLightweightRef(), FFactoryCustomizationData());
+	TestTrue(TEXT("Acknowledged record can be undone"), SelectionHistory->PopUndo(Info));
+	Proxy->BeginRequest();
+	TestFalse(TEXT("Redo also waits for acknowledgement"), SelectionHistory->PopRedo(Info));
+	Proxy->ApplyAcknowledgement(FHyperManageLightweightRef(), FFactoryCustomizationData());
+	TestTrue(TEXT("Acknowledged record can be redone"), SelectionHistory->PopRedo(Info));
+	World->DestroyWorld(false);
 	return true;
 }
 #endif

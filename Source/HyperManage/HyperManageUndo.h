@@ -15,10 +15,10 @@ struct HYPERMANAGE_API FUndoTransformActor
 
 public:
 	UPROPERTY()
-	AActor* Actor;
+	AActor* Actor = nullptr;
 
 	UPROPERTY()
-	FTransform Transform;
+	FTransform Transform = FTransform::Identity;
 
 public:
 	FORCEINLINE ~FUndoTransformActor() = default;
@@ -31,10 +31,10 @@ struct HYPERMANAGE_API FUndoTransformComponent
 
 public:
 	UPROPERTY()
-	USceneComponent* Component;
+	USceneComponent* Component = nullptr;
 
 	UPROPERTY()
-	FTransform Transform;
+	FTransform Transform = FTransform::Identity;
 
 public:
 	FORCEINLINE ~FUndoTransformComponent() = default;
@@ -47,7 +47,7 @@ struct HYPERMANAGE_API FUndoColorSlot
 
 public:
 	UPROPERTY()
-	AFGBuildable* Buildable;
+	AFGBuildable* Buildable = nullptr;
 
 	UPROPERTY()
 	FFactoryCustomizationData CustomizationData;
@@ -63,10 +63,10 @@ struct HYPERMANAGE_API FUndoSelect
 
 public:
 	UPROPERTY()
-	AActor* Actor;
+	AActor* Actor = nullptr;
 
 	UPROPERTY()
-	bool Select;
+	bool Select = false;
 
 public:
 	FORCEINLINE ~FUndoSelect() = default;
@@ -116,13 +116,11 @@ class HYPERMANAGE_API UHyperManageUndo : public UHyperManageComponent
 	GENERATED_BODY()
 
 private:
-	FUndoInfo UndoInfoArr[MAXUNDO];
-	int UndoHead = 0;
-	int UndoCount = 0;
-
-	void Push();
-	void Pop();
-
+	UPROPERTY(Transient) TArray<FUndoInfo> UndoStack;
+	UPROPERTY(Transient) TArray<FUndoInfo> RedoStack;
+	void Push(FUndoInfo&& Info);
+	bool Transfer(TArray<FUndoInfo>& From, TArray<FUndoInfo>& To, FUndoInfo& Info);
+	bool HasPending(const FUndoInfo& Info) const;
 public:
 	UFUNCTION()
 	void PushUndoTransforms(TArray<AActor*>& Actors);
@@ -138,6 +136,11 @@ public:
 
 	UFUNCTION()
 	void ClearUndoStack();
+	bool PopRedo(FUndoInfo& UndoInfo);
+	int32 GetUndoCount() const { return UndoStack.Num(); }
+	int32 GetRedoCount() const { return RedoStack.Num(); }
+	bool CanUndo() const { return !UndoStack.IsEmpty() && !HasPending(UndoStack.Last()); }
+	bool CanRedo() const { return !RedoStack.IsEmpty() && !HasPending(RedoStack.Last()); }
 
 public:
 };

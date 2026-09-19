@@ -47,6 +47,8 @@ protected:
 	void RepairQuickActions();
 	UPROPERTY(Transient) TObjectPtr<class UVerticalBox> QuickActionHost;
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
+	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
+	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;

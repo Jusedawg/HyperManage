@@ -167,6 +167,7 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 	CheckKeyConfigSettings(FHyperManageKeyConfig(SelectTarget, EKeys::LeftMouseButton, Ctrl, NoAlt, NoShift, Repeats));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(DeselectTarget, EKeys::RightMouseButton, Ctrl, NoAlt, NoShift, Repeats));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(Undo, EKeys::Z, Ctrl, NoAlt, NoShift, Repeats));
+	CheckKeyConfigSettings(FHyperManageKeyConfig(Redo, EKeys::Y, Ctrl, NoAlt, NoShift, NoRepeat));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(ChangeIncSize, EKeys::I, Ctrl, Alt, NoShift, NoRepeat));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(KnowNotes, EKeys::K, Ctrl, Alt, NoShift, NoRepeat));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(ShowTools, EKeys::RightMouseButton, NoCtrl, NoAlt, NoShift, NoRepeat));

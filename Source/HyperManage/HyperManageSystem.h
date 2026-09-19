@@ -88,7 +88,8 @@ enum EActionNameIdx
 	Settings			UMETA(DisplayName = "Settings"),
 	SnapWorldXY UMETA(DisplayName = "Snap To World Grid XY"),
 	SnapWorldRotation UMETA(DisplayName = "Snap World Rotation"),
-	LevelWorldRotation UMETA(DisplayName = "Level Pitch And Roll")
+	LevelWorldRotation UMETA(DisplayName = "Level Pitch And Roll"),
+	Redo UMETA(DisplayName = "Redo" )
 };
 
 class AHyperManageEquip;

@@ -12,6 +12,8 @@ class HYPERMANAGE_API UHyperManageAction : public UHyperManageComponent
 public:
 
 	void PerformUndo();
+	void PerformRedo();
+	void PerformHistory(bool Redo);
 	void AlignToWorld(EActionNameIdx Action);
 
 	void PrepareTransform(const FVector& Loc, const FRotator& Rot, const FVector& Scale);

@@ -201,6 +201,9 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 		case EActionNameIdx::Undo:
 			Action->PerformUndo();
 			break;
+		case EActionNameIdx::Redo:
+			Action->PerformRedo();
+			break;
 		case EActionNameIdx::ChangeIncSize:
 			Config->NextIncrementSize();
 			Config->SaveHyperManageConfig();

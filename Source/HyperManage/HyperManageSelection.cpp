@@ -118,7 +118,7 @@ bool UHyperManageSelection::IsValidActor(AActor* Actor)
 
 bool UHyperManageSelection::SetMarker(AActor* Actor, AActor** Marker1, AActor** Marker2)
 {
-	if (!IsValidActor(Actor)) {
+	if (Actor && !IsValidActor(Actor)) {
 		return false;
 	}
 	bool ClearMarker = (Actor == nullptr) || (Actor == *Marker1);

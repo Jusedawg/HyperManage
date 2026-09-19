@@ -18,33 +18,27 @@
 #include "FGPipeNetwork.h"
 #include "FGPipeSubsystem.h"
 
-void UHyperManageAction::PerformUndo()
+void UHyperManageAction::PerformUndo() { PerformHistory(false); }
+void UHyperManageAction::PerformRedo() { PerformHistory(true); }
+
+void UHyperManageAction::PerformHistory(bool Redo)
 {
-	FUndoInfo UndoInfo;
-	if (System->Undo->PopUndo(UndoInfo)) {
-		if (UndoInfo.SelectItems.Num() > 0) {
-			int Idx = 0;
-			for (const auto& UndoItem : UndoInfo.SelectItems) {
-				if (Idx > 1) {
-					System->Selection->SelectActor(UndoItem.Actor, UndoItem.Select);
-				} else if (Idx == 1) {
-					if (UndoItem.Actor != System->Selection->TargetActor) {
-						System->Selection->SetTarget(UndoItem.Actor);
-					}
-				} else { // == 0
-					if (UndoItem.Actor != System->Selection->AnchorActor) {
-						System->Selection->SetAnchor(UndoItem.Actor);
-					}
-				}
-				Idx++;
-			}
-		} else {
-			System->GetMMRCO()->RequestUndo(UndoInfo);
+	if (!System || !System->Undo || !System->Selection || !System->GetMMRCO()) return;
+	FUndoInfo Info;
+	if (!(Redo ? System->Undo->PopRedo(Info) : System->Undo->PopUndo(Info))) return;
+	if (Info.SelectItems.Num() >= 2) {
+		System->Selection->SetAnchor(nullptr);
+		System->Selection->SetTarget(nullptr);
+		for (int32 Index = 2; Index < Info.SelectItems.Num(); ++Index) {
+			const auto& Item = Info.SelectItems[Index];
+			if (IsValid(Item.Actor)) System->Selection->SelectActor(Item.Actor, Item.Select);
 		}
-		UndoInfo.Clear();
+		if (IsValid(Info.SelectItems[0].Actor)) System->Selection->SetAnchor(Info.SelectItems[0].Actor);
+		if (IsValid(Info.SelectItems[1].Actor)) System->Selection->SetTarget(Info.SelectItems[1].Actor);
+	} else {
+		System->GetMMRCO()->RequestUndo(Info);
 	}
 }
-
 void UHyperManageAction::PrepareTransform(const FVector& Loc, const FRotator& Rot, const FVector& Scale)
 {
 	// get actor(s) to perform transform on
