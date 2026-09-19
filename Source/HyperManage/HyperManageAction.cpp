@@ -493,3 +493,21 @@ bool UHyperManageAction::ApplyWorldOffset(const FVector& Meters)
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 	return true;
 }
+
+
+bool UHyperManageAction::ApplyWorldRotationOffset(const FRotator& Degrees)
+{
+	if (!System || !System->Selection || !System->Config || !System->Transform || !System->Undo || !System->GetMMRCO()) return false;
+	if (System->Selection->HasPendingOperations() || !UHyperManageTransform::IsValidRotationOffset(Degrees)) return false;
+	TArray<AActor*> Actors;
+	System->Selection->SelectedActorsNoTarget(Actors);
+	Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
+	if (Actors.IsEmpty()) return false;
+	AActor* Anchor = Actors.Contains(System->Selection->AnchorActor) ? System->Selection->AnchorActor : nullptr;
+	const FVector Pivot = System->Transform->CalculatePivotLoc(Actors, Anchor, nullptr);
+	FHyperManageTransformData Data;
+	if (!UHyperManageTransform::MakeWorldRotationOffset(Degrees, System->Config->MMConfig.IsGrouped, Pivot, Data)) return false;
+	System->Undo->PushUndoTransforms(Actors);
+	System->GetMMRCO()->RequestTransform(Actors, Data);
+	return true;
+}

@@ -60,6 +60,12 @@ Under **World offset (m)**, enter X, Y and Z distances, then click **Apply offse
 
 Offsets always use world axes and move the selected objects together, preserving spacing, rotation and scale. The target stays in place. This requires a selection; it does not move an object merely because you are looking at it. Values stay in the fields while the panel is open so you can repeat the move. **Zero fields** clears the values without changing any objects. Undo and redo treat each Apply as one edit.
 
+## Exact rotation offsets
+
+Under **World rotation offset (deg)**, enter yaw, pitch and roll changes, then click **Apply rotation**. Each field accepts -180 to 180 degrees. For example, yaw **90** turns the selection a quarter turn around world Z. These are changes to the current rotation, not absolute orientation values. Combined values form one world-space rotation (roll, then pitch, then yaw).
+
+In **Group: together** mode, objects rotate around the selected anchor, or the center of the selected object origins if no anchor is selected. In **Group: individual** mode, each object rotates in place. The target stays stationary and scale is preserved. The panel describes the active pivot behavior. **Zero fields** clears only the inputs; each Apply is one undoable edit.
+
 ## Undo and redo
 
 Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint and box selection, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections and individual selection clicks are not recorded.

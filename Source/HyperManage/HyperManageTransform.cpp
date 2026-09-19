@@ -318,6 +318,13 @@ void UHyperManageTransform::AlignToActor(AActor* Anchor, int Position, const EAx
 FTransform UHyperManageTransform::ComputeTransform(FTransform Transform, const FHyperManageTransformData& Data)
 {
 	if (Data.WorldAlignment) {
+		if (Data.WorldRotationOffset) {
+			if (!IsValidRotationOffset(Data.Rot) || Data.PivotLoc.ContainsNaN()) return Transform;
+			const FQuat Delta = Data.Rot.Quaternion();
+			if (Data.GroupMode) Transform.SetLocation(Data.PivotLoc + Delta.RotateVector(Transform.GetLocation() - Data.PivotLoc));
+			Transform.SetRotation((Delta * Transform.GetRotation()).GetNormalized());
+			return Transform;
+		}
 		if (!FMath::IsFinite(Data.AlignmentGridCm) || Data.AlignmentGridCm < 1.0 ||
 			!FMath::IsFinite(Data.AlignmentAngle) || Data.AlignmentAngle < 0.1 || Data.AlignmentAngle > 180.0) return Transform;
 		const FVector ReferenceLocation = Data.GroupMode ? Data.PivotLoc : Transform.GetLocation();
@@ -361,5 +368,25 @@ bool UHyperManageTransform::MakeWorldOffset(const FVector& Meters, FHyperManageT
 	Data.IsLoc = true;
 	Data.GroupMode = true;
 	Data.ViewRelative = false;
+	return true;
+}
+
+
+bool UHyperManageTransform::IsValidRotationOffset(const FRotator& Degrees)
+{
+	return !Degrees.ContainsNaN() && FMath::Abs(Degrees.Pitch) <= 180.0 && FMath::Abs(Degrees.Yaw) <= 180.0 &&
+		FMath::Abs(Degrees.Roll) <= 180.0 && !Degrees.Quaternion().Equals(FQuat::Identity, 0.000001);
+}
+
+bool UHyperManageTransform::MakeWorldRotationOffset(const FRotator& Degrees, bool Grouped, const FVector& Pivot, FHyperManageTransformData& Data)
+{
+	if (!IsValidRotationOffset(Degrees) || Pivot.ContainsNaN()) return false;
+	Data = FHyperManageTransformData();
+	Data.WorldAlignment = true;
+	Data.WorldRotationOffset = true;
+	Data.Rot = Degrees;
+	Data.GroupMode = Grouped;
+	Data.ViewRelative = false;
+	Data.PivotLoc = Pivot;
 	return true;
 }

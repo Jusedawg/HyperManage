@@ -75,6 +75,7 @@ public:
 	UPROPERTY() bool LevelWorldRotation = false;
 	UPROPERTY() double AlignmentGridCm = 800.0;
 	UPROPERTY() double AlignmentAngle = 5.0;
+	UPROPERTY() bool WorldRotationOffset = false;
 
 public:
 	FORCEINLINE ~FHyperManageTransformData() = default;
@@ -110,6 +111,8 @@ public:
 	// Applies Transform on the root component of Actor
 
 	void TransformActor(AActor* Actor, const FTransform& Transform);
+	static bool IsValidRotationOffset(const FRotator& Degrees);
+	static bool MakeWorldRotationOffset(const FRotator& Degrees, bool Grouped, const FVector& Pivot, FHyperManageTransformData& Data);
 	static bool MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data);
 	FTransform ComputeTransform(FTransform Transform, const FHyperManageTransformData& Data);
 

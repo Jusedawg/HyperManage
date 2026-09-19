@@ -154,7 +154,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.18")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.19")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -261,6 +261,42 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	OffsetStatus = WidgetTree->ConstructWidget<UTextBlock>(); OffsetStatus->SetFont(OffsetFont);
 	OffsetStatus->SetText(FText::FromString(TEXT("Select objects, then enter an offset. Z changes height.")));
 	OffsetStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(OffsetStatus);
+	auto* RotationHeading = WidgetTree->ConstructWidget<UTextBlock>();
+	RotationHeading->SetText(FText::FromString(TEXT("WORLD ROTATION OFFSET (deg)")));
+	RotationHeading->SetFont(OffsetFont); RotationHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+	Rows->AddChildToVerticalBox(RotationHeading);
+	auto AddRotation = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
+		auto* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
+		Row->AddChildToHorizontalBox(Label)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		Input = WidgetTree->ConstructWidget<USpinBox>();
+		Input->SetMinValue(-180.f); Input->SetMaxValue(180.f); Input->SetValue(0.f);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(110.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetToolTipText(FText::FromString(TEXT("Rotation offset in degrees, from -180 to 180. Zero leaves this component unchanged. Apply combines roll, pitch and yaw into one world-space rotation.")));
+		Row->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
+		Rows->AddChildToVerticalBox(Row);
+	};
+	AddRotation(TEXT("Yaw (Z / spin)"), OffsetYaw);
+	AddRotation(TEXT("Pitch (Y / tilt)"), OffsetPitch);
+	AddRotation(TEXT("Roll (X / bank)"), OffsetRoll);
+	auto* RotationActions = WidgetTree->ConstructWidget<UHorizontalBox>();
+	ApplyRotationButton = WidgetTree->ConstructWidget<UButton>();
+	auto* RotateText = WidgetTree->ConstructWidget<UTextBlock>(); RotateText->SetText(FText::FromString(TEXT("Apply rotation")));
+	AddFieldIcon(WidgetTree, ApplyRotationButton, RotateText, 3);
+	ApplyRotationButton->SetIsEnabled(false);
+	ApplyRotationButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldRotationOffset);
+	ApplyRotationButton->SetToolTipText(FText::FromString(TEXT("Rotate the selection using world axes. Group mode uses the selected anchor, or the center of selected origins. Individual mode rotates in place. Target is excluded; scale is preserved. Ctrl+Z undoes the edit.")));
+	RotationActions->AddChildToHorizontalBox(ApplyRotationButton)->SetPadding(FMargin(4));
+	auto* ClearRotation = WidgetTree->ConstructWidget<UButton>();
+	auto* ResetText = WidgetTree->ConstructWidget<UTextBlock>(); ResetText->SetText(FText::FromString(TEXT("Zero fields")));
+	ClearRotation->SetContent(ResetText); StyleFieldButton(ClearRotation);
+	ClearRotation->SetToolTipText(FText::FromString(TEXT("Clear the rotation inputs without changing any objects.")));
+	ClearRotation->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearRotationOffset);
+	RotationActions->AddChildToHorizontalBox(ClearRotation)->SetPadding(FMargin(4));
+	Rows->AddChildToVerticalBox(RotationActions);
+	RotationStatus = WidgetTree->ConstructWidget<UTextBlock>(); RotationStatus->SetFont(OffsetFont); RotationStatus->SetAutoWrapText(true);
+	RotationStatus->SetText(FText::FromString(TEXT("Select objects, then enter rotation offsets.")));
+	Rows->AddChildToVerticalBox(RotationStatus);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -362,6 +398,17 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 		if (OffsetStatus) OffsetStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
 			Count <= 0 ? TEXT("Select objects to move. The target stays in place.") :
 			FString::Printf(TEXT("%d objects | world axes | Z changes height"), Count)));
+	}
+	if (ApplyRotationButton && OffsetYaw && OffsetPitch && OffsetRoll && System->Selection) {
+		const bool HasRotation = UHyperManageTransform::IsValidRotationOffset(FRotator(OffsetPitch->GetValue(), OffsetYaw->GetValue(), OffsetRoll->GetValue()));
+		const int32 Count = System->Selection->SelectCount() - (System->Selection->Contains(System->Selection->TargetActor) ? 1 : 0);
+		const bool Pending = System->Selection->HasPendingOperations();
+		ApplyRotationButton->SetIsEnabled(Count > 0 && HasRotation && !Pending);
+		const bool HasAnchor = System->Selection->AnchorActor != System->Selection->TargetActor && System->Selection->Contains(System->Selection->AnchorActor);
+		if (RotationStatus) RotationStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
+			Count <= 0 ? TEXT("Select objects to rotate. The target stays in place.") :
+			!System->Config->MMConfig.IsGrouped ? TEXT("Individual: rotate each object in place") :
+			HasAnchor ? TEXT("Group: rotate around the selected anchor") : TEXT("Group: rotate around the selection center")));
 	}
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
@@ -479,4 +526,20 @@ void UHyperManageToolWidget::ClearWorldOffset()
 	if (OffsetX) OffsetX->SetValue(0.f);
 	if (OffsetY) OffsetY->SetValue(0.f);
 	if (OffsetZ) OffsetZ->SetValue(0.f);
+}
+
+
+void UHyperManageToolWidget::ApplyWorldRotationOffset()
+{
+	if (!OffsetYaw || !OffsetPitch || !OffsetRoll) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
+		System->Action->ApplyWorldRotationOffset(FRotator(OffsetPitch->GetValue(), OffsetYaw->GetValue(), OffsetRoll->GetValue()));
+	}
+}
+
+void UHyperManageToolWidget::ClearRotationOffset()
+{
+	if (OffsetYaw) OffsetYaw->SetValue(0.f);
+	if (OffsetPitch) OffsetPitch->SetValue(0.f);
+	if (OffsetRoll) OffsetRoll->SetValue(0.f);
 }

@@ -14,6 +14,7 @@ public:
 	void PerformUndo();
 	void PerformRedo();
 	void PerformHistory(bool Redo);
+	bool ApplyWorldRotationOffset(const FRotator& Degrees);
 	bool ApplyWorldOffset(const FVector& Meters);
 	void AlignToWorld(EActionNameIdx Action);
 

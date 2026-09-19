@@ -214,6 +214,15 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Zero fields resets X"), Tools->OffsetX->GetValue(), 0.f);
 	TestEqual(TEXT("Zero fields resets Y"), Tools->OffsetY->GetValue(), 0.f);
 	TestEqual(TEXT("Zero fields resets Z"), Tools->OffsetZ->GetValue(), 0.f);
+	TestNotNull(TEXT("Yaw input created"), Tools->OffsetYaw.Get());
+	TestNotNull(TEXT("Pitch input created"), Tools->OffsetPitch.Get());
+	TestNotNull(TEXT("Roll input created"), Tools->OffsetRoll.Get());
+	TestFalse(TEXT("Rotation apply starts disabled"), Tools->ApplyRotationButton->GetIsEnabled());
+	Tools->OffsetYaw->SetValue(90.f); Tools->OffsetPitch->SetValue(22.5f); Tools->OffsetRoll->SetValue(-15.f);
+	Tools->ClearRotationOffset();
+	TestEqual(TEXT("Clear yaw input"), Tools->OffsetYaw->GetValue(), 0.f);
+	TestEqual(TEXT("Clear pitch input"), Tools->OffsetPitch->GetValue(), 0.f);
+	TestEqual(TEXT("Clear roll input"), Tools->OffsetRoll->GetValue(), 0.f);
 	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
@@ -233,7 +242,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.18")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.19")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -410,6 +419,42 @@ bool FHyperManageWorldOffsetTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Oversized offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(1000.01, 0, 0), Data));
 	TestFalse(TEXT("NaN offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), Data));
 	TestFalse(TEXT("Infinite offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(0, std::numeric_limits<double>::infinity(), 0), Data));
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageWorldRotationOffsetTest, "HyperManage.Transform.WorldRotationOffset", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageWorldRotationOffsetTest::RunTest(const FString& Parameters)
+{
+	auto* Transform = NewObject<UHyperManageTransform>();
+	const FVector Pivot(-100, 200, 300);
+	const FTransform First(FRotator(20, 40, -15), Pivot + FVector(100, 0, 0), FVector(2, 0.5, 1.5));
+	const FTransform Second(FRotator(-30, 70, 25), Pivot + FVector(-100, 0, 0), FVector(1, 1, 1));
+	FHyperManageTransformData Data;
+	TestTrue(TEXT("Accept grouped yaw"), UHyperManageTransform::MakeWorldRotationOffset(FRotator(0, 90, 0), true, Pivot, Data));
+	const FTransform RotatedFirst = Transform->ComputeTransform(First, Data);
+	const FTransform RotatedSecond = Transform->ComputeTransform(Second, Data);
+	TestTrue(TEXT("Group yaw orbits around chosen pivot"), RotatedFirst.GetLocation().Equals(Pivot + FVector(0, 100, 0), 0.001));
+	TestTrue(TEXT("Other object follows same group rotation"), RotatedSecond.GetLocation().Equals(Pivot + FVector(0, -100, 0), 0.001));
+	TestTrue(TEXT("Group preserves separation"), FMath::IsNearlyEqual(FVector::Dist(RotatedFirst.GetLocation(), RotatedSecond.GetLocation()), 200.0, 0.001));
+	TestTrue(TEXT("Rotation preserves nonuniform scale"), RotatedFirst.GetScale3D().Equals(First.GetScale3D()));
+	const FQuat RelativeBefore = First.GetRotation().Inverse() * Second.GetRotation();
+	TestTrue(TEXT("Group preserves relative orientation"), (RotatedFirst.GetRotation().Inverse() * RotatedSecond.GetRotation()).Equals(RelativeBefore));
+	const FTransform Anchor(FRotator::ZeroRotator, Pivot);
+	TestTrue(TEXT("Anchor position stays fixed"), Transform->ComputeTransform(Anchor, Data).GetLocation().Equals(Pivot));
+	const FRotator Compound(22.5, -45, 15);
+	TestTrue(TEXT("Accept compound individual rotation"), UHyperManageTransform::MakeWorldRotationOffset(Compound, false, Pivot, Data));
+	const FTransform Individual = Transform->ComputeTransform(First, Data);
+	TestTrue(TEXT("Individual keeps its location"), Individual.GetLocation().Equals(First.GetLocation()));
+	TestTrue(TEXT("World rotation is composed before object orientation"), Individual.GetRotation().Equals(Compound.Quaternion() * First.GetRotation()));
+	TestTrue(TEXT("Compound inverse is accepted"), UHyperManageTransform::MakeWorldRotationOffset(Compound.Quaternion().Inverse().Rotator(), false, Pivot, Data));
+	TestTrue(TEXT("Compound inverse restores original transform"), Transform->ComputeTransform(Individual, Data).Equals(First));
+	TestTrue(TEXT("Negative half turn accepted"), UHyperManageTransform::IsValidRotationOffset(FRotator(0, -180, 0)));
+	TestFalse(TEXT("Zero is not a rotation edit"), UHyperManageTransform::IsValidRotationOffset(FRotator::ZeroRotator));
+	TestFalse(TEXT("Equivalent identity is not an edit"), UHyperManageTransform::IsValidRotationOffset(FRotator(180, 180, 180)));
+	TestFalse(TEXT("Reject out of bounds rotation"), UHyperManageTransform::IsValidRotationOffset(FRotator(0, 181, 0)));
+	TestFalse(TEXT("Reject nonfinite rotation"), UHyperManageTransform::IsValidRotationOffset(FRotator(std::numeric_limits<double>::infinity(), 0, 0)));
+	TestFalse(TEXT("Reject invalid pivot"), UHyperManageTransform::MakeWorldRotationOffset(Compound, true, FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), Data));
+	Data.WorldRotationOffset = true; Data.WorldAlignment = true; Data.Rot = FRotator(0, 181, 0);
+	TestTrue(TEXT("Invalid replay leaves transform unchanged"), Transform->ComputeTransform(First, Data).Equals(First));
 	return true;
 }
 #endif

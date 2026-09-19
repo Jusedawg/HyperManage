@@ -56,6 +56,13 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> OffsetStatus;
 	UFUNCTION() void ApplyWorldOffset();
 	UFUNCTION() void ClearWorldOffset();
+	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetYaw;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetPitch;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetRoll;
+	UPROPERTY(Transient) TObjectPtr<UButton> ApplyRotationButton;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> RotationStatus;
+	UFUNCTION() void ApplyWorldRotationOffset();
+	UFUNCTION() void ClearRotationOffset();
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;
