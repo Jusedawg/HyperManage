@@ -26,6 +26,14 @@ for unlock in schematic.get_editor_property('mUnlocks'):
     if isinstance(unlock, unreal.FGUnlockRecipe):
         unlocked_recipes.extend(unlock.get_editor_property('mRecipes'))
 assert recipe_class in unlocked_recipes, 'Schematic does not unlock the tool recipe'
+icon_root = '/HyperManage/Textures/Icons/'
+descriptor = unreal.get_default_object(cls)
+assert descriptor.get_editor_property('mSmallIcon').get_path_name() == icon_root + 'T_HyperManageToolSmall.T_HyperManageToolSmall'
+assert descriptor.get_editor_property('mPersistentBigIcon').get_path_name() == icon_root + 'T_HyperManageTool.T_HyperManageTool'
+assert schematic.get_editor_property('mSmallSchematicIcon').get_path_name() == icon_root + 'T_HyperManageMilestone.T_HyperManageMilestone'
+assert schematic.get_editor_property('mSchematicIcon').get_editor_property('resource_object').get_path_name() == icon_root + 'T_HyperManageMilestone.T_HyperManageMilestone'
+category = unreal.get_default_object(unreal.EditorAssetLibrary.load_blueprint_class('/HyperManage/Schematics/SC_MM'))
+assert category.get_editor_property('mCategoryIcon').get_editor_property('resource_object').get_path_name() == icon_root + 'T_HyperManageMilestone.T_HyperManageMilestone'
 result = {'schematics': schematics, 'remote_call_objects': rpcs, 'equipment_class': equipment.get_path_name()}
 output = Path(unreal.Paths.project_saved_dir()) / 'HyperManage-ModuleValidation.json'
 output.write_text(json.dumps(result, indent=2), encoding='utf-8')
