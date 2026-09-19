@@ -233,7 +233,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.17")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.18")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -241,8 +241,29 @@ bool FHyperManageClipboardLayoutTest::RunTest(const FString& Parameters)
 {
 	auto* Clipboard = NewObject<UHyperManageClipboardWidget>();
 	auto Slate = Clipboard->RebuildWidget();
-	Clipboard->StatusText->SetText(FText::FromString(TEXT("Selected: 123 | Individual\nMove: 0.25m  Rotate: 90 deg\nGrid: 8m | Object axes")));
-	Clipboard->ShortcutsText->SetText(FText::FromString(TEXT("Ctrl+LMB  Select\nCtrl+RMB  Deselect\nShift+LMB  Anchor\nShift+RMB  Target\nRMB  Tools    Ctrl+Z  Undo")));
+	 auto* Config = NewObject<UHyperManageConfiguration>();
+	 Config->MMConfig.IncrementSettings.SetNum(4);
+	 Config->MMConfig.IncrementSize = EIncrementSize::Medium;
+	 Config->MMConfig.IsGrouped = false; Config->MMConfig.IsViewBased = false;
+	 Config->MMKeyConfigs.ActionKeys = {
+		 FHyperManageKeyConfig(ShowTools, EKeys::RightMouseButton, false, false, false, false),
+		 FHyperManageKeyConfig(EActionNameIdx::SetAnchor, EKeys::LeftMouseButton, false, false, true, false),
+		 FHyperManageKeyConfig(EActionNameIdx::SetTarget, EKeys::RightMouseButton, false, false, true, false),
+		 FHyperManageKeyConfig(SelectTarget, EKeys::LeftMouseButton, true, false, false, false),
+		 FHyperManageKeyConfig(DeselectTarget, EKeys::RightMouseButton, true, false, false, false),
+		 FHyperManageKeyConfig(Undo, EKeys::Z, true, false, false, false),
+		 FHyperManageKeyConfig(Redo, EKeys::Y, true, false, false, false),
+		 FHyperManageKeyConfig(Shrink, EKeys::J, true, true, false, false),
+		 FHyperManageKeyConfig(Grow, EKeys::L, true, true, false, false),
+		 FHyperManageKeyConfig(ChangeIncSize, EKeys::I, true, true, false, false),
+		 FHyperManageKeyConfig(KnowNotes, EKeys::K, true, true, false, false)
+	 };
+	 Clipboard->UpdateReference(*Config, 12345);
+	 TestEqual(TEXT("Redo shortcut is visible"), Clipboard->RedoText->GetText().ToString(), FString(TEXT("Ctrl+Y  Redo")));
+	 TestTrue(TEXT("Selection count has its own box"), Clipboard->CountText->GetText().ToString().Contains(TEXT("12345")));
+	 TestTrue(TEXT("Shrink and grow are documented"), Clipboard->ScaleText->GetText().ToString().Contains(TEXT("Ctrl+Alt+L  Grow")));
+	 TestTrue(TEXT("Increment shortcut and current profile are documented"), Clipboard->StatusText->GetText().ToString().Contains(TEXT("Ctrl+Alt+I  Increment: Medium")));
+	 TestTrue(TEXT("Notes shortcut is documented"), Clipboard->NotesText->GetText().ToString().Contains(TEXT("Ctrl+Alt+K")));
 	Slate->SlatePrepass(1.f);
 	TestTrue(TEXT("Packaged handwriting font exists"), FPaths::FileExists(Clipboard->HandwrittenFont->CompositeFont.DefaultTypeface.Fonts[0].Font.GetFontFilename()));
 	int32 Images = 0;
@@ -260,6 +281,12 @@ bool FHyperManageClipboardLayoutTest::RunTest(const FString& Parameters)
 	});
 	TestEqual(TEXT("One original clipboard background"), Images, 1);
 	TestEqual(TEXT("Clipboard cannot block gameplay input"), Clipboard->GetVisibility(), ESlateVisibility::HitTestInvisible);
+	Config->MMKeyConfigs.ActionKeys[6] = FHyperManageKeyConfig(Redo, EKeys::R, true, false, true, false);
+	Clipboard->UpdateReference(*Config, 0);
+	TestEqual(TEXT("Redo label follows remapping"), Clipboard->RedoText->GetText().ToString(), FString(TEXT("Ctrl+Shift+R  Redo")));
+	Config->MMKeyConfigs.ActionKeys.RemoveAt(6);
+	Clipboard->UpdateReference(*Config, 0);
+	TestEqual(TEXT("Missing binding is honest"), Clipboard->RedoText->GetText().ToString(), FString(TEXT("Unbound  Redo")));
 	Clipboard->ReleaseSlateResources(true);
 	return true;
 }

@@ -42,6 +42,7 @@ Press **right click** to open the tools panel. Pick your movement and rotation i
 | Roll | Shift + J / L |
 | Shrink / grow | Ctrl + Alt + J / L |
 | Change increment preset | Ctrl + Alt + I |
+| Cycle notes display | Ctrl + Alt + K |
 
 ## Aligning objects
 
@@ -50,6 +51,8 @@ Choose **Move (m)** for the distance of each movement and **Rotate (deg)** for t
 Set **Grid XY (m)**, then use **Snap XY** to align the selection to that world grid. XY snapping adjusts horizontal placement; it does not snap elevation. Use **Snap rotation** to align rotation to the selected angle increment, or **Level** to remove pitch and roll.
 
 Start with larger increments for positioning, then switch to smaller increments for the finishing adjustments.
+
+The clipboard shows selection controls, Undo/Redo, movement diagrams, shrink/grow shortcuts and the current increment profile. Selection, history, scale and notes shortcuts follow your configured bindings; the I/J/K/L movement diagram is marked as the default layout.
 
 ## Exact world offsets
 

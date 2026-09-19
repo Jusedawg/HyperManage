@@ -15,6 +15,13 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> StatusText;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> ShortcutsText;
 	UPROPERTY(Transient) TObjectPtr<class UFont> HandwrittenFont;
-	FString LastStatus;
-	FString LastShortcuts;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> AnchorText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> TargetText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> SelectionText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> CountText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> UndoText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> RedoText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> ScaleText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> NotesText;
+	void UpdateReference(const class UHyperManageConfiguration& Configuration, int32 Count);
 };
