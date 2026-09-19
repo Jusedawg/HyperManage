@@ -206,12 +206,16 @@ void UHyperManageTransform::ProcessTransform(const TArray<AActor*>& Actors, cons
 	FHyperManageTransformData SingleTransformData = TransformData;
 	for (const auto& Actor : Actors) {
 		if (System->Selection->IsValidActor(Actor)) {
+			const FVector AlignmentDelta = TransformData.WorldAlignment && TransformData.WorldOriginAlignment ?
+				OriginAlignmentDelta(Actor->GetActorLocation(), TransformData.PivotLoc, TransformData.TransformAxis) : FVector::ZeroVector;
 			// process all "root" components
 			for (const auto& ActorComp : TInlineComponentArray<USceneComponent*>(Actor)) {
 				USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp);
 				if (SceneComp && !SceneComp->GetAttachParent()) {
 					FTransform Transform = SceneComp->GetComponentTransform();
-					if (TransformData.WorldAlignment) {
+					if (TransformData.WorldAlignment && TransformData.WorldOriginAlignment) {
+						Transform.AddToTranslation(AlignmentDelta);
+					} else if (TransformData.WorldAlignment) {
 						Transform = ComputeTransform(Transform, TransformData);
 					} else if (TransformData.SetSame) {
 						if (TransformData.GroupMode) { // use precalculated pivot values
@@ -318,6 +322,10 @@ void UHyperManageTransform::AlignToActor(AActor* Anchor, int Position, const EAx
 FTransform UHyperManageTransform::ComputeTransform(FTransform Transform, const FHyperManageTransformData& Data)
 {
 	if (Data.WorldAlignment) {
+		if (Data.WorldOriginAlignment) {
+			Transform.AddToTranslation(OriginAlignmentDelta(Transform.GetLocation(), Data.PivotLoc, Data.TransformAxis));
+			return Transform;
+		}
 		if (Data.WorldRotationOffset) {
 			if (!IsValidRotationOffset(Data.Rot) || Data.PivotLoc.ContainsNaN()) return Transform;
 			const FQuat Delta = Data.Rot.Quaternion();
@@ -403,5 +411,30 @@ bool UHyperManageTransform::MakeAbsoluteScale(const FTransform& Original, const 
 	Candidate.SetScale3D(Scale);
 	if (!HyperManageLightweight::IsValidTransform(Candidate)) return false;
 	Result = Candidate;
+	return true;
+}
+
+
+FVector UHyperManageTransform::OriginAlignmentDelta(const FVector& Origin, const FVector& Reference, EAxis::Type Axis)
+{
+	if (Origin.ContainsNaN() || Reference.ContainsNaN()) return FVector::ZeroVector;
+	switch (Axis) {
+		case EAxis::X: return FVector(Reference.X - Origin.X, 0, 0);
+		case EAxis::Y: return FVector(0, Reference.Y - Origin.Y, 0);
+		case EAxis::Z: return FVector(0, 0, Reference.Z - Origin.Z);
+		default: return FVector::ZeroVector;
+	}
+}
+
+bool UHyperManageTransform::MakeWorldOriginAlignment(const FVector& Reference, EAxis::Type Axis, FHyperManageTransformData& Data)
+{
+	if (Reference.ContainsNaN() || (Axis != EAxis::X && Axis != EAxis::Y && Axis != EAxis::Z)) return false;
+	Data = FHyperManageTransformData();
+	Data.WorldAlignment = true;
+	Data.WorldOriginAlignment = true;
+	Data.PivotLoc = Reference;
+	Data.TransformAxis = Axis;
+	Data.GroupMode = false;
+	Data.ViewRelative = false;
 	return true;
 }

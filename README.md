@@ -54,6 +54,12 @@ Start with larger increments for positioning, then switch to smaller increments 
 
 The clipboard shows selection controls, Undo/Redo, movement diagrams, shrink/grow shortcuts and the current increment profile. Selection, history, scale and notes shortcuts follow your configured bindings; the I/J/K/L movement diagram is marked as the default layout.
 
+## Match an anchor coordinate
+
+Select your reference object and press **Shift + left click** to make it the anchor. Select the other objects, then use **Match X**, **Match Y**, or **Match Z** near the grid controls. Each object moves only along that world axis to match the anchor's origin. **Match Z** is useful for equal origin heights.
+
+The anchor and target stay stationary; other coordinates, rotation and scale are preserved. Each Apply is undoable. These commands align object origins, not mesh edges or visible surfaces, and move objects independently regardless of group mode.
+
 ## Exact world offsets
 
 Under **World offset (m)**, enter X, Y and Z distances, then click **Apply offset**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.

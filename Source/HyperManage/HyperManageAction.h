@@ -17,6 +17,7 @@ public:
 	bool ApplyWorldRotationOffset(const FRotator& Degrees);
 	bool ApplyScalePercent(const FVector& Percent);
 	bool ApplyWorldOffset(const FVector& Meters);
+	void MatchAnchorOrigin(EAxis::Type Axis);
 	void AlignToWorld(EActionNameIdx Action);
 
 	void PrepareTransform(const FVector& Loc, const FRotator& Rot, const FVector& Scale);

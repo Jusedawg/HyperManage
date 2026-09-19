@@ -523,3 +523,22 @@ bool UHyperManageAction::ApplyScalePercent(const FVector& Percent)
 	System->GetMMRCO()->RequestAbsoluteTransforms(Actors, Scale);
 	return true;
 }
+
+
+void UHyperManageAction::MatchAnchorOrigin(EAxis::Type Axis)
+{
+	if (!System || !System->Selection || !System->Undo || !System->GetMMRCO() || System->Selection->HasPendingOperations()) return;
+	AActor* Anchor = System->Selection->AnchorActor;
+	if (!System->Selection->IsValidActor(Anchor) || !System->Selection->Contains(Anchor)) return;
+	FHyperManageTransformData Data;
+	if (!UHyperManageTransform::MakeWorldOriginAlignment(Anchor->GetActorLocation(), Axis, Data)) return;
+	TArray<AActor*> Actors;
+	System->Selection->SelectedActorsNoTarget(Actors);
+	Actors.RemoveAll([&](AActor* Actor) {
+		return Actor == Anchor || !System->Selection->IsValidActor(Actor) ||
+			UHyperManageTransform::OriginAlignmentDelta(Actor->GetActorLocation(), Data.PivotLoc, Axis).IsNearlyZero(0.000001);
+	});
+	if (Actors.IsEmpty()) return;
+	System->Undo->PushUndoTransforms(Actors);
+	System->GetMMRCO()->RequestTransform(Actors, Data);
+}

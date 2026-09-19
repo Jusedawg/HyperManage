@@ -347,6 +347,9 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 		case EActionNameIdx::LevelWorldRotation:
 			Action->AlignToWorld(ActionIndex);
 			break;
+		case EActionNameIdx::MatchAnchorX: Action->MatchAnchorOrigin(EAxis::X); break;
+		case EActionNameIdx::MatchAnchorY: Action->MatchAnchorOrigin(EAxis::Y); break;
+		case EActionNameIdx::MatchAnchorZ: Action->MatchAnchorOrigin(EAxis::Z); break;
 		case EActionNameIdx::Settings:
 			UI->ComingSoon();
 			break;

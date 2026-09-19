@@ -239,6 +239,8 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Reset prepares original X size"), Tools->ScaleX->GetValue(), 100.f);
 	TestEqual(TEXT("Reset prepares original Y size"), Tools->ScaleY->GetValue(), 100.f);
 	TestEqual(TEXT("Reset prepares original Z size"), Tools->ScaleZ->GetValue(), 100.f);
+	TestEqual(TEXT("Three anchor alignment controls created"), Tools->AnchorAlignmentButtons.Num(), 3);
+	for (const auto& Button : Tools->AnchorAlignmentButtons) TestFalse(TEXT("Anchor alignment requires a reference and selection"), Button->GetIsEnabled());
 	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
@@ -258,7 +260,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.21")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.22")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -562,6 +564,16 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 	Replay(true);
 	Selection->LoadSelection();
 	TestEqual(TEXT("Recalling identical selection adds no history"), History->GetUndoCount(), 1);
+	System->Transform = InitComponent<UHyperManageTransform>(System);
+	auto* Root = NewObject<USceneComponent>(C); C->SetRootComponent(Root); C->AddInstanceComponent(Root); Root->RegisterComponent();
+	auto* DetachedPart = NewObject<USceneComponent>(C); C->AddInstanceComponent(DetachedPart); DetachedPart->RegisterComponent();
+	Root->SetWorldLocation(FVector(100, 200, 300));
+	DetachedPart->SetWorldLocation(FVector(-100, 400, 800));
+	FHyperManageTransformData Alignment;
+	UHyperManageTransform::MakeWorldOriginAlignment(FVector(0, 0, 500), EAxis::Z, Alignment);
+	System->Transform->ProcessTransform({C}, Alignment);
+	TestTrue(TEXT("Native actor origin aligns to reference height"), C->GetActorLocation().Equals(FVector(100, 200, 500)));
+	TestTrue(TEXT("Detached actor component preserves its relative offset"), DetachedPart->GetComponentLocation().Equals(FVector(-100, 400, 1000)));
 	B->Destroy();
 	Replay(false); Replay(true);
 	TestNull(TEXT("Destroyed target is not restored"), Selection->TargetActor);
@@ -570,6 +582,30 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 	Selection->SelectClear();
 	TestEqual(TEXT("Clearing empty selection adds no history"), History->GetUndoCount(), 0);
 	World->DestroyWorld(false);
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageOriginAlignmentTest, "HyperManage.Transform.OriginAlignment", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageOriginAlignmentTest::RunTest(const FString& Parameters)
+{
+	auto* Transform = NewObject<UHyperManageTransform>();
+	const FTransform Original(FRotator(20, -70, 35), FVector(-100, 200, 300), FVector(2, 0.5, 1.5));
+	const FVector Reference(-800, -400, 1200);
+	for (EAxis::Type Axis : {EAxis::X, EAxis::Y, EAxis::Z}) {
+		FHyperManageTransformData Data;
+		TestTrue(TEXT("Valid alignment axis accepted"), UHyperManageTransform::MakeWorldOriginAlignment(Reference, Axis, Data));
+		const FTransform Aligned = Transform->ComputeTransform(Original, Data);
+		FVector Expected = Original.GetLocation();
+		Expected[static_cast<int32>(Axis) - 1] = Reference[static_cast<int32>(Axis) - 1];
+		TestTrue(TEXT("Only the requested world coordinate changes"), Aligned.GetLocation().Equals(Expected));
+		TestTrue(TEXT("Alignment preserves rotation"), Aligned.GetRotation().Equals(Original.GetRotation()));
+		TestTrue(TEXT("Alignment preserves scale"), Aligned.GetScale3D().Equals(Original.GetScale3D()));
+		TestTrue(TEXT("Repeated alignment is idempotent"), Transform->ComputeTransform(Aligned, Data).Equals(Aligned));
+		TestTrue(TEXT("Already aligned origin has no offset"), UHyperManageTransform::OriginAlignmentDelta(Expected, Reference, Axis).IsNearlyZero());
+	}
+	FHyperManageTransformData Invalid;
+	TestFalse(TEXT("No axis is rejected"), UHyperManageTransform::MakeWorldOriginAlignment(Reference, EAxis::None, Invalid));
+	TestFalse(TEXT("Nonfinite reference is rejected"), UHyperManageTransform::MakeWorldOriginAlignment(FVector(std::numeric_limits<double>::infinity(), 0, 0), EAxis::X, Invalid));
+	TestTrue(TEXT("Invalid replay axis cannot move an object"), UHyperManageTransform::OriginAlignmentDelta(Original.GetLocation(), Reference, EAxis::None).IsZero());
 	return true;
 }
 #endif

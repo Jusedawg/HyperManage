@@ -154,7 +154,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.21")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.22")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -202,18 +202,33 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(Presets);
 	auto* Alignments = WidgetTree->ConstructWidget<UWrapBox>();
 	Alignments->SetExplicitWrapSize(true); Alignments->SetWrapSize(432);
-	auto AddAlignment = [&](const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
+	auto AddAlignment = [&](UWrapBox* Wrap, const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
 		auto* Button = WidgetTree->ConstructWidget<UButton>();
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
 		Text->SetText(FText::FromString(Label));
-		AddFieldIcon(WidgetTree, Button, Text, Action == EActionNameIdx::SnapWorldXY ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
+		AddFieldIcon(WidgetTree, Button, Text, (Action == EActionNameIdx::SnapWorldXY || Action == EActionNameIdx::MatchAnchorX || Action == EActionNameIdx::MatchAnchorY || Action == EActionNameIdx::MatchAnchorZ) ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
 		HookWidget(Action, Button, Tip);
-		Alignments->AddChildToWrapBox(Button)->SetPadding(FMargin(6, 4));
+		Wrap->AddChildToWrapBox(Button)->SetPadding(FMargin(6, 4));
+		return Button;
 	};
-	AddAlignment(TEXT("Snap XY"), EActionNameIdx::SnapWorldXY, TEXT("Snap to the world-origin XY grid. 8m is foundation spacing. Height and scale stay unchanged. Group mode preserves spacing; set an anchor to choose the reference."));
-	AddAlignment(TEXT("Snap rotation"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
-	AddAlignment(TEXT("Level"), EActionNameIdx::LevelWorldRotation, TEXT("Set world pitch and roll to zero, retaining yaw. Group mode levels around the anchor/reference."));
+	AddAlignment(Alignments, TEXT("Snap XY"), EActionNameIdx::SnapWorldXY, TEXT("Snap to the world-origin XY grid. 8m is foundation spacing. Height and scale stay unchanged. Group mode preserves spacing; set an anchor to choose the reference."));
+	AddAlignment(Alignments, TEXT("Snap rotation"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
+	AddAlignment(Alignments, TEXT("Level"), EActionNameIdx::LevelWorldRotation, TEXT("Set world pitch and roll to zero, retaining yaw. Group mode levels around the anchor/reference."));
 	Rows->AddChildToVerticalBox(Alignments);
+	AnchorAlignmentStatus = WidgetTree->ConstructWidget<UTextBlock>();
+	AnchorAlignmentStatus->SetText(FText::FromString(TEXT("Set an anchor to align selected origins.")));
+	auto AnchorFont = AnchorAlignmentStatus->GetFont(); AnchorFont.Size = 13; AnchorAlignmentStatus->SetFont(AnchorFont);
+	AnchorAlignmentStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(AnchorAlignmentStatus);
+	auto* AnchorAlignments = WidgetTree->ConstructWidget<UWrapBox>();
+	AnchorAlignments->SetExplicitWrapSize(true); AnchorAlignments->SetWrapSize(432);
+	AnchorAlignmentButtons = {
+		AddAlignment(AnchorAlignments, TEXT("Match X"), EActionNameIdx::MatchAnchorX, TEXT("Move selected origins to the anchor's world X coordinate. Y/Z, rotation and scale stay unchanged. Anchor and target stay in place. This aligns origins, not mesh edges; group mode is ignored.")),
+		AddAlignment(AnchorAlignments, TEXT("Match Y"), EActionNameIdx::MatchAnchorY, TEXT("Move selected origins to the anchor's world Y coordinate. X/Z, rotation and scale stay unchanged. Anchor and target stay in place. Ctrl+Z undoes alignment.")),
+		AddAlignment(AnchorAlignments, TEXT("Match Z"), EActionNameIdx::MatchAnchorZ, TEXT("Move selected origins to the anchor's world height. X/Y, rotation and scale stay unchanged. Different models can have different origin offsets, so their visible surfaces may not line up."))
+	};
+	for (const auto& Button : AnchorAlignmentButtons) Button->SetIsEnabled(false);
+	Rows->AddChildToVerticalBox(AnchorAlignments);
+
 	auto* HistoryRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddHistory = [&](TObjectPtr<UButton>& Button, const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
 		Button = WidgetTree->ConstructWidget<UButton>();
@@ -460,6 +475,16 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 		ApplyScaleButton->SetIsEnabled(Count > 0 && UHyperManageTransform::IsValidScalePercent(Percent) && !Pending);
 		if (ScaleStatus) ScaleStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
 			Count <= 0 ? TEXT("Select objects to resize. The target stays in place.") : TEXT("Absolute local scale | origins and rotation unchanged")));
+	}
+	if (System->Selection && AnchorAlignmentStatus) {
+		const bool HasAnchor = System->Selection->IsValidActor(System->Selection->AnchorActor) && System->Selection->Contains(System->Selection->AnchorActor);
+		const bool Pending = System->Selection->HasPendingOperations();
+		const int32 Count = System->Selection->SelectCount() - (HasAnchor ? 1 : 0);
+		for (const auto& Button : AnchorAlignmentButtons) if (Button) Button->SetIsEnabled(HasAnchor && Count > 0 && !Pending);
+		AnchorAlignmentStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
+			!HasAnchor ? TEXT("Set an anchor to align selected origins.") :
+			Count <= 0 ? TEXT("Select another object to align to the anchor.") :
+			FString::Printf(TEXT("Match %d origins to anchor | world axes"), Count)));
 	}
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;

@@ -73,6 +73,8 @@ protected:
 	UFUNCTION() void ResetScaleFields();
 	UFUNCTION() void ClearScalePreset(float Value);
 	UFUNCTION() void ChangeScalePreset(FString Value, ESelectInfo::Type SelectionType);
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> AnchorAlignmentButtons;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> AnchorAlignmentStatus;
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;

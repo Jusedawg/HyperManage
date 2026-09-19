@@ -76,6 +76,7 @@ public:
 	UPROPERTY() double AlignmentGridCm = 800.0;
 	UPROPERTY() double AlignmentAngle = 5.0;
 	UPROPERTY() bool WorldRotationOffset = false;
+	UPROPERTY() bool WorldOriginAlignment = false;
 
 public:
 	FORCEINLINE ~FHyperManageTransformData() = default;
@@ -111,6 +112,8 @@ public:
 	// Applies Transform on the root component of Actor
 
 	void TransformActor(AActor* Actor, const FTransform& Transform);
+	static bool MakeWorldOriginAlignment(const FVector& Reference, EAxis::Type Axis, FHyperManageTransformData& Data);
+	static FVector OriginAlignmentDelta(const FVector& Origin, const FVector& Reference, EAxis::Type Axis);
 	static bool IsValidScalePercent(const FVector& Percent);
 	static bool MakeAbsoluteScale(const FTransform& Original, const FVector& Scale, FTransform& Result);
 	static bool IsValidRotationOffset(const FRotator& Degrees);

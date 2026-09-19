@@ -108,6 +108,8 @@ void UHyperManageRCO::ServerTransformActors_Implementation(const TArray<AActor*>
 
 bool UHyperManageRCO::ServerTransformActors_Validate(const TArray<AActor*>& Actors, FHyperManageTransformData TransformData)
 {
+	if (TransformData.WorldOriginAlignment && (!TransformData.WorldAlignment || TransformData.WorldRotationOffset ||
+		(TransformData.TransformAxis != EAxis::X && TransformData.TransformAxis != EAxis::Y && TransformData.TransformAxis != EAxis::Z))) return false;
 	return (!TransformData.WorldRotationOffset || (TransformData.WorldAlignment && UHyperManageTransform::IsValidRotationOffset(TransformData.Rot))) &&
 		FMath::IsFinite(TransformData.AlignmentGridCm) && TransformData.AlignmentGridCm >= 1.0 && TransformData.AlignmentGridCm <= 100000.0 &&
 		FMath::IsFinite(TransformData.AlignmentAngle) && TransformData.AlignmentAngle >= 0.1 && TransformData.AlignmentAngle <= 180.0 &&
