@@ -1,0 +1,375 @@
+#include "HyperManageToolWidget.h"
+#include "HyperManageConfig.h"
+#include "HyperManageActionGlyph.h"
+#include "Brushes/SlateColorBrush.h"
+#include "Components/UniformGridPanel.h"
+#include "Components/UniformGridSlot.h"
+#include "Blueprint/WidgetTree.h"
+#include "Components/Border.h"
+#include "Components/CanvasPanel.h"
+#include "Components/WrapBox.h"
+#include "Components/WrapBoxSlot.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/HorizontalBox.h"
+#include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
+#include "Components/NamedSlot.h"
+#include "Components/ScaleBox.h"
+#include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
+#include "Components/ScrollBox.h"
+
+namespace {
+void StyleFieldButton(UButton* Button)
+{
+ auto Style = Button->GetStyle();
+ Style.Normal = FSlateColorBrush(FLinearColor(0.085f, 0.095f, 0.10f));
+ Style.Hovered = FSlateColorBrush(FLinearColor(0.24f, 0.18f, 0.105f));
+ Style.Pressed = FSlateColorBrush(FLinearColor(0.38f, 0.25f, 0.12f));
+ Style.NormalPadding = FMargin(8, 5); Style.PressedPadding = FMargin(8, 5); Button->SetStyle(Style);
+}
+UBorder* FieldBezel(UWidgetTree* Tree, UWidget* Content)
+{
+ auto* Bezel = Tree->ConstructWidget<UBorder>();
+ Bezel->SetBrushColor(FLinearColor(0.34f, 0.23f, 0.13f)); Bezel->SetPadding(FMargin(2)); Bezel->SetContent(Content);
+ return Bezel;
+}
+void AddFieldIcon(UWidgetTree* Tree, UButton* Button, UTextBlock* Text, int32 Kind)
+{
+ auto* Row = Tree->ConstructWidget<UHorizontalBox>();
+ auto* Glyph = Tree->ConstructWidget<UHyperManageActionGlyph>(); Glyph->Kind = Kind; Glyph->Compact = true;
+ Row->AddChildToHorizontalBox(Glyph)->SetPadding(FMargin(0, 0, 5, 0));
+ Row->AddChildToHorizontalBox(Text)->SetVerticalAlignment(VAlign_Center);
+ Button->SetContent(Row); StyleFieldButton(Button);
+}
+UTextBlock* FieldButtonLabel(UButton* Button)
+{
+ auto* Row = Button ? Cast<UHorizontalBox>(Button->GetContent()) : nullptr;
+ return Row && Row->GetChildrenCount() > 1 ? Cast<UTextBlock>(Row->GetChildAt(1)) : nullptr;
+}
+}
+
+void UButtonProxy::ClickEvent()
+{
+	if (auto* System = UHyperManageSystem::Get()) System->ExecuteAction(ToolAction);
+}
+
+void UHyperManageToolWidget::HookWidget(EActionNameIdx ToolAction, UButton* Button, FString ToolTip)
+{
+	if (!Button) return;
+	Button->SetIsEnabled(!ToolTip.StartsWith(TEXT("(Coming Soon)")));
+	UButtonProxy* ButtonProxy = UButtonProxy::Create(ToolAction);
+	ButtonProxyArray.Add(ButtonProxy); // for persistence
+	Button->OnClicked.AddDynamic(ButtonProxy, &UButtonProxy::ClickEvent);
+	Button->SetToolTipText(FText::FromString(ToolTip));
+}
+
+void UHyperManageToolWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+	RepairToolbarLayout();
+	RepairQuickActions();
+	StopAllAnimations();
+	TrayOpenTime = 0.f;
+	mUseKeyboard = true;
+	//mUseMouse = true;
+	//mCaptureInput = true;
+
+	HookWidget(EActionNameIdx::AlignLeft, btnAlignLeft, "(Coming Soon) Align Left Edges To Anchor");
+	HookWidget(EActionNameIdx::AlignLRCenter, btnAlignLRCenter, "(Coming Soon) Align Left-Right Centers To Anchor");
+	HookWidget(EActionNameIdx::AlignRight, btnAlignRight, "(Coming Soon) Align Right Edges To Anchor");
+	HookWidget(EActionNameIdx::SpaceLR, btnSpaceLR, "(Coming Soon) Space Objects Equally Left To Right");
+	HookWidget(EActionNameIdx::StackLR, btnStackLR, "(Coming Soon) Stack Objects Left To Right");
+	HookWidget(EActionNameIdx::LockScaleLR, btnLockScaleLR, "(Work In Progress) Lock Scaling Left To Right");
+
+	HookWidget(EActionNameIdx::AlignTop, btnAlignTop, "(Coming Soon) Align Tops To Anchor");
+	HookWidget(EActionNameIdx::AlignTBCenter, btnAlignTBCenter, "(Coming Soon) Align Top-Bottom Centers To Anchor");
+	HookWidget(EActionNameIdx::AlignBottom, btnAlignBottom, "(Coming Soon) Align Bottoms To Anchor");
+	HookWidget(EActionNameIdx::SpaceTB, btnSpaceTB, "(Coming Soon) Space Objects Equally Top To Bottom");
+	HookWidget(EActionNameIdx::StackTB, btnStackTB, "(Coming Soon) Stack Objects Top To Bottom");
+	HookWidget(EActionNameIdx::LockScaleTB, btnLockScaleTB, "(Work In Progress) Lock Scaling Top To Bottom");
+
+	HookWidget(EActionNameIdx::AlignFront, btnAlignFront, "(Coming Soon) Align Front Edges To Anchor");
+	HookWidget(EActionNameIdx::AlignFBCenter, btnAlignFBCenter, "(Coming Soon) Align Front-Back Centers To Anchor");
+	HookWidget(EActionNameIdx::AlignBack, btnAlignBack, "(Coming Soon) Align Back Edges To Anchor");
+	HookWidget(EActionNameIdx::SpaceFB, btnSpaceFB, "(Coming Soon) Space Objects Equally Front To Back");
+	HookWidget(EActionNameIdx::StackFB, btnStackFB, "(Coming Soon) Stack Objects Front To Back");
+	HookWidget(EActionNameIdx::LockScaleFB, btnLockScaleFB, "(Work In Progress) Lock Scaling Front To Back");
+
+	HookWidget(EActionNameIdx::SameRotation, btnSameRotation, "Set Anchor (with Selection) to Target Rotation");
+	HookWidget(EActionNameIdx::SameScale, btnSameScale, "Set Selection to Target Scale");
+	HookWidget(EActionNameIdx::SamePaint, btnSamePaint, "Set Selection to Target Paint Color");
+
+	HookWidget(EActionNameIdx::Connect, btnConnect, "Connect Anchor Output to Target Input");
+	HookWidget(EActionNameIdx::Disconnect, btnDisconnect, "Disconnect Anchor Outputs from Target Inputs");
+
+	HookWidget(EActionNameIdx::SelectBoxSides, btnSelectBoxSides, "Select items between Anchor and Target Sides");
+	HookWidget(EActionNameIdx::SelectBoxPivot, btnSelectBoxPivot, "Select items between Anchor and Target Centers");
+	HookWidget(EActionNameIdx::MoveSelection, btnMoveSelection, "Move Selection from Anchor to Target");
+	HookWidget(EActionNameIdx::CopySelection, btnCopySelection, "(Coming Soon) Copy Selection from Anchor to Target");
+	HookWidget(EActionNameIdx::NewSelection, btnNewSelection, "Start New Selection");
+	HookWidget(EActionNameIdx::DeleteSelection, btnDeleteSelection, "(Coming Soon) Delete Selection");
+	HookWidget(EActionNameIdx::SaveSelection, btnSaveSelection, "Remember Selection for This Session");
+	HookWidget(EActionNameIdx::LoadSelection, btnLoadSelection, "Restore Remembered Selection");
+
+	HookWidget(EActionNameIdx::IsGrouped, btnIsGrouped, "Grouped or Ungrouped Selection");
+	HookWidget(EActionNameIdx::IsViewBased, btnIsViewBased, "View or Object Relative Actions");
+	HookWidget(EActionNameIdx::NextHologram, btnNextHologram, "Refresh Selection Highlight");
+	HookWidget(EActionNameIdx::Settings, btnSettings, "(Coming Soon) Settings");
+	HookWidget(EActionNameIdx::ClearUndo, btnClearUndo, "Clear Saved Undo Information");
+}
+
+void UHyperManageToolWidget::CloseTools()
+{
+	OnEscapePressed();
+}
+
+void UHyperManageToolWidget::RepairToolbarLayout()
+{
+	// The old Blueprint inserts a game window around a stretch-only canvas. Its desired size collapses in current UMG.
+	if (!WidgetTree) return;
+	// Blueprint Construct reparents Content into a foreign UUserWidget. Tree traversal stops at that boundary,
+	// but both widgets still belong to this WidgetTree as UObjects.
+	auto* Window = FindObjectFast<UNamedSlot>(WidgetTree, TEXT("ToolbarWindow"));
+	auto* Content = FindObjectFast<UWidget>(WidgetTree, TEXT("Content"));
+	if (!ensureMsgf(Window && Content, TEXT("HyperManage tools: toolbar widgets missing after Blueprint construction"))) return;
+
+	WidgetTree->ForEachWidgetAndDescendants([](UWidget* Widget) {
+		if (auto* Image = Cast<UImage>(Widget)) {
+			const FString Path = Image->GetBrush().GetResourceObject() ? Image->GetBrush().GetResourceObject()->GetPathName() : FString();
+			if (Path.StartsWith(TEXT("/HyperManage/Textures/Buttons/"))) Image->SetDesiredSizeOverride(FVector2D(40, 40));
+		}
+	});
+
+	Content->RemoveFromParent();
+	Window->ClearChildren();
+	auto* Frame = WidgetTree->ConstructWidget<UBorder>();
+	Frame->SetBrushColor(FLinearColor(0.025f, 0.032f, 0.035f, 0.98f));
+	Frame->SetPadding(FMargin(12));
+	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
+	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.13")));
+	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
+	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	auto* Close = WidgetTree->ConstructWidget<UButton>();
+	auto* CloseText = WidgetTree->ConstructWidget<UTextBlock>();
+	CloseText->SetText(FText::FromString(TEXT("Close [Esc]")));
+	Close->SetContent(CloseText);
+	StyleFieldButton(Close);
+	Close->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CloseTools);
+	Header->AddChildToHorizontalBox(Close);
+	auto* HeaderPlate = WidgetTree->ConstructWidget<UBorder>();
+	HeaderPlate->SetBrushColor(FLinearColor(0.11f, 0.085f, 0.055f)); HeaderPlate->SetPadding(FMargin(8, 6));
+	Title->SetColorAndOpacity(FSlateColor(FLinearColor(0.96f, 0.86f, 0.65f)));
+	HeaderPlate->SetContent(Header); Rows->AddChildToVerticalBox(HeaderPlate);
+	auto* Presets = WidgetTree->ConstructWidget<UVerticalBox>();
+	auto AddPreset = [&](const TCHAR* Label, const TArray<FString>& Options) {
+		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
+		Text->SetText(FText::FromString(Label));
+		auto* PresetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+		Presets->AddChildToVerticalBox(PresetRow);
+		PresetRow->AddChildToHorizontalBox(Text)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		auto* Combo = WidgetTree->ConstructWidget<UComboBoxString>();
+		for (const FString& Option : Options) Combo->AddOption(Option);
+		PresetRow->AddChildToHorizontalBox(Combo)->SetPadding(FMargin(4));
+		return Combo;
+	};
+	MovementPreset = AddPreset(TEXT("Move (m)"), {TEXT("0.01"), TEXT("0.1"), TEXT("0.25"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")});
+	RotationPreset = AddPreset(TEXT("Rotate (deg)"), {TEXT("1"), TEXT("5"), TEXT("10"), TEXT("15"), TEXT("30"), TEXT("45"), TEXT("90")});
+	GridPreset = AddPreset(TEXT("Grid XY (m)"), {TEXT("0.1"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")});
+	MovementPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeMovementPreset);
+	RotationPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeRotationPreset);
+	GridPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeGridPreset);
+	Rows->AddChildToVerticalBox(Presets);
+	auto* Alignments = WidgetTree->ConstructWidget<UWrapBox>();
+	Alignments->SetExplicitWrapSize(true); Alignments->SetWrapSize(432);
+	auto AddAlignment = [&](const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
+		auto* Button = WidgetTree->ConstructWidget<UButton>();
+		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
+		Text->SetText(FText::FromString(Label));
+		AddFieldIcon(WidgetTree, Button, Text, Action == EActionNameIdx::SnapWorldXY ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
+		HookWidget(Action, Button, Tip);
+		Alignments->AddChildToWrapBox(Button)->SetPadding(FMargin(6, 4));
+	};
+	AddAlignment(TEXT("Snap XY"), EActionNameIdx::SnapWorldXY, TEXT("Snap to the world-origin XY grid. 8m is foundation spacing. Height and scale stay unchanged. Group mode preserves spacing; set an anchor to choose the reference."));
+	AddAlignment(TEXT("Snap rotation"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
+	AddAlignment(TEXT("Level"), EActionNameIdx::LevelWorldRotation, TEXT("Set world pitch and roll to zero, retaining yaw. Group mode levels around the anchor/reference."));
+	Rows->AddChildToVerticalBox(Alignments);
+	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
+	Rows->AddChildToVerticalBox(QuickActionHost);
+	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
+	Body->SetWidthOverride(432);
+	Body->SetHeightOverride(480);
+	// Replace the overflowing legacy icon strips, retaining the existing buttons and their action bindings.
+	if (auto* Canvas = Cast<UCanvasPanel>(Content)) {
+		Canvas->ClearChildren();
+		auto* Groups = WidgetTree->ConstructWidget<UVerticalBox>();
+		auto* GroupSlot = Canvas->AddChildToCanvas(Groups);
+		GroupSlot->SetAnchors(FAnchors(0, 0, 1, 1));
+		GroupSlot->SetOffsets(FMargin(0));
+		auto AddGroup = [&](const TCHAR* Heading, const TArray<TPair<UButton*, FString>>& Buttons) {
+			auto* Label = WidgetTree->ConstructWidget<UTextBlock>();
+			Label->SetText(FText::FromString(Heading));
+			auto Font = Label->GetFont(); Font.Size = 14; Label->SetFont(Font);
+			Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
+			Groups->AddChildToVerticalBox(Label);
+			auto* Wrap = WidgetTree->ConstructWidget<UWrapBox>();
+			Wrap->SetWrapSize(432);
+			Wrap->SetExplicitWrapSize(true);
+			Wrap->SetInnerSlotPadding(FVector2D(6, 5));
+			for (const auto& Entry : Buttons) {
+				if (!Entry.Key) continue;
+				Entry.Key->RemoveFromParent();
+				auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
+				Text->SetText(FText::FromString(Entry.Value));
+				auto ButtonFont = Text->GetFont(); ButtonFont.Size = 16; Text->SetFont(ButtonFont);
+				Text->SetColorAndOpacity(FSlateColor(FLinearColor(0.96f, 0.90f, 0.76f)));
+                int32 Kind = 7;
+                if (Entry.Key == btnSelectBoxSides) Kind = 8;
+                else if (Entry.Key == btnSelectBoxPivot) Kind = 9;
+                else if (Entry.Key == btnSaveSelection) Kind = 10;
+                else if (Entry.Key == btnLoadSelection) Kind = 11;
+                else if (Entry.Key == btnIsGrouped) Kind = 12;
+                else if (Entry.Key == btnIsViewBased) Kind = 13;
+                else if (Entry.Key == btnMoveSelection) Kind = 14;
+                else if (Entry.Key == btnSameRotation) Kind = 3;
+                else if (Entry.Key == btnSameScale) Kind = 6;
+                else if (Entry.Key == btnSamePaint) Kind = 15;
+                else if (Entry.Key == btnConnect) Kind = 16;
+                else if (Entry.Key == btnDisconnect) Kind = 17;
+                else if (Entry.Key == btnClearUndo) Kind = 18;
+                AddFieldIcon(WidgetTree, Entry.Key, Text, Kind);
+				Wrap->AddChildToWrapBox(Entry.Key);
+			}
+			Groups->AddChildToVerticalBox(Wrap);
+		};
+		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear selection")}, {btnSelectBoxSides, TEXT("Box: edges")}, {btnSelectBoxPivot, TEXT("Box: centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
+		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("Move to target")}, {btnSameRotation, TEXT("Match rotation")}, {btnSameScale, TEXT("Match scale")}, {btnSamePaint, TEXT("Match paint")}});
+		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear undo history")}});
+	}
+	Body->SetContent(Content);
+	Rows->AddChildToVerticalBox(Body);
+	Frame->SetContent(Rows);
+	auto* Scroll = WidgetTree->ConstructWidget<UScrollBox>();
+	Scroll->SetAlwaysShowScrollbar(true);
+	// Wheel input belongs to the hovered transform buttons; use the scroll rail to navigate the tray.
+	Scroll->SetWheelScrollMultiplier(0.f); Scroll->SetConsumeMouseWheel(EConsumeMouseWheel::Never);
+	Scroll->AddChild(Frame);
+	auto* Rail = FieldBezel(WidgetTree, Scroll); Rail->SetPadding(FMargin(10, 6, 3, 6));
+	auto* DockRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto* Handle = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(Handle);
+	auto* Grip = WidgetTree->ConstructWidget<UTextBlock>(); Grip->SetText(FText::FromString(TEXT("||")));
+	Handle->SetContent(Grip); Handle->SetToolTipText(FText::FromString(TEXT("Retract tool tray [Esc]")));
+	Handle->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CloseTools);
+	DockRow->AddChildToHorizontalBox(Handle)->SetVerticalAlignment(VAlign_Center);
+	DockRow->AddChildToHorizontalBox(Rail)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	Window->AddChild(DockRow); DockedTray = Window;
+	Window->SetRenderTranslation(FVector2D(520, 0));
+	if (auto* CanvasSlot = Cast<UCanvasPanelSlot>(Window->Slot)) {
+		CanvasSlot->SetAnchors(FAnchors(1.f, 0.06f, 1.f, 0.93f));
+		CanvasSlot->SetAlignment(FVector2D(1.f, 0.f));
+		CanvasSlot->SetOffsets(FMargin(0, 0, 520, 0));
+	}
+
+}
+
+void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTime)
+{
+	Super::NativeTick(Geometry, DeltaTime);
+	TrayOpenTime = FMath::Min(TrayOpenTime + DeltaTime, 0.2f);
+	if (DockedTray) DockedTray->SetRenderTranslation(FVector2D(520.f * FMath::Square(1.f - TrayOpenTime / 0.2f), 0));
+	auto* System = UHyperManageSystem::Get();
+	if (!System || !System->Config) return;
+	const auto& Config = System->Config->MMConfig;
+	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
+	const auto& Increment = Config.IncrementSettings[Config.IncrementSize];
+	auto Sync = [](UComboBoxString* Combo, float Value) {
+		if (!Combo) return;
+		const FString Text = FString::Printf(TEXT("%g"), Value);
+		if (Combo->FindOptionIndex(Text) == INDEX_NONE) Combo->AddOption(Text);
+		if (Combo->GetSelectedOption() != Text) Combo->SetSelectedOption(Text);
+	};
+	Sync(MovementPreset, Increment.CentimetersToMove / 100.f);
+	Sync(RotationPreset, Increment.DegreesToRotate);
+	Sync(GridPreset, Config.AlignmentGridCm / 100.f);
+	if (btnIsGrouped) {
+		if (auto* Text = FieldButtonLabel(btnIsGrouped)) Text->SetText(FText::FromString(Config.IsGrouped ? TEXT("Group: together") : TEXT("Group: individual")));
+	}
+	if (btnIsViewBased) {
+		if (auto* Text = FieldButtonLabel(btnIsViewBased)) Text->SetText(FText::FromString(Config.IsViewBased ? TEXT("Axes: view") : TEXT("Axes: object")));
+	}
+}
+
+void UHyperManageToolWidget::ChangeRotationPreset(FString Value, ESelectInfo::Type SelectionType)
+{
+	if (SelectionType == ESelectInfo::Direct) return;
+	auto* System = UHyperManageSystem::Get();
+	const float Step = FCString::Atof(*Value);
+	if (!System || !System->Config || !FMath::IsFinite(Step) || Step < 0.1f || Step > 180.f) return;
+	System->Config->MMConfig.IncrementSettings[System->Config->CurrentIncrementSize()].DegreesToRotate = Step;
+	System->Config->SaveHyperManageConfig();
+}
+
+void UHyperManageToolWidget::ChangeMovementPreset(FString Value, ESelectInfo::Type SelectionType)
+{
+	if (SelectionType == ESelectInfo::Direct) return;
+	auto* System = UHyperManageSystem::Get();
+	const float Step = FCString::Atof(*Value) * 100.f;
+	if (!System || !System->Config || !FMath::IsFinite(Step) || Step < 1.f || Step > 100000.f) return;
+	System->Config->MMConfig.IncrementSettings[System->Config->CurrentIncrementSize()].CentimetersToMove = Step;
+	System->Config->SaveHyperManageConfig();
+}
+
+void UHyperManageToolWidget::ChangeGridPreset(FString Value, ESelectInfo::Type SelectionType)
+{
+	if (SelectionType == ESelectInfo::Direct) return;
+	auto* System = UHyperManageSystem::Get();
+	const float Step = FCString::Atof(*Value) * 100.f;
+	if (!System || !System->Config || !FMath::IsFinite(Step) || Step < 1.f || Step > 100000.f) return;
+	System->Config->MMConfig.AlignmentGridCm = Step;
+	System->Config->SaveHyperManageConfig();
+}
+
+void UHyperManageToolWidget::RepairQuickActions()
+{
+ if (!WidgetTree) return;
+ auto* Scale = FindObjectFast<UScaleBox>(WidgetTree, TEXT("QuickActionScaleBox"));
+ if (!Scale || !QuickActionHost) return;
+ Scale->SetVisibility(ESlateVisibility::Collapsed);
+ const TCHAR* Names[] = {TEXT("btnUpDown"), TEXT("btnLeftRight"), TEXT("btnFrontBack"), TEXT("btnSpin"), TEXT("btnPitch"), TEXT("btnRoll"), TEXT("btnGrowShrink")};
+ const TCHAR* Labels[] = {TEXT("Lift"), TEXT("Move sideways"), TEXT("Move forward"), TEXT("Spin / yaw"), TEXT("Pitch"), TEXT("Roll"), TEXT("Scale")};
+ auto* Panel = WidgetTree->ConstructWidget<UBorder>();
+ Panel->SetBrushColor(FLinearColor(0.025f,0.032f,0.035f,0.98f)); Panel->SetPadding(FMargin(10));
+ auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
+ auto AddLabel = [&](const TCHAR* Value, int32 Size) {
+  auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Value));
+  auto Font=Label->GetFont(); Font.Size=Size; Label->SetFont(Font);
+  Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.92f,0.85f,0.68f)));
+  if (Size == 16) {
+   auto* Plate = WidgetTree->ConstructWidget<UBorder>(); Plate->SetBrushColor(FLinearColor(0.11f,0.085f,0.055f));
+   Plate->SetPadding(FMargin(8,6)); Plate->SetContent(Label); Rows->AddChildToVerticalBox(Plate);
+  } else Rows->AddChildToVerticalBox(Label);
+ };
+ AddLabel(TEXT("FIELD ADJUSTMENTS"),16);
+ AddLabel(TEXT("Wheel: adjust | Drag right rail: scroll"),12);
+ auto* Grid=WidgetTree->ConstructWidget<UUniformGridPanel>(); Grid->SetSlotPadding(FMargin(4));
+ for (int32 Index=0; Index<7; ++Index) {
+  auto* Button=FindObjectFast<UButton>(WidgetTree,FName(Names[Index]));
+  if (!Button) continue;
+  Button->RemoveFromParent();
+  auto* Stack=WidgetTree->ConstructWidget<UVerticalBox>();
+  auto* Glyph=CreateWidget<UHyperManageActionGlyph>(this,UHyperManageActionGlyph::StaticClass()); Glyph->Kind=Index;
+  Stack->AddChildToVerticalBox(Glyph);
+  auto* Label=WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Labels[Index]));
+  auto Font=Label->GetFont(); Font.Size=13; Label->SetFont(Font); Label->SetJustification(ETextJustify::Center);
+  Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.96f,0.90f,0.76f))); Stack->AddChildToVerticalBox(Label);
+  Button->SetContent(Stack);
+  StyleFieldButton(Button);
+  Button->SetToolTipText(FText::FromString(FString(Labels[Index])+TEXT(": hover and scroll in either direction. Uses the current increment and reference frame.")));
+  Grid->AddChildToUniformGrid(Button,Index/2,Index%2);
+ }
+ Rows->AddChildToVerticalBox(Grid); Panel->SetContent(Rows); QuickActionHost->AddChildToVerticalBox(Panel);
+ Scale->SetStretch(EStretch::ScaleToFit); Scale->SetStretchDirection(EStretchDirection::DownOnly);
+}
