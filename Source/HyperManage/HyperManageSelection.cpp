@@ -330,16 +330,55 @@ void UHyperManageSelection::AddAnchorTargetBoxToSelection(bool UseSides)
 	SetTarget(TargetActor);
 }
 
+bool UHyperManageSelection::SelectActorWithHistory(AActor* Actor, bool Select)
+{
+	if (HasPendingOperations() || !IsValidActor(Actor) || Contains(Actor) == Select) return false;
+	TArray<AActor*> Affected = {Actor};
+	if (System->Undo) System->Undo->PushUndoSelection(Affected);
+	return SelectActor(Actor, Select);
+}
+
+bool UHyperManageSelection::SetMarkerWithHistory(AActor* Actor, bool Anchor)
+{
+	if (HasPendingOperations() || (Actor && !IsValidActor(Actor))) return false;
+	if (!Actor && !(Anchor ? AnchorActor : TargetActor)) return false;
+	TArray<AActor*> Affected;
+	if (Actor) Affected.AddUnique(Actor);
+	if (AnchorActor) Affected.AddUnique(AnchorActor);
+	if (TargetActor) Affected.AddUnique(TargetActor);
+	if (System->Undo) System->Undo->PushUndoSelection(Affected);
+	return Anchor ? SetAnchor(Actor) : SetTarget(Actor);
+}
+
+void UHyperManageSelection::ClearWithoutHistory()
+{
+	AnchorActor = nullptr;
+	TargetActor = nullptr;
+	for (auto& Elem : SelectedMap) SelectActor(Elem.Key, false, false);
+	SelectedMap.Empty();
+}
+
 void UHyperManageSelection::SelectClear(bool ConfirmClicked)
 {
-	if (ConfirmClicked) {
-		AnchorActor = nullptr;
-		TargetActor = nullptr;
-		for (auto& Elem : SelectedMap) {
-			SelectActor(Elem.Key, false, false);
-		}
-		SelectedMap.Empty();
+	if (!ConfirmClicked || HasPendingOperations()) return;
+	TArray<AActor*> Affected;
+	SelectedActors(Affected);
+	if (Affected.IsEmpty() && !AnchorActor && !TargetActor) return;
+	if (System->Undo) System->Undo->PushUndoSelection(Affected);
+	ClearWithoutHistory();
+}
+
+void UHyperManageSelection::RestoreHistory(const FUndoInfo& Info)
+{
+	if (Info.SelectItems.Num() < 2) return;
+	SetAnchor(nullptr);
+	SetTarget(nullptr);
+	for (int32 Index = 2; Index < Info.SelectItems.Num(); ++Index) {
+		const auto& Item = Info.SelectItems[Index];
+		if (IsValid(Item.Actor)) SelectActor(Item.Actor, Item.Select);
 	}
+	if (IsValidActor(Info.SelectItems[0].Actor)) SetAnchor(Info.SelectItems[0].Actor);
+	if (IsValidActor(Info.SelectItems[1].Actor)) SetTarget(Info.SelectItems[1].Actor);
 }
 
 void UHyperManageSelection::SaveSelection()
@@ -351,12 +390,24 @@ void UHyperManageSelection::SaveSelection()
 
 void UHyperManageSelection::LoadSelection()
 {
-	SelectClear();
-	for (auto& Actor : SavedSelection) {
-		SelectActor(Actor);
-	}
-	SetAnchor(SavedAnchor);
-	SetTarget(SavedTarget);
+	if (HasPendingOperations()) return;
+	TArray<AActor*> Desired;
+	for (auto* Actor : SavedSelection) if (IsValidActor(Actor)) Desired.AddUnique(Actor);
+	AActor* Anchor = IsValidActor(SavedAnchor) ? SavedAnchor : nullptr;
+	AActor* Target = IsValidActor(SavedTarget) ? SavedTarget : nullptr;
+	if (Anchor) Desired.AddUnique(Anchor);
+	if (Target) Desired.AddUnique(Target);
+	TArray<AActor*> Affected;
+	SelectedActors(Affected);
+	bool SameSelection = Affected.Num() == Desired.Num() && AnchorActor == Anchor && TargetActor == Target;
+	for (auto* Actor : Desired) if (!Contains(Actor)) SameSelection = false;
+	if (SameSelection) return;
+	for (auto* Actor : Desired) Affected.AddUnique(Actor);
+	if (System->Undo) System->Undo->PushUndoSelection(Affected);
+	ClearWithoutHistory();
+	for (auto* Actor : Desired) SelectActor(Actor);
+	SetAnchor(Anchor);
+	SetTarget(Target);
 }
 
 AActor* UHyperManageSelection::LineTraceFromPlayer()

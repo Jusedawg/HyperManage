@@ -100,6 +100,7 @@ class UHyperManageRCO;
 UCLASS(BlueprintType)
 class HYPERMANAGE_API UHyperManageSystem : public UObject
 {
+	friend class FHyperManageSelectionHistoryTest;
 	GENERATED_BODY()
 
 private:

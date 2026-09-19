@@ -77,7 +77,7 @@ void AHyperManageEquip::MulticastUnEquip_Implementation()
 	if (IsLocal && ManagerEquipped) {
 		System->Input->Detach();
 		System->UI->HideMMWidget();
-		System->Selection->SelectClear();
+		System->Selection->ClearWithoutHistory();
 		ManagerEquipped = false;
 	}
 }

@@ -12,6 +12,7 @@
 #include "HyperManageToolWidget.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
+#include "WheeledVehicles/FGTargetPoint.h"
 #include "JsonObjectConverter.h"
 #include <limits>
 #include "HyperManageClipboardWidget.h"
@@ -257,7 +258,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.20")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.21")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -498,6 +499,77 @@ bool FHyperManageExactScaleTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Reject degenerate transport scale"), UHyperManageTransform::MakeAbsoluteScale(Original, FVector(0, 1, 1), Repeated));
 	TestTrue(TEXT("Rejected scale leaves output untouched"), Repeated.Equals(Sentinel));
 	TestTrue(TEXT("Existing mirrored match-scale remains supported"), UHyperManageTransform::MakeAbsoluteScale(Original, FVector(-1, 1, 1), Repeated));
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageSelectionHistoryTest, "HyperManage.History.SelectionChanges", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
+{
+	auto* World = UWorld::CreateWorld(EWorldType::Game, false);
+	auto* System = NewObject<UHyperManageSystem>(); System->CurrentWorld = World;
+	System->Selection = InitComponent<UHyperManageSelection>(System);
+	System->Undo = InitComponent<UHyperManageUndo>(System);
+	auto* Selection = System->Selection;
+	auto* History = System->Undo;
+	auto* A = World->SpawnActor<AFGTargetPoint>();
+	auto* B = World->SpawnActor<AFGTargetPoint>();
+	auto* C = World->SpawnActor<AFGTargetPoint>();
+	if (!A || !B || !C) { AddError(TEXT("Selection test actors failed to spawn")); World->DestroyWorld(false); return false; }
+	auto Replay = [&](bool Redo) {
+		FUndoInfo Info;
+		const bool Found = Redo ? History->PopRedo(Info) : History->PopUndo(Info);
+		TestTrue(Redo ? TEXT("Redo selection frame exists") : TEXT("Undo selection frame exists"), Found);
+		if (Found) Selection->RestoreHistory(Info);
+	};
+	TestTrue(TEXT("Select first actor"), Selection->SelectActorWithHistory(A, true));
+	TestFalse(TEXT("Duplicate selection is a no-op"), Selection->SelectActorWithHistory(A, true));
+	TestEqual(TEXT("No-op selection does not add history"), History->GetUndoCount(), 1);
+	Replay(false); TestFalse(TEXT("Undo click deselects actor"), Selection->Contains(A));
+	Replay(true); TestTrue(TEXT("Redo click reselects actor"), Selection->Contains(A));
+	Selection->SelectActorWithHistory(B, true);
+	Selection->SetMarkerWithHistory(A, true);
+	Selection->SetMarkerWithHistory(B, false);
+	TestEqual(TEXT("Editable selection count already excludes the target"), Selection->SelectCount(), 1);
+	const int32 BeforeClear = History->GetUndoCount();
+	Selection->SelectClear(false);
+	TestEqual(TEXT("Cancelled clear creates no history"), History->GetUndoCount(), BeforeClear);
+	Selection->SelectClear();
+	TestEqual(TEXT("Clear is one history step"), History->GetUndoCount(), BeforeClear + 1);
+	TestEqual(TEXT("Clear empties editable selection"), Selection->SelectCount(), 0);
+	Replay(false);
+	TestTrue(TEXT("Undo clear restores both objects"), Selection->Contains(A) && Selection->Contains(B));
+	TestTrue(TEXT("Undo clear restores anchor and target"), Selection->AnchorActor == A && Selection->TargetActor == B);
+	Replay(true);
+	TestFalse(TEXT("Redo clear removes objects"), Selection->Contains(A) || Selection->Contains(B));
+	Replay(false);
+	Selection->SelectActorWithHistory(A, false);
+	TestEqual(TEXT("New selection edit invalidates redo"), History->GetRedoCount(), 0);
+	TestNull(TEXT("Deselecting anchor clears marker"), Selection->AnchorActor);
+	Replay(false);
+	TestTrue(TEXT("Undo deselection restores anchor"), Selection->Contains(A) && Selection->AnchorActor == A);
+	Selection->SetMarkerWithHistory(C, true);
+	TestTrue(TEXT("New anchor is selected automatically"), Selection->Contains(C));
+	Replay(false);
+	TestTrue(TEXT("Undo anchor replacement restores previous marker and membership"), Selection->AnchorActor == A && !Selection->Contains(C));
+	Selection->SaveSelection();
+	Selection->ClearWithoutHistory();
+	Selection->SelectActor(C); Selection->SetAnchor(C);
+	History->ClearUndoStack();
+	Selection->LoadSelection();
+	TestEqual(TEXT("Recall creates exactly one history step"), History->GetUndoCount(), 1);
+	TestTrue(TEXT("Recall restores saved objects and markers"), Selection->Contains(A) && Selection->Contains(B) && !Selection->Contains(C) && Selection->AnchorActor == A && Selection->TargetActor == B);
+	Replay(false);
+	TestTrue(TEXT("Undo recall restores replaced selection"), Selection->Contains(C) && !Selection->Contains(A) && !Selection->Contains(B) && Selection->AnchorActor == C && !Selection->TargetActor);
+	Replay(true);
+	Selection->LoadSelection();
+	TestEqual(TEXT("Recalling identical selection adds no history"), History->GetUndoCount(), 1);
+	B->Destroy();
+	Replay(false); Replay(true);
+	TestNull(TEXT("Destroyed target is not restored"), Selection->TargetActor);
+	Selection->ClearWithoutHistory();
+	History->ClearUndoStack();
+	Selection->SelectClear();
+	TestEqual(TEXT("Clearing empty selection adds no history"), History->GetUndoCount(), 0);
+	World->DestroyWorld(false);
 	return true;
 }
 #endif

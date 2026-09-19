@@ -108,6 +108,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "HyperManage")
 	void SelectClear(bool ConfirmClicked = true);
 
+	bool SelectActorWithHistory(AActor* Actor, bool Select);
+	bool SetMarkerWithHistory(AActor* Actor, bool Anchor);
+	void ClearWithoutHistory();
+	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
 
 	void LoadSelection();

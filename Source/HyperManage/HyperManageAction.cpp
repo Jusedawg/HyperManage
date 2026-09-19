@@ -27,14 +27,7 @@ void UHyperManageAction::PerformHistory(bool Redo)
 	FUndoInfo Info;
 	if (!(Redo ? System->Undo->PopRedo(Info) : System->Undo->PopUndo(Info))) return;
 	if (Info.SelectItems.Num() >= 2) {
-		System->Selection->SetAnchor(nullptr);
-		System->Selection->SetTarget(nullptr);
-		for (int32 Index = 2; Index < Info.SelectItems.Num(); ++Index) {
-			const auto& Item = Info.SelectItems[Index];
-			if (IsValid(Item.Actor)) System->Selection->SelectActor(Item.Actor, Item.Select);
-		}
-		if (IsValid(Info.SelectItems[0].Actor)) System->Selection->SetAnchor(Info.SelectItems[0].Actor);
-		if (IsValid(Info.SelectItems[1].Actor)) System->Selection->SetTarget(Info.SelectItems[1].Actor);
+		System->Selection->RestoreHistory(Info);
 	} else {
 		System->GetMMRCO()->RequestUndo(Info);
 	}
@@ -185,7 +178,7 @@ void UHyperManageAction::MakeActorMovable(AActor* Actor)
 
 void UHyperManageAction::SelectActor(AActor* Actor, bool Select)
 {
-	if (System->Selection->SelectActor(Actor, Select) && Select) {
+	if (System->Selection->SelectActorWithHistory(Actor, Select) && Select) {
 		MakeActorMovable(Actor);
 	}
 }

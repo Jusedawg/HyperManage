@@ -215,12 +215,12 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 			UI->ShowToolsUI();
 			break;
 		case EActionNameIdx::SetAnchor:
-			if (Selection->SetAnchor(Selection->LineTraceFromPlayer())) {
+			if (Selection->SetMarkerWithHistory(Selection->LineTraceFromPlayer(), true)) {
 				Action->MakeActorMovable(Selection->AnchorActor);
 			}
 			break;
 		case EActionNameIdx::SetTarget:
-			if (Selection->SetTarget(Selection->LineTraceFromPlayer())) {
+			if (Selection->SetMarkerWithHistory(Selection->LineTraceFromPlayer(), false)) {
 				Action->MakeActorMovable(Selection->TargetActor);
 			}
 			break;

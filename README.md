@@ -74,7 +74,7 @@ A **Uniform preset** fills all three fields. **100% fields** prepares a return t
 
 ## Undo and redo
 
-Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint and box selection, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections and individual selection clicks are not recorded.
+Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint, selection clicks, anchor/target changes, box selection, Clear selection and Recall, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections are not recorded. Repeating a selection click that changes nothing does not add a history step. Clearing or recalling a selection is one step, including its anchor and target.
 
 History pauses while a lightweight building edit is awaiting acknowledgement. History is not saved with your game.
 

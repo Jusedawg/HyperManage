@@ -112,10 +112,10 @@ void UHyperManageToolWidget::NativeConstruct()
 	HookWidget(EActionNameIdx::SelectBoxPivot, btnSelectBoxPivot, "Select items between Anchor and Target Centers");
 	HookWidget(EActionNameIdx::MoveSelection, btnMoveSelection, "Move Selection from Anchor to Target");
 	HookWidget(EActionNameIdx::CopySelection, btnCopySelection, "(Coming Soon) Copy Selection from Anchor to Target");
-	HookWidget(EActionNameIdx::NewSelection, btnNewSelection, "Start New Selection");
+	HookWidget(EActionNameIdx::NewSelection, btnNewSelection, "Clear Selection (Ctrl+Z restores it)");
 	HookWidget(EActionNameIdx::DeleteSelection, btnDeleteSelection, "(Coming Soon) Delete Selection");
 	HookWidget(EActionNameIdx::SaveSelection, btnSaveSelection, "Remember Selection for This Session");
-	HookWidget(EActionNameIdx::LoadSelection, btnLoadSelection, "Restore Remembered Selection");
+	HookWidget(EActionNameIdx::LoadSelection, btnLoadSelection, "Restore Remembered Selection (Ctrl+Z restores the previous selection)");
 
 	HookWidget(EActionNameIdx::IsGrouped, btnIsGrouped, "Grouped or Ungrouped Selection");
 	HookWidget(EActionNameIdx::IsViewBased, btnIsViewBased, "View or Object Relative Actions");
@@ -154,7 +154,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.20")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.21")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -435,7 +435,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	if (ApplyOffsetButton && OffsetX && OffsetY && OffsetZ && System->Selection) {
 		FHyperManageTransformData OffsetData;
 		const bool HasOffset = UHyperManageTransform::MakeWorldOffset(FVector(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue()), OffsetData);
-		const int32 Count = System->Selection->SelectCount() - (System->Selection->Contains(System->Selection->TargetActor) ? 1 : 0);
+		const int32 Count = System->Selection->SelectCount();
 		const bool Pending = System->Selection->HasPendingOperations();
 		ApplyOffsetButton->SetIsEnabled(Count > 0 && HasOffset && !Pending);
 		if (OffsetStatus) OffsetStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
@@ -444,7 +444,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	}
 	if (ApplyRotationButton && OffsetYaw && OffsetPitch && OffsetRoll && System->Selection) {
 		const bool HasRotation = UHyperManageTransform::IsValidRotationOffset(FRotator(OffsetPitch->GetValue(), OffsetYaw->GetValue(), OffsetRoll->GetValue()));
-		const int32 Count = System->Selection->SelectCount() - (System->Selection->Contains(System->Selection->TargetActor) ? 1 : 0);
+		const int32 Count = System->Selection->SelectCount();
 		const bool Pending = System->Selection->HasPendingOperations();
 		ApplyRotationButton->SetIsEnabled(Count > 0 && HasRotation && !Pending);
 		const bool HasAnchor = System->Selection->AnchorActor != System->Selection->TargetActor && System->Selection->Contains(System->Selection->AnchorActor);
@@ -455,7 +455,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	}
 	if (ApplyScaleButton && ScaleX && ScaleY && ScaleZ && System->Selection) {
 		const FVector Percent(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue());
-		const int32 Count = System->Selection->SelectCount() - (System->Selection->Contains(System->Selection->TargetActor) ? 1 : 0);
+		const int32 Count = System->Selection->SelectCount();
 		const bool Pending = System->Selection->HasPendingOperations();
 		ApplyScaleButton->SetIsEnabled(Count > 0 && UHyperManageTransform::IsValidScalePercent(Percent) && !Pending);
 		if (ScaleStatus) ScaleStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
