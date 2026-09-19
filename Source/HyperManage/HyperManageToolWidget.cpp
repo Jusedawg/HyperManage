@@ -1,6 +1,8 @@
 #include "HyperManageToolWidget.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
+#include "HyperManageAction.h"
+#include "HyperManageTransform.h"
 #include "HyperManageSelection.h"
 #include "HyperManageActionGlyph.h"
 #include "Brushes/SlateColorBrush.h"
@@ -152,7 +154,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.16")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.17")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -224,6 +226,41 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddHistory(UndoButton, TEXT("Undo (0)"), EActionNameIdx::Undo, TEXT("Undo the last recorded edit [Ctrl+Z]. Waiting for a lightweight edit to finish temporarily disables history."));
 	AddHistory(RedoButton, TEXT("Redo (0)"), EActionNameIdx::Redo, TEXT("Restore an undone edit [Ctrl+Y]. A new recorded edit clears redo history."));
 	Rows->AddChildToVerticalBox(HistoryRow);
+	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
+	OffsetHeading->SetText(FText::FromString(TEXT("WORLD OFFSET (m)")));
+	auto OffsetFont = OffsetHeading->GetFont(); OffsetFont.Size = 14; OffsetHeading->SetFont(OffsetFont);
+	OffsetHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
+	Rows->AddChildToVerticalBox(OffsetHeading);
+	auto* OffsetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto AddOffset = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
+		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
+		OffsetRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
+		Input = WidgetTree->ConstructWidget<USpinBox>();
+		Input->SetMinValue(-1000.f); Input->SetMaxValue(1000.f); Input->SetValue(0.f);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(88.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetToolTipText(FText::FromString(TEXT("World-axis offset in meters, from -1000 to 1000. Zero leaves this axis unchanged. Apply moves the selection; typing alone does not.")));
+		OffsetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
+	};
+	AddOffset(TEXT("X"), OffsetX); AddOffset(TEXT("Y"), OffsetY); AddOffset(TEXT("Z"), OffsetZ);
+	Rows->AddChildToVerticalBox(OffsetRow);
+	auto* OffsetActions = WidgetTree->ConstructWidget<UHorizontalBox>();
+	ApplyOffsetButton = WidgetTree->ConstructWidget<UButton>();
+	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply offset")));
+	AddFieldIcon(WidgetTree, ApplyOffsetButton, ApplyText, 14);
+	ApplyOffsetButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldOffset);
+	ApplyOffsetButton->SetToolTipText(FText::FromString(TEXT("Move selected objects together along world axes. Target is excluded. Rotation, scale and spacing are preserved. Ctrl+Z undoes the whole move.")));
+	ApplyOffsetButton->SetIsEnabled(false);
+	OffsetActions->AddChildToHorizontalBox(ApplyOffsetButton)->SetPadding(FMargin(4));
+	auto* ClearOffset = WidgetTree->ConstructWidget<UButton>();
+	auto* ClearText = WidgetTree->ConstructWidget<UTextBlock>(); ClearText->SetText(FText::FromString(TEXT("Zero fields")));
+	ClearOffset->SetContent(ClearText); StyleFieldButton(ClearOffset);
+	ClearOffset->SetToolTipText(FText::FromString(TEXT("Reset the three input values without moving any objects.")));
+	ClearOffset->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearWorldOffset);
+	OffsetActions->AddChildToHorizontalBox(ClearOffset)->SetPadding(FMargin(4));
+	Rows->AddChildToVerticalBox(OffsetActions);
+	OffsetStatus = WidgetTree->ConstructWidget<UTextBlock>(); OffsetStatus->SetFont(OffsetFont);
+	OffsetStatus->SetText(FText::FromString(TEXT("Select objects, then enter an offset. Z changes height.")));
+	OffsetStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(OffsetStatus);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -315,6 +352,16 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 		if (auto* Text = FieldButtonLabel(RedoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Redo (%d)"), System->Undo->GetRedoCount())));
 		if (UndoButton) UndoButton->SetIsEnabled(!Pending && System->Undo->CanUndo());
 		if (RedoButton) RedoButton->SetIsEnabled(!Pending && System->Undo->CanRedo());
+	}
+	if (ApplyOffsetButton && OffsetX && OffsetY && OffsetZ && System->Selection) {
+		FHyperManageTransformData OffsetData;
+		const bool HasOffset = UHyperManageTransform::MakeWorldOffset(FVector(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue()), OffsetData);
+		const int32 Count = System->Selection->SelectCount() - (System->Selection->Contains(System->Selection->TargetActor) ? 1 : 0);
+		const bool Pending = System->Selection->HasPendingOperations();
+		ApplyOffsetButton->SetIsEnabled(Count > 0 && HasOffset && !Pending);
+		if (OffsetStatus) OffsetStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
+			Count <= 0 ? TEXT("Select objects to move. The target stays in place.") :
+			FString::Printf(TEXT("%d objects | world axes | Z changes height"), Count)));
 	}
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
@@ -416,4 +463,20 @@ void UHyperManageToolWidget::RepairQuickActions()
  }
  Rows->AddChildToVerticalBox(Grid); Panel->SetContent(Rows); QuickActionHost->AddChildToVerticalBox(Panel);
  Scale->SetStretch(EStretch::ScaleToFit); Scale->SetStretchDirection(EStretchDirection::DownOnly);
+}
+
+
+void UHyperManageToolWidget::ApplyWorldOffset()
+{
+	if (!OffsetX || !OffsetY || !OffsetZ) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
+		System->Action->ApplyWorldOffset(FVector(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue()));
+	}
+}
+
+void UHyperManageToolWidget::ClearWorldOffset()
+{
+	if (OffsetX) OffsetX->SetValue(0.f);
+	if (OffsetY) OffsetY->SetValue(0.f);
+	if (OffsetZ) OffsetZ->SetValue(0.f);
 }

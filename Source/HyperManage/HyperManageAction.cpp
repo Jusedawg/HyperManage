@@ -478,3 +478,18 @@ void UHyperManageAction::AlignToWorld(EActionNameIdx Action)
 	System->Undo->PushUndoTransforms(Actors);
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 }
+
+
+bool UHyperManageAction::ApplyWorldOffset(const FVector& Meters)
+{
+	if (!System || !System->Selection || !System->Undo || !System->GetMMRCO() || System->Selection->HasPendingOperations()) return false;
+	FHyperManageTransformData Data;
+	if (!UHyperManageTransform::MakeWorldOffset(Meters, Data)) return false;
+	TArray<AActor*> Actors;
+	System->Selection->SelectedActorsNoTarget(Actors);
+	Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
+	if (Actors.IsEmpty()) return false;
+	System->Undo->PushUndoTransforms(Actors);
+	System->GetMMRCO()->RequestTransform(Actors, Data);
+	return true;
+}

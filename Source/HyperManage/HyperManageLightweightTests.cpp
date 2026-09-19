@@ -205,6 +205,15 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNull(TEXT("Old traversal cannot find reparented Content"), Tools->GetWidgetFromName(TEXT("Content")));
 	Tools->RepairToolbarLayout();
 	TestTrue(TEXT("Content is reachable after replacing the legacy window"), Tools->GetWidgetFromName(TEXT("Content")) == Content);
+	TestNotNull(TEXT("World offset X field created"), Tools->OffsetX.Get());
+	TestNotNull(TEXT("World offset Y field created"), Tools->OffsetY.Get());
+	TestNotNull(TEXT("World offset Z field created"), Tools->OffsetZ.Get());
+	TestFalse(TEXT("Offset apply starts disabled without a selection"), Tools->ApplyOffsetButton->GetIsEnabled());
+	Tools->OffsetX->SetValue(0.375f); Tools->OffsetY->SetValue(-1.25f); Tools->OffsetZ->SetValue(2.f);
+	Tools->ClearWorldOffset();
+	TestEqual(TEXT("Zero fields resets X"), Tools->OffsetX->GetValue(), 0.f);
+	TestEqual(TEXT("Zero fields resets Y"), Tools->OffsetY->GetValue(), 0.f);
+	TestEqual(TEXT("Zero fields resets Z"), Tools->OffsetZ->GetValue(), 0.f);
 	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
@@ -224,7 +233,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.16")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.17")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -346,6 +355,34 @@ bool FHyperManageHistoryTest::RunTest(const FString& Parameters)
 	Proxy->ApplyAcknowledgement(FHyperManageLightweightRef(), FFactoryCustomizationData());
 	TestTrue(TEXT("Acknowledged record can be redone"), SelectionHistory->PopRedo(Info));
 	World->DestroyWorld(false);
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageWorldOffsetTest, "HyperManage.Transform.WorldOffset", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageWorldOffsetTest::RunTest(const FString& Parameters)
+{
+	auto* Transform = NewObject<UHyperManageTransform>();
+	FHyperManageTransformData Data;
+	Data.IsRot = true; Data.IsScale = true; Data.WorldAlignment = true; Data.ViewRelative = true;
+	TestTrue(TEXT("Accept mixed-axis fractional meter offsets"), UHyperManageTransform::MakeWorldOffset(FVector(0.375, -1.25, 2), Data));
+	const FTransform First(FRotator(20, 90, -15), FVector(-1200, 50, -300), FVector(2, 0.5, 1.5));
+	const FTransform Second(FRotator(-30, -45, 10), FVector(900, -700, 100), FVector(0.75, 1, 2));
+	const FTransform MovedFirst = Transform->ComputeTransform(First, Data);
+	const FTransform MovedSecond = Transform->ComputeTransform(Second, Data);
+	const FVector ExpectedOffset(37.5, -125, 200);
+	TestTrue(TEXT("Meters convert to world centimeters"), MovedFirst.GetLocation().Equals(First.GetLocation() + ExpectedOffset));
+	TestTrue(TEXT("Offset ignores each object's orientation"), MovedSecond.GetLocation().Equals(Second.GetLocation() + ExpectedOffset));
+	TestTrue(TEXT("Spacing is preserved"), (MovedSecond.GetLocation() - MovedFirst.GetLocation()).Equals(Second.GetLocation() - First.GetLocation()));
+	TestTrue(TEXT("Rotation is preserved"), MovedFirst.GetRotation().Equals(First.GetRotation()));
+	TestTrue(TEXT("Nonuniform scale is preserved"), MovedFirst.GetScale3D().Equals(First.GetScale3D()));
+	TestTrue(TEXT("Negative offset reverses the move"), UHyperManageTransform::MakeWorldOffset(FVector(-0.375, 1.25, -2), Data));
+	TestTrue(TEXT("Inverse offset restores transform"), Transform->ComputeTransform(MovedFirst, Data).Equals(First));
+	TestTrue(TEXT("Height-only offset is supported"), UHyperManageTransform::MakeWorldOffset(FVector(0, 0, -0.01), Data));
+	TestTrue(TEXT("Height-only preserves horizontal coordinates"), Transform->ComputeTransform(First, Data).GetLocation().Equals(First.GetLocation() + FVector(0, 0, -1)));
+	TestTrue(TEXT("Boundary values are accepted"), UHyperManageTransform::MakeWorldOffset(FVector(-1000, 1000, 1000), Data));
+	TestFalse(TEXT("Zero offset is not an edit"), UHyperManageTransform::MakeWorldOffset(FVector::ZeroVector, Data));
+	TestFalse(TEXT("Oversized offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(1000.01, 0, 0), Data));
+	TestFalse(TEXT("NaN offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), Data));
+	TestFalse(TEXT("Infinite offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(0, std::numeric_limits<double>::infinity(), 0), Data));
 	return true;
 }
 #endif

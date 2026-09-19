@@ -49,6 +49,13 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetX;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetY;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetZ;
+	UPROPERTY(Transient) TObjectPtr<UButton> ApplyOffsetButton;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> OffsetStatus;
+	UFUNCTION() void ApplyWorldOffset();
+	UFUNCTION() void ClearWorldOffset();
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;

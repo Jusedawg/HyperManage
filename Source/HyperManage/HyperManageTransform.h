@@ -110,6 +110,7 @@ public:
 	// Applies Transform on the root component of Actor
 
 	void TransformActor(AActor* Actor, const FTransform& Transform);
+	static bool MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data);
 	FTransform ComputeTransform(FTransform Transform, const FHyperManageTransformData& Data);
 
 	// Calculates remaining fields of an initialized TransformData for further processing

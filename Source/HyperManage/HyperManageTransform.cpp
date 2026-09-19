@@ -351,3 +351,15 @@ FTransform UHyperManageTransform::ComputeTransform(FTransform Transform, const F
 	Transform.NormalizeRotation();
 	return Transform;
 }
+
+bool UHyperManageTransform::MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data)
+{
+	if (Meters.ContainsNaN() || Meters.GetAbsMax() > 1000.0 || Meters.IsNearlyZero(0.000001)) return false;
+	Data = FHyperManageTransformData();
+	Data.Loc = Meters * 100.0;
+	Data.PivotTranslation = Data.Loc;
+	Data.IsLoc = true;
+	Data.GroupMode = true;
+	Data.ViewRelative = false;
+	return true;
+}

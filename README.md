@@ -51,6 +51,12 @@ Set **Grid XY (m)**, then use **Snap XY** to align the selection to that world g
 
 Start with larger increments for positioning, then switch to smaller increments for the finishing adjustments.
 
+## Exact world offsets
+
+Under **World offset (m)**, enter X, Y and Z distances, then click **Apply offset**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.
+
+Offsets always use world axes and move the selected objects together, preserving spacing, rotation and scale. The target stays in place. This requires a selection; it does not move an object merely because you are looking at it. Values stay in the fields while the panel is open so you can repeat the move. **Zero fields** clears the values without changing any objects. Undo and redo treat each Apply as one edit.
+
 ## Undo and redo
 
 Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint and box selection, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections and individual selection clicks are not recorded.
