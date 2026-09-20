@@ -257,13 +257,13 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	Tree->ForEachWidget([&](UWidget* Widget) {
 		if (auto* Text = Cast<UTextBlock>(Widget)) Labels.Add(Text->GetText().ToString());
 	});
-	TestTrue(TEXT("Working actions get readable labels"), Labels.Contains(TEXT("Clear selection")));
+	TestTrue(TEXT("Working actions get readable labels"), Labels.Contains(TEXT("Clear")));
 	TestNull(TEXT("Unfinished copy action is removed from the visible layout"), Tools->btnCopySelection->GetParent());
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
-	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
+	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap angle")));
 	TestTrue(TEXT("Snap Z is visible"), Labels.Contains(TEXT("Snap Z")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.23")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.24")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

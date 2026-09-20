@@ -1,8 +1,8 @@
 {
     "FileVersion": 3,
     "Version": 10000,
-    "VersionName": "1.0.0-dev.23",
-    "SemVersion": "1.0.0-dev.23",
+    "VersionName": "1.0.0-dev.24",
+    "SemVersion": "1.0.0-dev.24",
     "GameVersion": ">=491125",
     "FriendlyName": "HyperManage",
     "Description": "Factory Building Toolkit by Jusedawg. Development build.",

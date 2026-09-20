@@ -21,7 +21,7 @@ Use a packaged HyperManage build that matches your game version; downloading thi
 
 With the tool equipped, aim at an object and press **Ctrl + left click** to select it. Select additional objects the same way, or use **Ctrl + right click** to remove an object from the selection.
 
-Press **right click** to open the tools panel. Pick your movement and rotation increments, then use the action buttons or the shortcuts below. Hover over a button to see its description.
+Press **right click** to open the tools panel. Pick your movement and rotation increments, then use the action buttons or the shortcuts below. The compact icon tiles have short captions; hover for detailed tooltips. Drag the right scroll rail to reach more controls. Scrolling over a field-adjustment icon changes the selected objects instead of scrolling the panel.
 
 ## Default controls
 
@@ -48,7 +48,7 @@ Press **right click** to open the tools panel. Pick your movement and rotation i
 
 Choose **Move (m)** for the distance of each movement and **Rotate (deg)** for the angle of each rotation. Type an exact value beside a preset—for example, **0.375 m** or **22.5°**—then press Enter or leave the field to save. Movement and rotation apply to the active increment profile; the XY and Z grid settings are shared. The panel shows which profile you are editing.
 
-Set **Grid XY (m)**, then use **Snap XY** to align the selection to that world grid. XY snapping adjusts horizontal placement. Set **Grid Z (m)** and use **Snap Z** to snap origin heights independently of the horizontal grid; the default height grid is 1 m. Both grids are measured from world zero. In group mode, snapping moves the group using the anchor (or first selected origin) and preserves its offsets. In individual mode, each origin snaps separately. Use **Snap rotation** to align rotation to the selected angle increment, or **Level** to remove pitch and roll.
+Set **Grid XY (m)**, then use **Snap XY** to align the selection to that world grid. XY snapping adjusts horizontal placement. Set **Grid Z (m)** and use **Snap Z** to snap origin heights independently of the horizontal grid; the default height grid is 1 m. Both grids are measured from world zero. In group mode, snapping moves the group using the anchor (or first selected origin) and preserves its offsets. In individual mode, each origin snaps separately. Use **Snap angle** to align rotation to the selected angle increment, or **Level** to remove pitch and roll.
 
 Start with larger increments for positioning, then switch to smaller increments for the finishing adjustments.
 
@@ -62,21 +62,21 @@ The anchor and target stay stationary; other coordinates, rotation and scale are
 
 ## Exact world offsets
 
-Under **World offset (m)**, enter X, Y and Z distances, then click **Apply offset**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.
+Under **World offset (m)**, enter X, Y and Z distances, then click **Apply**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.
 
 Offsets always use world axes and move the selected objects together, preserving spacing, rotation and scale. The target stays in place. This requires a selection; it does not move an object merely because you are looking at it. Values stay in the fields while the panel is open so you can repeat the move. **Zero fields** clears the values without changing any objects. Undo and redo treat each Apply as one edit.
 
 ## Exact rotation offsets
 
-Under **World rotation offset (deg)**, enter yaw, pitch and roll changes, then click **Apply rotation**. Each field accepts -180 to 180 degrees. For example, yaw **90** turns the selection a quarter turn around world Z. These are changes to the current rotation, not absolute orientation values. Combined values form one world-space rotation (roll, then pitch, then yaw).
+Under **World rotation offset (deg)**, enter yaw, pitch and roll changes, then click **Apply**. Each field accepts -180 to 180 degrees. For example, yaw **90** turns the selection a quarter turn around world Z. These are changes to the current rotation, not absolute orientation values. Combined values form one world-space rotation (roll, then pitch, then yaw).
 
-In **Group: together** mode, objects rotate around the selected anchor, or the center of the selected object origins if no anchor is selected. In **Group: individual** mode, each object rotates in place. The target stays stationary and scale is preserved. The panel describes the active pivot behavior. **Zero fields** clears only the inputs; each Apply is one undoable edit.
+In **Together** mode, objects rotate around the selected anchor, or the center of the selected object origins if no anchor is selected. In **Individual** mode, each object rotates in place. The target stays stationary and scale is preserved. The panel describes the active pivot behavior. **Zero fields** clears only the inputs; each Apply is one undoable edit.
 
 ## Exact scale
 
-Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply scale**. **100%** is original size, **50%** is half size, and **200%** is double size. Values are absolute rather than repeated multipliers, so applying 125% twice still leaves an object at 125%. Each axis accepts 1-1,000%.
+Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **100%** is original size, **50%** is half size, and **200%** is double size. Values are absolute rather than repeated multipliers, so applying 125% twice still leaves an object at 125%. Each axis accepts 1-1,000%.
 
-A **Uniform preset** fills all three fields. **100% fields** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
+A **Uniform preset** fills all three fields. **100%** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
 
 ## Undo and redo
 

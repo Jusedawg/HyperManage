@@ -27,6 +27,15 @@ int32 UHyperManageActionGlyph::NativePaint(const FPaintArgs& Args, const FGeomet
   Line(A, B, Accent); const FVector2D D = (B - A).GetSafeNormal(), S(-D.Y, D.X);
   Line(B, B - D * 6 + S * 3, Accent); Line(B, B - D * 6 - S * 3, Accent);
  };
+ if (Kind >= 21 && Kind <= 23) {
+  const float Direction = Kind == 22 ? -1.f : 1.f;
+  Arrow(FVector2D(18 * Direction, -15), FVector2D(-23 * Direction, -15));
+  Line(FVector2D(18 * Direction, -15), FVector2D(25 * Direction, 4), Ink);
+  Line(FVector2D(25 * Direction, 4), FVector2D(12 * Direction, 20), Ink);
+  Line(FVector2D(12 * Direction, 20), FVector2D(-12 * Direction, 20), Ink);
+  if (Kind == 23) { Line(FVector2D(-5, -2), FVector2D(5, -2), Accent); Line(FVector2D(5, -2), FVector2D(5, 10), Accent); Line(FVector2D(5, 10), FVector2D(-5, 10), Accent); Line(FVector2D(-5, 10), FVector2D(-5, -2), Accent); }
+  return Layer;
+ }
  if (Kind >= 7) {
   auto Box = [&](float X, float Y, float W, float H) {
    Line(FVector2D(X,Y),FVector2D(X+W,Y),Ink); Line(FVector2D(X+W,Y),FVector2D(X+W,Y+H),Ink);

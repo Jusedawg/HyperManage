@@ -6,6 +6,8 @@
 #include "HyperManageSelection.h"
 #include "HyperManageActionGlyph.h"
 #include "Brushes/SlateColorBrush.h"
+#include "Brushes/SlateRoundedBoxBrush.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Components/UniformGridPanel.h"
 #include "Components/UniformGridSlot.h"
 #include "Blueprint/WidgetTree.h"
@@ -31,7 +33,7 @@ void StyleFieldButton(UButton* Button)
  Style.Normal = FSlateColorBrush(FLinearColor(0.085f, 0.095f, 0.10f));
  Style.Hovered = FSlateColorBrush(FLinearColor(0.24f, 0.18f, 0.105f));
  Style.Pressed = FSlateColorBrush(FLinearColor(0.38f, 0.25f, 0.12f));
- Style.NormalPadding = FMargin(8, 5); Style.PressedPadding = FMargin(8, 5); Button->SetStyle(Style);
+ Style.NormalPadding = FMargin(4, 3); Style.PressedPadding = FMargin(4, 3); Button->SetStyle(Style);
 }
 UBorder* FieldBezel(UWidgetTree* Tree, UWidget* Content)
 {
@@ -41,16 +43,19 @@ UBorder* FieldBezel(UWidgetTree* Tree, UWidget* Content)
 }
 void AddFieldIcon(UWidgetTree* Tree, UButton* Button, UTextBlock* Text, int32 Kind)
 {
- auto* Row = Tree->ConstructWidget<UHorizontalBox>();
+ auto* Stack = Tree->ConstructWidget<UVerticalBox>();
  auto* Glyph = Tree->ConstructWidget<UHyperManageActionGlyph>(); Glyph->Kind = Kind; Glyph->Compact = true;
- Row->AddChildToHorizontalBox(Glyph)->SetPadding(FMargin(0, 0, 5, 0));
- Row->AddChildToHorizontalBox(Text)->SetVerticalAlignment(VAlign_Center);
- Button->SetContent(Row); StyleFieldButton(Button);
+ Stack->AddChildToVerticalBox(Glyph)->SetHorizontalAlignment(HAlign_Center);
+ auto Font = Text->GetFont(); Font.Size = 10; Text->SetFont(Font); Text->SetJustification(ETextJustify::Center);
+ Stack->AddChildToVerticalBox(Text)->SetHorizontalAlignment(HAlign_Center);
+ auto* Tile = Tree->ConstructWidget<USizeBox>(); Tile->SetWidthOverride(76); Tile->SetHeightOverride(46); Tile->SetContent(Stack);
+ Button->SetContent(Tile); StyleFieldButton(Button);
 }
 UTextBlock* FieldButtonLabel(UButton* Button)
 {
- auto* Row = Button ? Cast<UHorizontalBox>(Button->GetContent()) : nullptr;
- return Row && Row->GetChildrenCount() > 1 ? Cast<UTextBlock>(Row->GetChildAt(1)) : nullptr;
+ auto* Tile = Button ? Cast<USizeBox>(Button->GetContent()) : nullptr;
+ auto* Stack = Tile ? Cast<UVerticalBox>(Tile->GetContent()) : nullptr;
+ return Stack && Stack->GetChildrenCount() > 1 ? Cast<UTextBlock>(Stack->GetChildAt(1)) : nullptr;
 }
 }
 
@@ -74,6 +79,11 @@ void UHyperManageToolWidget::NativeConstruct()
 	Super::NativeConstruct();
 	RepairToolbarLayout();
 	RepairQuickActions();
+ WidgetTree->ForEachWidgetAndDescendants([](UWidget* Widget) {
+  if (auto* Text = Cast<UTextBlock>(Widget)) { auto Font = Text->GetFont(); Font.Size = FMath::Min(Font.Size, 12); Text->SetFont(Font); }
+  if (auto* Input = Cast<USpinBox>(Widget)) { auto Font = Input->GetFont(); Font.Size = 12; Input->SetFont(Font); }
+  if (auto* Combo = Cast<UComboBoxString>(Widget)) { Combo->Font.Size = 12; }
+ });
 	StopAllAnimations();
 	TrayOpenTime = 0.f;
 	mUseKeyboard = true;
@@ -150,17 +160,17 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Window->ClearChildren();
 	auto* Frame = WidgetTree->ConstructWidget<UBorder>();
 	Frame->SetBrushColor(FLinearColor(0.025f, 0.032f, 0.035f, 0.98f));
-	Frame->SetPadding(FMargin(12));
+	Frame->SetPadding(FMargin(8));
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.23")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.24")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
 	auto* CloseText = WidgetTree->ConstructWidget<UTextBlock>();
-	CloseText->SetText(FText::FromString(TEXT("Close [Esc]")));
-	Close->SetContent(CloseText);
+	CloseText->SetText(FText::FromString(TEXT("X")));
+	Close->SetContent(CloseText); Close->SetToolTipText(FText::FromString(TEXT("Close tool tray [Esc]")));
 	StyleFieldButton(Close);
 	Close->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CloseTools);
 	Header->AddChildToHorizontalBox(Close);
@@ -204,19 +214,19 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	GridPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeGridPreset);
 	Rows->AddChildToVerticalBox(Presets);
 	auto* Alignments = WidgetTree->ConstructWidget<UWrapBox>();
-	Alignments->SetExplicitWrapSize(true); Alignments->SetWrapSize(432);
+	Alignments->SetExplicitWrapSize(true); Alignments->SetWrapSize(360);
 	auto AddAlignment = [&](UWrapBox* Wrap, const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
 		auto* Button = WidgetTree->ConstructWidget<UButton>();
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
 		Text->SetText(FText::FromString(Label));
 		AddFieldIcon(WidgetTree, Button, Text, (Action == EActionNameIdx::SnapWorldXY || Action == EActionNameIdx::SnapWorldZ || Action == EActionNameIdx::MatchAnchorX || Action == EActionNameIdx::MatchAnchorY || Action == EActionNameIdx::MatchAnchorZ) ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
 		HookWidget(Action, Button, Tip);
-		Wrap->AddChildToWrapBox(Button)->SetPadding(FMargin(6, 4));
+		Wrap->AddChildToWrapBox(Button)->SetPadding(FMargin(3, 3));
 		return Button;
 	};
 	AddAlignment(Alignments, TEXT("Snap XY"), EActionNameIdx::SnapWorldXY, TEXT("Snap to the world-origin XY grid. 8m is foundation spacing. Height and scale stay unchanged. Group mode preserves spacing; set an anchor to choose the reference."));
 	AddAlignment(Alignments, TEXT("Snap Z"), EActionNameIdx::SnapWorldZ, TEXT("Snap origins to the world-zero height grid using Grid Z. X/Y, rotation and scale stay unchanged. Group mode preserves relative heights using the anchor or first selected origin. Individual mode snaps each origin independently. Ctrl+Z undoes alignment."));
-	AddAlignment(Alignments, TEXT("Snap rotation"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
+	AddAlignment(Alignments, TEXT("Snap angle"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
 	AddAlignment(Alignments, TEXT("Level"), EActionNameIdx::LevelWorldRotation, TEXT("Set world pitch and roll to zero, retaining yaw. Group mode levels around the anchor/reference."));
 	Rows->AddChildToVerticalBox(Alignments);
 	AnchorAlignmentStatus = WidgetTree->ConstructWidget<UTextBlock>();
@@ -224,7 +234,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto AnchorFont = AnchorAlignmentStatus->GetFont(); AnchorFont.Size = 13; AnchorAlignmentStatus->SetFont(AnchorFont);
 	AnchorAlignmentStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(AnchorAlignmentStatus);
 	auto* AnchorAlignments = WidgetTree->ConstructWidget<UWrapBox>();
-	AnchorAlignments->SetExplicitWrapSize(true); AnchorAlignments->SetWrapSize(432);
+	AnchorAlignments->SetExplicitWrapSize(true); AnchorAlignments->SetWrapSize(360);
 	AnchorAlignmentButtons = {
 		AddAlignment(AnchorAlignments, TEXT("Match X"), EActionNameIdx::MatchAnchorX, TEXT("Move selected origins to the anchor's world X coordinate. Y/Z, rotation and scale stay unchanged. Anchor and target stay in place. This aligns origins, not mesh edges; group mode is ignored.")),
 		AddAlignment(AnchorAlignments, TEXT("Match Y"), EActionNameIdx::MatchAnchorY, TEXT("Move selected origins to the anchor's world Y coordinate. X/Z, rotation and scale stay unchanged. Anchor and target stay in place. Ctrl+Z undoes alignment.")),
@@ -237,10 +247,9 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto AddHistory = [&](TObjectPtr<UButton>& Button, const TCHAR* Label, EActionNameIdx Action, const TCHAR* Tip) {
 		Button = WidgetTree->ConstructWidget<UButton>();
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>(); Text->SetText(FText::FromString(Label));
-		AddFieldIcon(WidgetTree, Button, Text, 18);
-		if (Action == EActionNameIdx::Redo) Cast<UHorizontalBox>(Button->GetContent())->GetChildAt(0)->SetRenderScale(FVector2D(-1, 1));
+		AddFieldIcon(WidgetTree, Button, Text, Action == EActionNameIdx::Redo ? 22 : 21);
 		HookWidget(Action, Button, Tip); Button->SetIsEnabled(false);
-		HistoryRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(6, 4));
+		HistoryRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(3, 3));
 	};
 	AddHistory(UndoButton, TEXT("Undo (0)"), EActionNameIdx::Undo, TEXT("Undo the last recorded edit [Ctrl+Z]. Waiting for a lightweight edit to finish temporarily disables history."));
 	AddHistory(RedoButton, TEXT("Redo (0)"), EActionNameIdx::Redo, TEXT("Restore an undone edit [Ctrl+Y]. A new recorded edit clears redo history."));
@@ -256,7 +265,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		OffsetRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
 		Input->SetMinValue(-1000.f); Input->SetMaxValue(1000.f); Input->SetValue(0.f);
-		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(88.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(76.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("World-axis offset in meters, from -1000 to 1000. Zero leaves this axis unchanged. Apply moves the selection; typing alone does not.")));
 		OffsetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
 	};
@@ -264,7 +273,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(OffsetRow);
 	auto* OffsetActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyOffsetButton = WidgetTree->ConstructWidget<UButton>();
-	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply offset")));
+	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply")));
 	AddFieldIcon(WidgetTree, ApplyOffsetButton, ApplyText, 14);
 	ApplyOffsetButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldOffset);
 	ApplyOffsetButton->SetToolTipText(FText::FromString(TEXT("Move selected objects together along world axes. Target is excluded. Rotation, scale and spacing are preserved. Ctrl+Z undoes the whole move.")));
@@ -272,7 +281,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	OffsetActions->AddChildToHorizontalBox(ApplyOffsetButton)->SetPadding(FMargin(4));
 	auto* ClearOffset = WidgetTree->ConstructWidget<UButton>();
 	auto* ClearText = WidgetTree->ConstructWidget<UTextBlock>(); ClearText->SetText(FText::FromString(TEXT("Zero fields")));
-	ClearOffset->SetContent(ClearText); StyleFieldButton(ClearOffset);
+	AddFieldIcon(WidgetTree, ClearOffset, ClearText, 23);
 	ClearOffset->SetToolTipText(FText::FromString(TEXT("Reset the three input values without moving any objects.")));
 	ClearOffset->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearWorldOffset);
 	OffsetActions->AddChildToHorizontalBox(ClearOffset)->SetPadding(FMargin(4));
@@ -284,23 +293,25 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	RotationHeading->SetText(FText::FromString(TEXT("WORLD ROTATION OFFSET (deg)")));
 	RotationHeading->SetFont(OffsetFont); RotationHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
 	Rows->AddChildToVerticalBox(RotationHeading);
+	auto* RotationFields = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddRotation = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
-		auto* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+		auto* Row = WidgetTree->ConstructWidget<UVerticalBox>();
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
-		Row->AddChildToHorizontalBox(Label)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		Row->AddChildToVerticalBox(Label);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
 		Input->SetMinValue(-180.f); Input->SetMaxValue(180.f); Input->SetValue(0.f);
-		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(110.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(100.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("Rotation offset in degrees, from -180 to 180. Zero leaves this component unchanged. Apply combines roll, pitch and yaw into one world-space rotation.")));
-		Row->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
-		Rows->AddChildToVerticalBox(Row);
+		Row->AddChildToVerticalBox(Input)->SetPadding(FMargin(4));
+		RotationFields->AddChildToHorizontalBox(Row);
 	};
-	AddRotation(TEXT("Yaw (Z / spin)"), OffsetYaw);
-	AddRotation(TEXT("Pitch (Y / tilt)"), OffsetPitch);
-	AddRotation(TEXT("Roll (X / bank)"), OffsetRoll);
+	AddRotation(TEXT("Yaw / Z"), OffsetYaw);
+	AddRotation(TEXT("Pitch / Y"), OffsetPitch);
+	AddRotation(TEXT("Roll / X"), OffsetRoll);
+	Rows->AddChildToVerticalBox(RotationFields);
 	auto* RotationActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyRotationButton = WidgetTree->ConstructWidget<UButton>();
-	auto* RotateText = WidgetTree->ConstructWidget<UTextBlock>(); RotateText->SetText(FText::FromString(TEXT("Apply rotation")));
+	auto* RotateText = WidgetTree->ConstructWidget<UTextBlock>(); RotateText->SetText(FText::FromString(TEXT("Apply")));
 	AddFieldIcon(WidgetTree, ApplyRotationButton, RotateText, 3);
 	ApplyRotationButton->SetIsEnabled(false);
 	ApplyRotationButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldRotationOffset);
@@ -308,7 +319,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	RotationActions->AddChildToHorizontalBox(ApplyRotationButton)->SetPadding(FMargin(4));
 	auto* ClearRotation = WidgetTree->ConstructWidget<UButton>();
 	auto* ResetText = WidgetTree->ConstructWidget<UTextBlock>(); ResetText->SetText(FText::FromString(TEXT("Zero fields")));
-	ClearRotation->SetContent(ResetText); StyleFieldButton(ClearRotation);
+	AddFieldIcon(WidgetTree, ClearRotation, ResetText, 23);
 	ClearRotation->SetToolTipText(FText::FromString(TEXT("Clear the rotation inputs without changing any objects.")));
 	ClearRotation->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearRotationOffset);
 	RotationActions->AddChildToHorizontalBox(ClearRotation)->SetPadding(FMargin(4));
@@ -326,7 +337,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		ScaleRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
 		Input->SetMinValue(1.f); Input->SetMaxValue(1000.f); Input->SetValue(100.f);
-		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(88.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(2);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(76.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(2);
 		Input->SetToolTipText(FText::FromString(TEXT("Absolute local-axis scale: 100% is original size, 50% is half, 200% is double. Range 1-1000%. Apply changes size without moving object origins.")));
 		Input->OnValueChanged.AddDynamic(this, &UHyperManageToolWidget::ClearScalePreset);
 		ScaleRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
@@ -344,14 +355,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(ScalePresetRow);
 	auto* ScaleActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyScaleButton = WidgetTree->ConstructWidget<UButton>();
-	auto* ScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ScaleText->SetText(FText::FromString(TEXT("Apply scale")));
+	auto* ScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ScaleText->SetText(FText::FromString(TEXT("Apply")));
 	AddFieldIcon(WidgetTree, ApplyScaleButton, ScaleText, 6); ApplyScaleButton->SetIsEnabled(false);
 	ApplyScaleButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyScalePercent);
 	ApplyScaleButton->SetToolTipText(FText::FromString(TEXT("Set the selected objects to these absolute local scales. Target is excluded. Position and rotation stay unchanged regardless of group mode. Ctrl+Z undoes the edit.")));
 	ScaleActions->AddChildToHorizontalBox(ApplyScaleButton)->SetPadding(FMargin(4));
 	auto* ResetScale = WidgetTree->ConstructWidget<UButton>();
-	auto* ResetScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ResetScaleText->SetText(FText::FromString(TEXT("100% fields")));
-	ResetScale->SetContent(ResetScaleText); StyleFieldButton(ResetScale);
+	auto* ResetScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ResetScaleText->SetText(FText::FromString(TEXT("100%")));
+	AddFieldIcon(WidgetTree, ResetScale, ResetScaleText, 23);
 	ResetScale->SetToolTipText(FText::FromString(TEXT("Fill X/Y/Z with 100%. Click Apply scale to restore original size.")));
 	ResetScale->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ResetScaleFields);
 	ScaleActions->AddChildToHorizontalBox(ResetScale)->SetPadding(FMargin(4));
@@ -362,8 +373,8 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
-	Body->SetWidthOverride(432);
-	Body->SetHeightOverride(480);
+	Body->SetWidthOverride(360);
+	Body->SetHeightOverride(340);
 	// Replace the overflowing legacy icon strips, retaining the existing buttons and their action bindings.
 	if (auto* Canvas = Cast<UCanvasPanel>(Content)) {
 		Canvas->ClearChildren();
@@ -378,7 +389,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 			Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
 			Groups->AddChildToVerticalBox(Label);
 			auto* Wrap = WidgetTree->ConstructWidget<UWrapBox>();
-			Wrap->SetWrapSize(432);
+			Wrap->SetWrapSize(360);
 			Wrap->SetExplicitWrapSize(true);
 			Wrap->SetInnerSlotPadding(FVector2D(6, 5));
 			for (const auto& Entry : Buttons) {
@@ -407,8 +418,8 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 			}
 			Groups->AddChildToVerticalBox(Wrap);
 		};
-		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear selection")}, {btnSelectBoxSides, TEXT("Box: edges")}, {btnSelectBoxPivot, TEXT("Box: centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
-		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("Move to target")}, {btnSameRotation, TEXT("Match rotation")}, {btnSameScale, TEXT("Match scale")}, {btnSamePaint, TEXT("Match paint")}});
+		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear")}, {btnSelectBoxSides, TEXT("Edges")}, {btnSelectBoxPivot, TEXT("Centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
+		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("To target")}, {btnSameRotation, TEXT("Rotation")}, {btnSameScale, TEXT("Size")}, {btnSamePaint, TEXT("Paint")}});
 		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear history")}});
 	}
 	Body->SetContent(Content);
@@ -419,20 +430,33 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	// Wheel input belongs to the hovered transform buttons; use the scroll rail to navigate the tray.
 	Scroll->SetWheelScrollMultiplier(0.f); Scroll->SetConsumeMouseWheel(EConsumeMouseWheel::Never);
 	Scroll->AddChild(Frame);
-	auto* Rail = FieldBezel(WidgetTree, Scroll); Rail->SetPadding(FMargin(10, 6, 3, 6));
+	auto* Rail = WidgetTree->ConstructWidget<UBorder>();
+ Rail->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.055f, 0.058f, 0.05f), FVector4(12, 0, 0, 12)));
+ Rail->SetPadding(FMargin(5, 5, 0, 5)); Rail->SetContent(Scroll);
+ auto* Face = WidgetTree->ConstructWidget<UVerticalBox>();
+ Face->AddChildToVerticalBox(Rail)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+ auto* Nameplate = WidgetTree->ConstructWidget<UTextBlock>();
+ Nameplate->SetText(FText::FromString(TEXT("HYPERMANAGE  /  FIELD TOOLS"))); Nameplate->SetJustification(ETextJustify::Center);
+ Face->AddChildToVerticalBox(Nameplate)->SetPadding(FMargin(4, 10, 4, 6));
+ auto* Rim = WidgetTree->ConstructWidget<UBorder>();
+ Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.29f, 0.29f, 0.24f), FVector4(24, 0, 0, 24)));
+ Rim->SetPadding(FMargin(14, 14, 0, 6)); Rim->SetContent(Face);
+ auto* Edge = WidgetTree->ConstructWidget<UBorder>();
+ Edge->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.12f, 0.13f, 0.11f), FVector4(27, 0, 0, 27)));
+ Edge->SetPadding(FMargin(3, 3, 0, 3)); Edge->SetContent(Rim);
 	auto* DockRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Handle = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(Handle);
 	auto* Grip = WidgetTree->ConstructWidget<UTextBlock>(); Grip->SetText(FText::FromString(TEXT("||")));
 	Handle->SetContent(Grip); Handle->SetToolTipText(FText::FromString(TEXT("Retract tool tray [Esc]")));
 	Handle->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CloseTools);
 	DockRow->AddChildToHorizontalBox(Handle)->SetVerticalAlignment(VAlign_Center);
-	DockRow->AddChildToHorizontalBox(Rail)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	DockRow->AddChildToHorizontalBox(Edge)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	Window->AddChild(DockRow); DockedTray = Window;
-	Window->SetRenderTranslation(FVector2D(520, 0));
+	Window->SetRenderTranslation(FVector2D(430, 0));
 	if (auto* CanvasSlot = Cast<UCanvasPanelSlot>(Window->Slot)) {
 		CanvasSlot->SetAnchors(FAnchors(1.f, 0.06f, 1.f, 0.93f));
 		CanvasSlot->SetAlignment(FVector2D(1.f, 0.f));
-		CanvasSlot->SetOffsets(FMargin(0, 0, 520, 0));
+		CanvasSlot->SetOffsets(FMargin(0, 0, 430, 0));
 	}
 
 }
@@ -441,7 +465,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 {
 	Super::NativeTick(Geometry, DeltaTime);
 	TrayOpenTime = FMath::Min(TrayOpenTime + DeltaTime, 0.2f);
-	if (DockedTray) DockedTray->SetRenderTranslation(FVector2D(520.f * FMath::Square(1.f - TrayOpenTime / 0.2f), 0));
+	if (DockedTray) DockedTray->SetRenderTranslation(FVector2D(430.f * FMath::Square(1.f - TrayOpenTime / 0.2f), 0));
 	auto* System = UHyperManageSystem::Get();
 	if (!System || !System->Config) return;
 	if (System->Undo) {
@@ -506,10 +530,10 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	Sync(HeightGridPreset, HeightGridValue, Config.HeightGridCm / 100.f);
 	if (PrecisionProfileLabel) PrecisionProfileLabel->SetText(FText::FromString(FString::Printf(TEXT("Exact steps | %s profile | grids shared"), *UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString())));
 	if (btnIsGrouped) {
-		if (auto* Text = FieldButtonLabel(btnIsGrouped)) Text->SetText(FText::FromString(Config.IsGrouped ? TEXT("Group: together") : TEXT("Group: individual")));
+		if (auto* Text = FieldButtonLabel(btnIsGrouped)) Text->SetText(FText::FromString(Config.IsGrouped ? TEXT("Together") : TEXT("Individual")));
 	}
 	if (btnIsViewBased) {
-		if (auto* Text = FieldButtonLabel(btnIsViewBased)) Text->SetText(FText::FromString(Config.IsViewBased ? TEXT("Axes: view") : TEXT("Axes: object")));
+		if (auto* Text = FieldButtonLabel(btnIsViewBased)) Text->SetText(FText::FromString(Config.IsViewBased ? TEXT("View") : TEXT("Object")));
 	}
 }
 
@@ -558,9 +582,9 @@ void UHyperManageToolWidget::RepairQuickActions()
  if (!Scale || !QuickActionHost) return;
  Scale->SetVisibility(ESlateVisibility::Collapsed);
  const TCHAR* Names[] = {TEXT("btnUpDown"), TEXT("btnLeftRight"), TEXT("btnFrontBack"), TEXT("btnSpin"), TEXT("btnPitch"), TEXT("btnRoll"), TEXT("btnGrowShrink")};
- const TCHAR* Labels[] = {TEXT("Lift"), TEXT("Move sideways"), TEXT("Move forward"), TEXT("Spin / yaw"), TEXT("Pitch"), TEXT("Roll"), TEXT("Scale")};
+ const TCHAR* Labels[] = {TEXT("Lift"), TEXT("Sideways"), TEXT("Forward"), TEXT("Yaw"), TEXT("Pitch"), TEXT("Roll"), TEXT("Scale")};
  auto* Panel = WidgetTree->ConstructWidget<UBorder>();
- Panel->SetBrushColor(FLinearColor(0.025f,0.032f,0.035f,0.98f)); Panel->SetPadding(FMargin(10));
+ Panel->SetBrushColor(FLinearColor(0.025f,0.032f,0.035f,0.98f)); Panel->SetPadding(FMargin(2));
  auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
  auto AddLabel = [&](const TCHAR* Value, int32 Size) {
   auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Value));
@@ -573,21 +597,15 @@ void UHyperManageToolWidget::RepairQuickActions()
  };
  AddLabel(TEXT("FIELD ADJUSTMENTS"),16);
  AddLabel(TEXT("Wheel: adjust | Drag right rail: scroll"),12);
- auto* Grid=WidgetTree->ConstructWidget<UUniformGridPanel>(); Grid->SetSlotPadding(FMargin(4));
+ auto* Grid=WidgetTree->ConstructWidget<UUniformGridPanel>(); Grid->SetSlotPadding(FMargin(3));
  for (int32 Index=0; Index<7; ++Index) {
   auto* Button=FindObjectFast<UButton>(WidgetTree,FName(Names[Index]));
   if (!Button) continue;
   Button->RemoveFromParent();
-  auto* Stack=WidgetTree->ConstructWidget<UVerticalBox>();
-  auto* Glyph=CreateWidget<UHyperManageActionGlyph>(this,UHyperManageActionGlyph::StaticClass()); Glyph->Kind=Index;
-  Stack->AddChildToVerticalBox(Glyph);
   auto* Label=WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Labels[Index]));
-  auto Font=Label->GetFont(); Font.Size=13; Label->SetFont(Font); Label->SetJustification(ETextJustify::Center);
-  Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.96f,0.90f,0.76f))); Stack->AddChildToVerticalBox(Label);
-  Button->SetContent(Stack);
-  StyleFieldButton(Button);
+  AddFieldIcon(WidgetTree, Button, Label, Index);
   Button->SetToolTipText(FText::FromString(FString(Labels[Index])+TEXT(": hover and scroll in either direction. Uses the current increment and reference frame.")));
-  Grid->AddChildToUniformGrid(Button,Index/2,Index%2);
+  Grid->AddChildToUniformGrid(Button,Index/4,Index%4);
  }
  Rows->AddChildToVerticalBox(Grid); Panel->SetContent(Rows); QuickActionHost->AddChildToVerticalBox(Panel);
  Scale->SetStretch(EStretch::ScaleToFit); Scale->SetStretchDirection(EStretchDirection::DownOnly);
