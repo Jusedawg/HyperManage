@@ -2,6 +2,45 @@
 #include "Buildables/FGBuildable.h"
 #include "Components/StaticMeshComponent.h"
 #include "AbstractInstanceManager.h"
+#include "FGMaterialEffectComponent.h"
+#include "UObject/UnrealType.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+
+namespace {
+AActor* GetInstanceEffectActor(AFGLightweightBuildableSubsystem* Subsystem)
+{
+ const auto* Property = FindFProperty<FObjectPropertyBase>(Subsystem->GetClass(), TEXT("mBuildEffectComponentActor"));
+ return Property ? Cast<AActor>(Property->GetObjectPropertyValue_InContainer(Subsystem)) : nullptr;
+}
+
+// Finish only effects created synchronously by this replacement. Stop runs the game's material restoration
+// and completion delegates, including deferred instance removal. Existing construction/dismantling is untouched.
+struct FScopedInstantEditEffects
+{
+ AFGLightweightBuildableSubsystem* Subsystem;
+ TSet<UFGMaterialEffectComponent*> Existing;
+ explicit FScopedInstantEditEffects(AFGLightweightBuildableSubsystem* InSubsystem) : Subsystem(InSubsystem)
+ {
+  if (auto* Actor = GetInstanceEffectActor(Subsystem)) {
+   for (auto* Effect : TInlineComponentArray<UFGMaterialEffectComponent*>(Actor)) Existing.Add(Effect);
+  }
+ }
+ ~FScopedInstantEditEffects()
+ {
+  FString Report = FString::Printf(TEXT("Existing effects=%d\n"), Existing.Num());
+  if (auto* Actor = GetInstanceEffectActor(Subsystem)) {
+   // Snapshot first: Stop can destroy components through the subsystem's completion callback.
+   const TInlineComponentArray<UFGMaterialEffectComponent*> Effects(Actor);
+   for (auto* Effect : Effects) if (IsValid(Effect) && !Existing.Contains(Effect)) {
+    Report += FString::Printf(TEXT("Finished %s\n"), *Effect->GetClass()->GetName());
+    Effect->Stop();
+   }
+  } else Report += TEXT("No effect actor found\n");
+  FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-EditEffects.txt")));
+ }
+};
+}
 
 bool FHyperManageLightweightRef::Matches(const FRuntimeBuildableInstanceData* Data) const
 {
@@ -92,6 +131,7 @@ bool HyperManageLightweight::Replace(AFGLightweightBuildableSubsystem* Subsystem
 	const auto* Original = Subsystem->GetRuntimeDataForBuildableClassAndIndex(Ref.BuildableClass, Ref.Index);
 	if (!Ref.Matches(Original)) return false;
 	if (Original->Transform.Equals(Transform)) return true;
+	FScopedInstantEditEffects InstantEffects(Subsystem);
 	FRuntimeBuildableInstanceData Replacement = *Original;
 	Replacement.Transform = Transform;
 	Replacement.ConstructId = MAX_uint16;
