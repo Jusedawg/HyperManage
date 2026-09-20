@@ -27,6 +27,20 @@
 #include "Components/ScrollBox.h"
 
 namespace {
+void StyleNumericInput(USpinBox* Input)
+{
+ auto Style = Input->GetWidgetStyle();
+ Style.BackgroundBrush = FSlateColorBrush(FLinearColor(0.025f, 0.03f, 0.035f));
+ Style.HoveredBackgroundBrush = FSlateColorBrush(FLinearColor(0.055f, 0.065f, 0.075f));
+ Style.ActiveBackgroundBrush = FSlateColorBrush(FLinearColor(0.04f, 0.055f, 0.07f));
+ Style.InactiveFillBrush = FSlateColorBrush(FLinearColor::Transparent);
+ Style.HoveredFillBrush = FSlateColorBrush(FLinearColor::Transparent);
+ Style.ActiveFillBrush = FSlateColorBrush(FLinearColor::Transparent);
+ Style.ForegroundColor = FSlateColor(FLinearColor(0.92f, 0.94f, 0.96f));
+ Style.ArrowsImage.TintColor = Style.ForegroundColor;
+ Input->SetWidgetStyle(Style); Input->SetForegroundColor(Style.ForegroundColor);
+}
+
 void StyleFieldButton(UButton* Button)
 {
  auto Style = Button->GetStyle();
@@ -164,7 +178,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.25")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.26")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -190,6 +204,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		Presets->AddChildToVerticalBox(PresetRow);
 		PresetRow->AddChildToHorizontalBox(Text)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 		Input = WidgetTree->ConstructWidget<USpinBox>();
+		StyleNumericInput(Input);
 		Input->SetMinValue(Minimum); Input->SetMaxValue(Maximum); Input->SetValue(Minimum);
 		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(92.f);
 		Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
@@ -264,6 +279,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
 		OffsetRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
+		StyleNumericInput(Input);
 		Input->SetMinValue(-1000.f); Input->SetMaxValue(1000.f); Input->SetValue(0.f);
 		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(76.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("World-axis offset in meters, from -1000 to 1000. Zero leaves this axis unchanged. Apply moves the selection; typing alone does not.")));
@@ -299,6 +315,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
 		Row->AddChildToVerticalBox(Label);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
+		StyleNumericInput(Input);
 		Input->SetMinValue(-180.f); Input->SetMaxValue(180.f); Input->SetValue(0.f);
 		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(100.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("Rotation offset in degrees, from -180 to 180. Zero leaves this component unchanged. Apply combines roll, pitch and yaw into one world-space rotation.")));
@@ -336,6 +353,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
 		ScaleRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
+		StyleNumericInput(Input);
 		Input->SetMinValue(1.f); Input->SetMaxValue(1000.f); Input->SetValue(100.f);
 		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(76.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(2);
 		Input->SetToolTipText(FText::FromString(TEXT("Absolute local-axis scale: 100% is original size, 50% is half, 200% is double. Range 1-1000%. Apply changes size without moving object origins.")));
@@ -439,10 +457,10 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  Nameplate->SetText(FText::FromString(TEXT("HYPERMANAGE  /  FIELD TOOLS"))); Nameplate->SetJustification(ETextJustify::Center);
  Face->AddChildToVerticalBox(Nameplate)->SetPadding(FMargin(4, 10, 4, 6));
  auto* Rim = WidgetTree->ConstructWidget<UBorder>();
- Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.29f, 0.29f, 0.24f), FVector4(24, 0, 0, 24)));
+ Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.10f, 0.11f, 0.12f), FVector4(24, 0, 0, 24)));
  Rim->SetPadding(FMargin(14, 14, 0, 6)); Rim->SetContent(Face);
  auto* Edge = WidgetTree->ConstructWidget<UBorder>();
- Edge->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.12f, 0.13f, 0.11f), FVector4(27, 0, 0, 27)));
+ Edge->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.045f, 0.05f, 0.055f), FVector4(27, 0, 0, 27)));
  Edge->SetPadding(FMargin(3, 3, 0, 3)); Edge->SetContent(Rim);
 	auto* DockRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Handle = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(Handle);
