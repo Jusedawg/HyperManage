@@ -8,6 +8,8 @@
 
 #include "FGOutlineComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PostProcessComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
@@ -15,27 +17,6 @@
 #include "Buildables/FGBuildableWire.h"
 #include "WheeledVehicles/FGTargetPoint.h"
 
-
-namespace {
-EOutlineColor FindSteadyGreenOutline(AActor* Context)
-{
- // PP_OutlineColored maps its first green slot to stencil 252. Resolve the enum through the running game,
- // since the SDK enum ordinals are not the actual stencil values used by ShowOutline.
- auto* Probe = NewObject<UStaticMeshComponent>(Context, NAME_None, RF_Transient);
- EOutlineColor Green = EOutlineColor::OC_DISMANTLE;
- FString Report(TEXT("HyperManage outline mapping\n"));
- for (uint8 Index = 1; Index <= static_cast<uint8>(EOutlineColor::OC_SOFTCLEARANCEOVERLAP); ++Index) {
-  Probe->SetRenderCustomDepth(false); Probe->SetCustomDepthStencilValue(0);
-  UFGBlueprintFunctionLibrary::ShowOutline(Probe, static_cast<EOutlineColor>(Index));
-  Report += FString::Printf(TEXT("enum=%d stencil=%d enabled=%d\n"), Index, Probe->CustomDepthStencilValue, Probe->bRenderCustomDepth);
-  if (Probe->bRenderCustomDepth && Probe->CustomDepthStencilValue == 252) Green = static_cast<EOutlineColor>(Index);
- }
- Report += FString::Printf(TEXT("Selection enum=%d; fallback=%d\n"), static_cast<uint8>(Green), Green == EOutlineColor::OC_DISMANTLE);
- FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-Outline.txt")));
- Probe->DestroyComponent();
- return Green;
-}
-}
 
 void UHyperManageSelection::Init()
 {
@@ -62,7 +43,23 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 	if (!IsValid(Actor)) return;
 	auto* Outline = UFGOutlineComponent::Get(Actor->GetWorld());
 	if (!Outline) return;
-	static const EOutlineColor SelectionColor = FindSteadyGreenOutline(Actor);
+	// The runtime helper writes enum values directly to the stencil. Keep the proven game-owned geometry,
+ // using a dedicated channel outside the animated built-in channels 1-9.
+ if (!IsValid(SelectionPostProcess)) {
+  auto* Material = LoadObject<UMaterialInterface>(nullptr, TEXT("/HyperManage/Materials/M_SelectionOutline.M_SelectionOutline"));
+  if (Material && Outline->GetOwner()) {
+   SelectionPostProcess = NewObject<UPostProcessComponent>(Outline->GetOwner(), NAME_None, RF_Transient);
+   SelectionPostProcess->bUnbound = true; SelectionPostProcess->bEnabled = true;
+   SelectionPostProcess->BlendWeight = 1.f; SelectionPostProcess->Priority = 100.f;
+   SelectionPostProcess->Settings.AddBlendable(Material, 1.f);
+   SelectionPostProcess->RegisterComponent();
+  }
+  const FString Report = FString::Printf(TEXT("Material=%s component=%d registered=%d\n"), *GetNameSafe(Material),
+   IsValid(SelectionPostProcess), IsValid(SelectionPostProcess) && SelectionPostProcess->IsRegistered());
+  FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-Outline.txt")));
+ }
+ const EOutlineColor SelectionColor = IsValid(SelectionPostProcess) && SelectionPostProcess->IsRegistered() ?
+  static_cast<EOutlineColor>(252) : EOutlineColor::OC_DISMANTLE;
 	const EOutlineColor Color = Actor == TargetActor ? EOutlineColor::OC_RED :
 		Actor == AnchorActor ? EOutlineColor::OC_HOLOGRAM : SelectionColor;
 	ActorInfo.Outline = Outline;
@@ -72,6 +69,13 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 	// Preserve the working game-managed geometry and cleanup; only the selection color channel changes.
 	// Lightweight proxy meshes supply geometry only; they never render a second surface in the main pass.
 	Outline->ShowOutline(Actor, Color);
+ FString Report = FString::Printf(TEXT("Actor=%s requested=%d actual=%d\n"), *GetNameSafe(Actor), static_cast<uint8>(Color),
+  static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor)));
+ for (auto* Mesh : TInlineComponentArray<UStaticMeshComponent*>(Actor)) {
+  Report += FString::Printf(TEXT("Mesh=%s depth=%d stencil=%d\n"), *GetNameSafe(Mesh), Mesh->bRenderCustomDepth, Mesh->CustomDepthStencilValue);
+ }
+ FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-Outline.txt")),
+  FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), FILEWRITE_Append);
 }
 
 void UHyperManageSelection::HideHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
@@ -381,6 +385,7 @@ void UHyperManageSelection::ClearWithoutHistory()
 	TargetActor = nullptr;
 	for (auto& Elem : SelectedMap) SelectActor(Elem.Key, false, false);
 	SelectedMap.Empty();
+	if (IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 }
 
 void UHyperManageSelection::SelectClear(bool ConfirmClicked)
