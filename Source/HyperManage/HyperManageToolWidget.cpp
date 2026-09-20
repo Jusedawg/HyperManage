@@ -29,6 +29,13 @@
 #include "Components/ExpandableArea.h"
 
 namespace {
+void StyleExpansionArrow(UExpandableArea* Area)
+{
+ auto Style = Area->GetStyle();
+ Style.CollapsedImage.TintColor = FSlateColor(FLinearColor::White);
+ Style.ExpandedImage.TintColor = FSlateColor(FLinearColor::White);
+ Area->SetStyle(Style);
+}
 void StyleNumericInput(USpinBox* Input)
 {
  auto Style = Input->GetWidgetStyle();
@@ -212,12 +219,12 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Content->RemoveFromParent();
 	Window->ClearChildren();
 	auto* Frame = WidgetTree->ConstructWidget<UBorder>();
-	Frame->SetBrushColor(FLinearColor(0.025f, 0.032f, 0.035f, 0.86f));
+	Frame->SetBrushColor(FLinearColor::Transparent);
 	Frame->SetPadding(FMargin(8));
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.38")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.39")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -316,6 +323,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddHistory(RedoButton, TEXT("Redo (0)"), EActionNameIdx::Redo, TEXT("Restore an undone edit [Ctrl+Y]. A new recorded edit clears redo history."));
 	Rows->AddChildToVerticalBox(HistoryRow);
  HistoryArea = WidgetTree->ConstructWidget<UExpandableArea>();
+ StyleExpansionArrow(HistoryArea);
  auto* HistoryHeading = WidgetTree->ConstructWidget<UTextBlock>();
  HistoryHeading->SetText(FText::FromString(TEXT("Recent history")));
  auto HistoryFont = HistoryHeading->GetFont(); HistoryFont.Size = 11; HistoryHeading->SetFont(HistoryFont);
@@ -365,6 +373,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	OffsetStatus->SetText(FText::FromString(TEXT("Select objects, then enter an offset. Z changes height.")));
 	OffsetStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(OffsetStatus);
  auto* PositionArea = WidgetTree->ConstructWidget<UExpandableArea>();
+ StyleExpansionArrow(PositionArea);
  auto* PositionHeading = WidgetTree->ConstructWidget<UTextBlock>();
  PositionHeading->SetText(FText::FromString(TEXT("WORLD POSITION (m)"))); PositionHeading->SetFont(OffsetFont);
  PositionHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
@@ -541,7 +550,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	// Wheel input belongs to the hovered transform buttons; use the scroll rail to navigate the tray.
 	Scroll->SetWheelScrollMultiplier(0.f); Scroll->SetConsumeMouseWheel(EConsumeMouseWheel::Never);
 	Scroll->AddChild(Frame);
-	// Hollow border layers let the world show through the translucent content background.
+	// One continuous background covers the scroll area and footer without stacking opacity.
 	auto* Rail = WidgetTree->ConstructWidget<UBorder>();
  Rail->SetBrush(FSlateRoundedBoxBrush(FLinearColor::Transparent, FVector4(12, 0, 0, 12), FLinearColor(0.055f, 0.058f, 0.05f), 5.f));
  Rail->SetPadding(FMargin(5, 5, 0, 5)); Rail->SetContent(Scroll);
@@ -551,7 +560,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  Nameplate->SetText(FText::FromString(TEXT("HYPERMANAGE  /  FIELD TOOLS"))); Nameplate->SetJustification(ETextJustify::Center);
  Face->AddChildToVerticalBox(Nameplate)->SetPadding(FMargin(4, 10, 4, 6));
  auto* Rim = WidgetTree->ConstructWidget<UBorder>();
- Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor::Transparent, FVector4(24, 0, 0, 24), FLinearColor(0.10f, 0.11f, 0.12f), 14.f));
+ Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.025f, 0.032f, 0.035f, 0.86f), FVector4(24, 0, 0, 24), FLinearColor(0.10f, 0.11f, 0.12f), 14.f));
  Rim->SetPadding(FMargin(14, 14, 0, 6)); Rim->SetContent(Face);
  auto* Edge = WidgetTree->ConstructWidget<UBorder>();
  Edge->SetBrush(FSlateRoundedBoxBrush(FLinearColor::Transparent, FVector4(27, 0, 0, 27), FLinearColor(0.045f, 0.05f, 0.055f), 3.f));
