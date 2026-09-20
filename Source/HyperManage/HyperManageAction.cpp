@@ -546,3 +546,30 @@ void UHyperManageAction::MatchAnchorOrigin(EAxis::Type Axis)
 	System->Undo->PushNamedTransforms(Actors, Axis == EAxis::X ? TEXT("Match anchor X") : Axis == EAxis::Y ? TEXT("Match anchor Y") : TEXT("Match anchor Z"));
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 }
+
+bool UHyperManageAction::GetWorldPositionReference(FVector& ReferenceCm)
+{
+ if (!System || !System->Selection || !System->Transform || System->Selection->HasPendingOperations()) return false;
+ TArray<AActor*> Actors;
+ System->Selection->SelectedActorsNoTarget(Actors);
+ Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
+ if (Actors.IsEmpty()) return false;
+ AActor* Anchor = Actors.Contains(System->Selection->AnchorActor) ? System->Selection->AnchorActor : nullptr;
+ ReferenceCm = System->Transform->CalculatePivotLoc(Actors, Anchor, nullptr);
+ return !ReferenceCm.ContainsNaN();
+}
+
+bool UHyperManageAction::ApplyWorldPosition(const FVector& Meters)
+{
+ FVector Reference;
+ if (!System || !System->Undo || !System->GetMMRCO() || !GetWorldPositionReference(Reference)) return false;
+ FHyperManageTransformData Data;
+ if (!UHyperManageTransform::MakeWorldPositionOffset(Meters, Reference, Data)) return false;
+ TArray<AActor*> Actors;
+ System->Selection->SelectedActorsNoTarget(Actors);
+ Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
+ if (Actors.IsEmpty()) return false;
+ System->Undo->PushNamedTransforms(Actors, TEXT("World position"));
+ System->GetMMRCO()->RequestTransform(Actors, Data);
+ return true;
+}

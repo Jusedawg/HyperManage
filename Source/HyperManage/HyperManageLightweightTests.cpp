@@ -216,6 +216,9 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Zero fields resets X"), Tools->OffsetX->GetValue(), 0.f);
 	TestEqual(TEXT("Zero fields resets Y"), Tools->OffsetY->GetValue(), 0.f);
 	TestEqual(TEXT("Zero fields resets Z"), Tools->OffsetZ->GetValue(), 0.f);
+	TestNotNull(TEXT("World position fields created"), Tools->PositionX.Get());
+	TestFalse(TEXT("Position apply requires a selection"), Tools->ApplyPositionButton->GetIsEnabled());
+	TestFalse(TEXT("Read position requires a selection"), Tools->ReadPositionButton->GetIsEnabled());
 	TestNotNull(TEXT("Yaw input created"), Tools->OffsetYaw.Get());
 	TestNotNull(TEXT("Pitch input created"), Tools->OffsetPitch.Get());
 	TestNotNull(TEXT("Roll input created"), Tools->OffsetRoll.Get());
@@ -266,7 +269,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap angle")));
 	TestTrue(TEXT("Snap Z is visible"), Labels.Contains(TEXT("Snap Z")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.35")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.36")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -665,4 +668,31 @@ bool FHyperManageHeightGridTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Older horizontal grid stays intact"), Legacy.AlignmentGridCm, 400.f);
 	return true;
 }
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageWorldPositionTest, "HyperManage.Transform.WorldPosition", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageWorldPositionTest::RunTest(const FString& Parameters)
+{
+ auto* Transform = NewObject<UHyperManageTransform>();
+ FHyperManageTransformData Data;
+ const FTransform First(FRotator(15, 45, -10), FVector(-25000, 30000, 12500), FVector(2, 1, 0.5));
+ const FTransform Second(FRotator(0, 90, 0), FVector(-24200, 30800, 12500));
+ const FVector Reference = (First.GetLocation() + Second.GetLocation()) / 2.0;
+ const FVector Destination(-200.125, 250.375, 130.5);
+ TestTrue(TEXT("Absolute coordinates produce a valid group offset"), UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, Data));
+ const auto MovedFirst = Transform->ComputeTransform(First, Data);
+ const auto MovedSecond = Transform->ComputeTransform(Second, Data);
+ TestTrue(TEXT("Selection center arrives at destination"), ((MovedFirst.GetLocation() + MovedSecond.GetLocation()) / 2.0).Equals(Destination * 100.0));
+ TestTrue(TEXT("Group spacing is unchanged"), (MovedSecond.GetLocation() - MovedFirst.GetLocation()).Equals(Second.GetLocation() - First.GetLocation()));
+ TestTrue(TEXT("Orientation and nonuniform scale are unchanged"), MovedFirst.GetRotation().Equals(First.GetRotation()) && MovedFirst.GetScale3D().Equals(First.GetScale3D()));
+ TestTrue(TEXT("Anchor origin can be the reference"), UHyperManageTransform::MakeWorldPositionOffset(Destination, First.GetLocation(), Data));
+ TestTrue(TEXT("Selected anchor arrives at destination"), Transform->ComputeTransform(First, Data).GetLocation().Equals(Destination * 100.0));
+ TestFalse(TEXT("Reapplying the same position makes no edit"), UHyperManageTransform::MakeWorldPositionOffset(Destination, Destination * 100.0, Data));
+ TestTrue(TEXT("World zero is a destination, not an ignored axis"), UHyperManageTransform::MakeWorldPositionOffset(FVector::ZeroVector, First.GetLocation(), Data));
+ TestTrue(TEXT("All coordinates reach world zero"), Transform->ComputeTransform(First, Data).GetLocation().IsNearlyZero());
+ TestFalse(TEXT("Long-distance move is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(1000.001, 0, 0), FVector::ZeroVector, Data));
+ TestFalse(TEXT("Out-of-range world coordinates are rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(10001, 0, 0), FVector(1000000, 0, 0), Data));
+ TestFalse(TEXT("Invalid reference is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector::ZeroVector, FVector(std::numeric_limits<double>::infinity(), 0, 0), Data));
+ TestFalse(TEXT("Invalid destination is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), FVector::ZeroVector, Data));
+ return true;
+}
+
 #endif

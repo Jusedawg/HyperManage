@@ -217,7 +217,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.35")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.36")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -362,6 +362,40 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	OffsetStatus = WidgetTree->ConstructWidget<UTextBlock>(); OffsetStatus->SetFont(OffsetFont);
 	OffsetStatus->SetText(FText::FromString(TEXT("Select objects, then enter an offset. Z changes height.")));
 	OffsetStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(OffsetStatus);
+ auto* PositionArea = WidgetTree->ConstructWidget<UExpandableArea>();
+ auto* PositionHeading = WidgetTree->ConstructWidget<UTextBlock>();
+ PositionHeading->SetText(FText::FromString(TEXT("WORLD POSITION (m)"))); PositionHeading->SetFont(OffsetFont);
+ PositionHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+ auto* PositionBody = WidgetTree->ConstructWidget<UVerticalBox>();
+ auto* PositionRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+ auto AddPosition = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
+  auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
+  PositionRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
+  Input = WidgetTree->ConstructWidget<USpinBox>(); StyleNumericInput(Input);
+  Input->SetMinValue(-10000.f); Input->SetMaxValue(10000.f); Input->SetValue(0.f);
+  Input->SetEnableSlider(false); Input->SetMinDesiredWidth(65.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+  Input->SetToolTipText(FText::FromString(TEXT("Absolute world coordinate in meters. Read position fills current values. Zero means world zero, not an unchanged axis. Apply moves at most 1000 m per axis.")));
+  PositionRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
+ };
+ AddPosition(TEXT("X"), PositionX); AddPosition(TEXT("Y"), PositionY); AddPosition(TEXT("Z"), PositionZ);
+ ApplyPositionButton = WidgetTree->ConstructWidget<UButton>();
+ auto* PositionApplyText = WidgetTree->ConstructWidget<UTextBlock>(); PositionApplyText->SetText(FText::FromString(TEXT("Apply position")));
+ AddFieldIcon(WidgetTree, ApplyPositionButton, PositionApplyText, 14); CompactApplyButton(ApplyPositionButton);
+ ApplyPositionButton->SetToolTipText(FText::FromString(TEXT("Move the selected anchor, or selection center, to these coordinates. All selected objects move together; the target stays in place. Undoable. Group/individual mode does not change this operation.")));
+ ApplyPositionButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldPosition); ApplyPositionButton->SetIsEnabled(false);
+ PositionRow->AddChildToHorizontalBox(ApplyPositionButton)->SetPadding(FMargin(2));
+ ReadPositionButton = WidgetTree->ConstructWidget<UButton>();
+ auto* PositionReadText = WidgetTree->ConstructWidget<UTextBlock>(); PositionReadText->SetText(FText::FromString(TEXT("Read position")));
+ AddFieldIcon(WidgetTree, ReadPositionButton, PositionReadText, 11); CompactApplyButton(ReadPositionButton);
+ ReadPositionButton->SetToolTipText(FText::FromString(TEXT("Fill X/Y/Z from the selected anchor or selection center without moving anything. For one object, use its origin.")));
+ ReadPositionButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReadWorldPosition); ReadPositionButton->SetIsEnabled(false);
+ PositionRow->AddChildToHorizontalBox(ReadPositionButton)->SetPadding(FMargin(2));
+ PositionBody->AddChildToVerticalBox(PositionRow);
+ PositionStatus = WidgetTree->ConstructWidget<UTextBlock>(); PositionStatus->SetFont(OffsetFont); PositionStatus->SetAutoWrapText(true);
+ PositionStatus->SetText(FText::FromString(TEXT("Select objects, then read their current position."))); PositionBody->AddChildToVerticalBox(PositionStatus);
+ PositionArea->SetContentForSlot(TEXT("Header"), PositionHeading); PositionArea->SetContentForSlot(TEXT("Body"), PositionBody);
+ PositionArea->SetBorderBrush(FSlateColorBrush(FLinearColor::Transparent)); PositionArea->SetIsExpanded(false);
+ PositionArea->SetHeaderPadding(FMargin(0, 4)); PositionArea->SetAreaPadding(FMargin(0, 2)); Rows->AddChildToVerticalBox(PositionArea);
 	auto* RotationHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	RotationHeading->SetText(FText::FromString(TEXT("WORLD ROTATION OFFSET (deg)")));
 	RotationHeading->SetFont(OffsetFont); RotationHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
@@ -576,6 +610,18 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 			Count <= 0 ? TEXT("Select objects to move. The target stays in place.") :
 			FString::Printf(TEXT("%d objects | world axes | Z changes height"), Count)));
 	}
+ if (ApplyPositionButton && ReadPositionButton && PositionX && PositionY && PositionZ && System->Action) {
+  FVector Reference;
+  const bool Available = System->Action->GetWorldPositionReference(Reference);
+  FHyperManageTransformData PositionData;
+  const FVector Destination(PositionX->GetValue(), PositionY->GetValue(), PositionZ->GetValue());
+  const bool CanApply = Available && UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, PositionData);
+  ReadPositionButton->SetIsEnabled(Available); ApplyPositionButton->SetIsEnabled(CanApply);
+  const bool HasAnchor = System->Selection && System->Selection->AnchorActor != System->Selection->TargetActor && System->Selection->Contains(System->Selection->AnchorActor);
+  if (PositionStatus) PositionStatus->SetText(FText::FromString(!Available ? TEXT("Select objects; wait for pending edits to finish.") :
+   (Destination - Reference / 100.0).GetAbsMax() > 1000.0 ? TEXT("Destination too far: maximum 1000 m per axis per apply.") :
+   HasAnchor ? TEXT("Reference: selected anchor | preserve group spacing") : TEXT("Reference: selection center | preserve group spacing")));
+ }
 	if (ApplyRotationButton && OffsetYaw && OffsetPitch && OffsetRoll && System->Selection) {
 		const bool HasRotation = UHyperManageTransform::IsValidRotationOffset(FRotator(OffsetPitch->GetValue(), OffsetYaw->GetValue(), OffsetRoll->GetValue()));
 		const int32 Count = System->Selection->SelectCount();
@@ -795,4 +841,21 @@ void UHyperManageToolWidget::CommitHeightGridValue(float Value, ETextCommit::Typ
 void UHyperManageToolWidget::ChangeHeightGridPreset(FString Value, ESelectInfo::Type SelectionType)
 {
 	if (SelectionType != ESelectInfo::Direct) CommitHeightGridValue(FCString::Atof(*Value), ETextCommit::OnEnter);
+}
+
+void UHyperManageToolWidget::ReadWorldPosition()
+{
+ if (!PositionX || !PositionY || !PositionZ) return;
+ FVector Reference;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Action && System->Action->GetWorldPositionReference(Reference)) {
+  PositionX->SetValue(Reference.X / 100.0); PositionY->SetValue(Reference.Y / 100.0); PositionZ->SetValue(Reference.Z / 100.0);
+ }
+}
+
+void UHyperManageToolWidget::ApplyWorldPosition()
+{
+ if (!PositionX || !PositionY || !PositionZ) return;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
+  System->Action->ApplyWorldPosition(FVector(PositionX->GetValue(), PositionY->GetValue(), PositionZ->GetValue()));
+ }
 }

@@ -63,6 +63,14 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> OffsetStatus;
 	UFUNCTION() void ApplyWorldOffset();
 	UFUNCTION() void ClearWorldOffset();
+ UPROPERTY(Transient) TObjectPtr<USpinBox> PositionX;
+ UPROPERTY(Transient) TObjectPtr<USpinBox> PositionY;
+ UPROPERTY(Transient) TObjectPtr<USpinBox> PositionZ;
+ UPROPERTY(Transient) TObjectPtr<UButton> ApplyPositionButton;
+ UPROPERTY(Transient) TObjectPtr<UButton> ReadPositionButton;
+ UPROPERTY(Transient) TObjectPtr<class UTextBlock> PositionStatus;
+ UFUNCTION() void ApplyWorldPosition();
+ UFUNCTION() void ReadWorldPosition();
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetYaw;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetPitch;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetRoll;

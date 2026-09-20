@@ -440,3 +440,10 @@ bool UHyperManageTransform::MakeWorldOriginAlignment(const FVector& Reference, E
 	Data.ViewRelative = false;
 	return true;
 }
+
+// Reuse the validated translation transport. One apply may move at most 1 km along each world axis.
+bool UHyperManageTransform::MakeWorldPositionOffset(const FVector& Meters, const FVector& ReferenceCm, FHyperManageTransformData& Data)
+{
+ if (Meters.ContainsNaN() || Meters.GetAbsMax() > 10000.0 || ReferenceCm.ContainsNaN()) return false;
+ return MakeWorldOffset(Meters - ReferenceCm / 100.0, Data);
+}

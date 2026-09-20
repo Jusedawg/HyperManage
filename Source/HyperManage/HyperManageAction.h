@@ -17,6 +17,8 @@ public:
 	bool ApplyWorldRotationOffset(const FRotator& Degrees);
 	bool ApplyScalePercent(const FVector& Percent);
 	bool ApplyWorldOffset(const FVector& Meters);
+	bool GetWorldPositionReference(FVector& ReferenceCm);
+	bool ApplyWorldPosition(const FVector& Meters);
 	void MatchAnchorOrigin(EAxis::Type Axis);
 	void AlignToWorld(EActionNameIdx Action);
 

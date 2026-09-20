@@ -66,6 +66,12 @@ Under **World offset (m)**, enter X, Y and Z distances, then click **Apply**. Fo
 
 Offsets always use world axes and move the selected objects together, preserving spacing, rotation and scale. The target stays in place. This requires a selection; it does not move an object merely because you are looking at it. Values stay in the fields while the panel is open so you can repeat the move. **Zero fields** clears the values without changing any objects. Undo and redo treat each Apply as one edit.
 
+## Exact world position
+
+Expand **World position (m)** and use **Read position** to fill X/Y/Z from the current selection. Edit the destination coordinates, then click the Apply icon. Unlike offsets, **zero means world zero**. For example, read the position and change only Z to **150** to place the reference at 150 meters high.
+
+The reference is the selected anchor, or the center of the selected object origins if no anchor is selected. For one object, it is that object's origin. The entire selection moves together, preserving spacing, rotation and scale, regardless of Together/Individual mode. The target stays in place. Coordinates accept -10,000 to 10,000 meters, with a maximum move of 1,000 meters per axis per Apply. Typing and Read position do not change objects. Each Apply is one undoable **World position** edit; applying the same destination again does nothing.
+
 ## Exact rotation offsets
 
 Under **World rotation offset (deg)**, enter yaw, pitch and roll changes, then click **Apply**. Each field accepts -180 to 180 degrees. For example, yaw **90** turns the selection a quarter turn around world Z. These are changes to the current rotation, not absolute orientation values. Combined values form one world-space rotation (roll, then pitch, then yaw).
