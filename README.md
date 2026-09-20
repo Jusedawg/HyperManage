@@ -90,6 +90,12 @@ Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **
 
 A **Uniform preset** fills all three fields. **100%** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
 
+## Remember selection groups
+
+Choose **Slot 1–10** above the selection controls, then click **Remember** to store the current selection, anchor and target. Remember replaces only the chosen slot. Switch slots and click **Recall** to return to a group; switching the dropdown alone leaves the current selection unchanged.
+
+The slot status shows the number of available editable objects. Unused slots cannot be recalled, and removed objects are skipped. Recall is one undoable selection change. Remembering an empty selection intentionally stores an empty group. Slots follow the objects as you edit them, but last only for the current session—they are not yet saved with your game.
+
 ## Undo and redo
 
 Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint, selection clicks, anchor/target changes, box selection, Clear selection and Recall, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections are not recorded. Repeating a selection click that changes nothing does not add a history step. Clearing or recalling a selection is one step, including its anchor and target.

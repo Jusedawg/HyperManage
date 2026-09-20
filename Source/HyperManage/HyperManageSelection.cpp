@@ -411,20 +411,49 @@ void UHyperManageSelection::RestoreHistory(const FUndoInfo& Info)
 	if (IsValidActor(Info.SelectItems[1].Actor)) SetTarget(Info.SelectItems[1].Actor);
 }
 
+bool UHyperManageSelection::SetSelectionSlot(int32 Index)
+{
+ if (Index < 0 || Index >= 10) return false;
+ ActiveSelectionSlot = Index;
+ return true;
+}
+
+bool UHyperManageSelection::HasSavedSelection() const
+{
+ return SelectionSlots.IsValidIndex(ActiveSelectionSlot) && SelectionSlots[ActiveSelectionSlot].Occupied;
+}
+
+int32 UHyperManageSelection::GetSavedSelectionCount()
+{
+ if (!HasSavedSelection()) return 0;
+ const auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ int32 Count = 0;
+ for (const auto& Actor : Slot.Actors) if (Actor != Slot.Target && IsValidActor(Actor)) ++Count;
+ return Count;
+}
+
 void UHyperManageSelection::SaveSelection()
 {
-	SelectedActorsNoTarget(SavedSelection);
-	SavedAnchor = AnchorActor;
-	SavedTarget = TargetActor;
+ if (HasPendingOperations()) return;
+ if (SelectionSlots.Num() != 10) SelectionSlots.SetNum(10);
+ auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ TArray<AActor*> Actors;
+ SelectedActors(Actors);
+ Slot.Actors.Empty();
+ for (auto* Actor : Actors) if (IsValidActor(Actor)) Slot.Actors.Add(Actor);
+ Slot.Anchor = AnchorActor;
+ Slot.Target = TargetActor;
+ Slot.Occupied = true;
 }
 
 void UHyperManageSelection::LoadSelection()
 {
-	if (HasPendingOperations()) return;
+	if (HasPendingOperations() || !HasSavedSelection()) return;
+ const auto& Slot = SelectionSlots[ActiveSelectionSlot];
 	TArray<AActor*> Desired;
-	for (auto* Actor : SavedSelection) if (IsValidActor(Actor)) Desired.AddUnique(Actor);
-	AActor* Anchor = IsValidActor(SavedAnchor) ? SavedAnchor : nullptr;
-	AActor* Target = IsValidActor(SavedTarget) ? SavedTarget : nullptr;
+	for (const auto& Actor : Slot.Actors) if (IsValidActor(Actor)) Desired.AddUnique(Actor);
+	AActor* Anchor = IsValidActor(Slot.Anchor) ? Slot.Anchor.Get() : nullptr;
+	AActor* Target = IsValidActor(Slot.Target) ? Slot.Target.Get() : nullptr;
 	if (Anchor) Desired.AddUnique(Anchor);
 	if (Target) Desired.AddUnique(Target);
 	TArray<AActor*> Affected;

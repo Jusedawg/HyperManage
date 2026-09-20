@@ -224,7 +224,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.40")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.41")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -529,7 +529,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
 	Body->SetWidthOverride(360);
-	Body->SetHeightOverride(340);
+	Body->SetHeightOverride(375);
 	// Replace the overflowing legacy icon strips, retaining the existing buttons and their action bindings.
 	if (auto* Canvas = Cast<UCanvasPanel>(Content)) {
 		Canvas->ClearChildren();
@@ -573,6 +573,21 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 			}
 			Groups->AddChildToVerticalBox(Wrap);
 		};
+  auto* SlotRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+  SelectionSlotPicker = WidgetTree->ConstructWidget<UComboBoxString>();
+  for (int32 Index = 1; Index <= 10; ++Index) SelectionSlotPicker->AddOption(FString::Printf(TEXT("Slot %d"), Index));
+  StylePreset(SelectionSlotPicker);
+  auto* CurrentSystem = UHyperManageSystem::Get();
+  const int32 ActiveSlot = CurrentSystem && CurrentSystem->Selection ? CurrentSystem->Selection->GetSelectionSlot() : 0;
+  SelectionSlotPicker->SetSelectedIndex(ActiveSlot);
+  SelectionSlotPicker->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeSelectionSlot);
+  SelectionSlotPicker->SetToolTipText(FText::FromString(TEXT("Choose one of ten session-only selection slots. Changing slots does not change your current selection; use Remember or Recall.")));
+  SlotRow->AddChildToHorizontalBox(SelectionSlotPicker)->SetPadding(FMargin(2));
+  SelectionSlotStatus = WidgetTree->ConstructWidget<UTextBlock>();
+  auto SlotFont = SelectionSlotStatus->GetFont(); SlotFont.Size = 11; SelectionSlotStatus->SetFont(SlotFont);
+  SelectionSlotStatus->SetText(FText::FromString(TEXT("Empty | this session")));
+  SlotRow->AddChildToHorizontalBox(SelectionSlotStatus)->SetVerticalAlignment(VAlign_Center);
+  Groups->AddChildToVerticalBox(SlotRow);
 		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear")}, {btnSelectBoxSides, TEXT("Edges")}, {btnSelectBoxPivot, TEXT("Centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
 		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("To target")}, {btnSameRotation, TEXT("Rotation")}, {btnSameScale, TEXT("Size")}, {btnSamePaint, TEXT("Paint")}});
 		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear history")}});
@@ -624,6 +639,20 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	if (DockedTray) DockedTray->SetRenderTranslation(FVector2D(430.f * FMath::Square(1.f - TrayOpenTime / 0.2f), 0));
 	auto* System = UHyperManageSystem::Get();
 	if (!System || !System->Config) return;
+ if (System->Selection && SelectionSlotStatus) {
+  const bool Saved = System->Selection->HasSavedSelection();
+  const bool Pending = System->Selection->HasPendingOperations();
+  const int32 SlotNumber = System->Selection->GetSelectionSlot() + 1;
+  SelectionSlotStatus->SetText(FText::FromString(Saved ? FString::Printf(TEXT("%d objects | this session"), System->Selection->GetSavedSelectionCount()) : TEXT("Empty | this session")));
+  if (btnSaveSelection) {
+   btnSaveSelection->SetIsEnabled(!Pending);
+   btnSaveSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remember current selection, anchor and target in Slot %d. Replaces this slot only; not saved with the game."), SlotNumber)));
+  }
+  if (btnLoadSelection) {
+   btnLoadSelection->SetIsEnabled(Saved && !Pending);
+   btnLoadSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Recall Slot %d, skipping unavailable objects. Undo restores your previous selection."), SlotNumber)));
+  }
+ }
 	if (System->Undo) {
 		const bool Pending = System->Selection && System->Selection->HasPendingOperations();
   if (HistoryDetails && HistoryRevision != System->Undo->GetRevision()) {
@@ -930,5 +959,13 @@ void UHyperManageToolWidget::ApplyWorldOrientation()
  if (!OrientationYaw || !OrientationPitch || !OrientationRoll) return;
  if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
   System->Action->ApplyWorldOrientation(FRotator(OrientationPitch->GetValue(), OrientationYaw->GetValue(), OrientationRoll->GetValue()));
+ }
+}
+
+void UHyperManageToolWidget::ChangeSelectionSlot(FString Value, ESelectInfo::Type SelectionType)
+{
+ if (!SelectionSlotPicker) return;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection) {
+  System->Selection->SetSelectionSlot(SelectionSlotPicker->FindOptionIndex(Value));
  }
 }

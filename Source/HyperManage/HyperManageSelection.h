@@ -17,6 +17,16 @@ struct HYPERMANAGE_API FSelectedActorInfo
 	uint8 SelectionOutlineColor = 0;
 };
 
+USTRUCT()
+struct FHyperManageSelectionSlot
+{
+ GENERATED_BODY()
+ UPROPERTY(Transient) TArray<TObjectPtr<AActor>> Actors;
+ UPROPERTY(Transient) TObjectPtr<AActor> Anchor;
+ UPROPERTY(Transient) TObjectPtr<AActor> Target;
+ bool Occupied = false;
+};
+
 UCLASS(BlueprintType)
 class HYPERMANAGE_API UHyperManageSelection : public UHyperManageComponent
 {
@@ -31,12 +41,8 @@ private:
 	TObjectPtr<class UPostProcessComponent> SelectionPostProcess;
 
 
-	UPROPERTY(Transient)
-	TArray<AActor*> SavedSelection;
-	UPROPERTY(Transient)
-	AActor* SavedAnchor;
-	UPROPERTY(Transient)
-	AActor* SavedTarget;
+	UPROPERTY(Transient) TArray<FHyperManageSelectionSlot> SelectionSlots;
+	int32 ActiveSelectionSlot = 0;
 
 	bool SetMarker(AActor* Actor, AActor** Marker1, AActor** Marker2);
 
@@ -115,6 +121,10 @@ public:
 	void ClearWithoutHistory();
 	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
+	bool SetSelectionSlot(int32 Index);
+	int32 GetSelectionSlot() const { return ActiveSelectionSlot; }
+	bool HasSavedSelection() const;
+	int32 GetSavedSelectionCount();
 
 	void LoadSelection();
 

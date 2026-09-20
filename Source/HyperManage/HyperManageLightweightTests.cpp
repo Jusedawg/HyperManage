@@ -249,6 +249,8 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	for (const auto& Button : Tools->AnchorAlignmentButtons) TestFalse(TEXT("Anchor alignment requires a reference and selection"), Button->GetIsEnabled());
 	TestNotNull(TEXT("Recent history is present"), Tools->HistoryArea.Get());
 	TestFalse(TEXT("History starts collapsed to preserve tray space"), Tools->HistoryArea->GetIsExpanded());
+	TestNotNull(TEXT("Selection slot picker created"), Tools->SelectionSlotPicker.Get());
+	TestEqual(TEXT("Ten slots are available"), Tools->SelectionSlotPicker->GetOptionCount(), 10);
 	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
@@ -273,7 +275,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.40")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.41")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -617,6 +619,29 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 	History->ClearUndoStack();
 	Selection->SelectClear();
 	TestEqual(TEXT("Clearing empty selection adds no history"), History->GetUndoCount(), 0);
+ TestTrue(TEXT("Default slot remains occupied after clearing current selection"), Selection->HasSavedSelection());
+ TestEqual(TEXT("Saved count excludes destroyed target"), Selection->GetSavedSelectionCount(), 1);
+ TestTrue(TEXT("Select tenth slot"), Selection->SetSelectionSlot(9));
+ TestFalse(TEXT("New slot is empty"), Selection->HasSavedSelection());
+ Selection->SelectActor(C);
+ Selection->LoadSelection();
+ TestTrue(TEXT("Recalling unused slot leaves current selection alone"), Selection->Contains(C));
+ TestEqual(TEXT("Unused recall creates no history"), History->GetUndoCount(), 0);
+ Selection->SetAnchor(C); Selection->SaveSelection();
+ TestEqual(TEXT("Tenth slot holds its own selection"), Selection->GetSavedSelectionCount(), 1);
+ Selection->SetSelectionSlot(0); Selection->LoadSelection();
+ TestTrue(TEXT("First slot survives saving another slot"), Selection->Contains(A) && !Selection->Contains(C) && Selection->AnchorActor == A);
+ Selection->SetSelectionSlot(9);
+ TestTrue(TEXT("Changing slot alone leaves live selection unchanged"), Selection->Contains(A) && !Selection->Contains(C));
+ Selection->LoadSelection();
+ TestTrue(TEXT("Tenth slot restores its anchor"), Selection->Contains(C) && !Selection->Contains(A) && Selection->AnchorActor == C);
+ TestFalse(TEXT("Reject slot below range"), Selection->SetSelectionSlot(-1));
+ TestFalse(TEXT("Reject slot above range"), Selection->SetSelectionSlot(10));
+ TestEqual(TEXT("Rejected slot preserves active slot"), Selection->GetSelectionSlot(), 9);
+ Selection->ClearWithoutHistory(); Selection->SaveSelection();
+ TestTrue(TEXT("An intentionally saved empty selection is occupied"), Selection->HasSavedSelection());
+ Selection->SelectActor(A); Selection->LoadSelection();
+ TestEqual(TEXT("Saved empty selection can be recalled"), Selection->SelectCount(), 0);
 	World->DestroyWorld(false);
 	return true;
 }

@@ -51,6 +51,9 @@ protected:
 	void RepairQuickActions();
 	UPROPERTY(Transient) TObjectPtr<class UVerticalBox> QuickActionHost;
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
+	UPROPERTY(Transient) TObjectPtr<UComboBoxString> SelectionSlotPicker;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> SelectionSlotStatus;
+	UFUNCTION() void ChangeSelectionSlot(FString Value, ESelectInfo::Type SelectionType);
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
 	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;
