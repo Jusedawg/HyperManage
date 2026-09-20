@@ -10,11 +10,7 @@ struct HYPERMANAGE_API FSelectedActorInfo
 {
 	GENERATED_BODY()
 	UPROPERTY(Transient)
-	TWeakObjectPtr<class UFGOutlineComponent> Outline;
-	UPROPERTY(Transient)
-	uint8 PreviousOutlineColor = 0;
-	UPROPERTY(Transient)
-	uint8 SelectionOutlineColor = 0;
+ TArray<TObjectPtr<class UStaticMeshComponent>> HighlightMeshes;
 };
 
 UCLASS(BlueprintType)

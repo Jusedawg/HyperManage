@@ -93,10 +93,12 @@ UTextBlock* FieldButtonLabel(UButton* Button)
 
 void UHyperManageToolWidget::CompactApplyButton(UButton* Button)
 {
- auto* Text = FieldButtonLabel(Button);
- if (!Text) return;
- Text->RemoveFromParent();
- auto* Box = WidgetTree->ConstructWidget<USizeBox>(); Box->SetWidthOverride(76); Box->SetHeightOverride(20); Box->SetContent(Text);
+ auto* Tile = Cast<USizeBox>(Button->GetContent());
+ auto* Stack = Tile ? Cast<UVerticalBox>(Tile->GetContent()) : nullptr;
+ auto* Glyph = Stack && Stack->GetChildrenCount() ? Cast<UHyperManageActionGlyph>(Stack->GetChildAt(0)) : nullptr;
+ if (!Glyph) return;
+ Glyph->RemoveFromParent();
+ auto* Box = WidgetTree->ConstructWidget<USizeBox>(); Box->SetWidthOverride(26); Box->SetHeightOverride(24); Box->SetContent(Glyph);
  Button->SetContent(Box);
 }
 
@@ -205,7 +207,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.27")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.28")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -313,27 +315,27 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		Input = WidgetTree->ConstructWidget<USpinBox>();
 		StyleNumericInput(Input);
 		Input->SetMinValue(-1000.f); Input->SetMaxValue(1000.f); Input->SetValue(0.f);
-		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(76.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(54.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("World-axis offset in meters, from -1000 to 1000. Zero leaves this axis unchanged. Apply moves the selection; typing alone does not.")));
-		OffsetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
+		OffsetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
 	};
 	AddOffset(TEXT("X"), OffsetX); AddOffset(TEXT("Y"), OffsetY); AddOffset(TEXT("Z"), OffsetZ);
 	Rows->AddChildToVerticalBox(OffsetRow);
-	auto* OffsetActions = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto* OffsetActions = OffsetRow;
 	ApplyOffsetButton = WidgetTree->ConstructWidget<UButton>();
 	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply")));
 	AddFieldIcon(WidgetTree, ApplyOffsetButton, ApplyText, 14); CompactApplyButton(ApplyOffsetButton);
 	ApplyOffsetButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldOffset);
 	ApplyOffsetButton->SetToolTipText(FText::FromString(TEXT("Move selected objects together along world axes. Target is excluded. Rotation, scale and spacing are preserved. Ctrl+Z undoes the whole move.")));
 	ApplyOffsetButton->SetIsEnabled(false);
-	OffsetActions->AddChildToHorizontalBox(ApplyOffsetButton)->SetPadding(FMargin(4));
+	OffsetActions->AddChildToHorizontalBox(ApplyOffsetButton)->SetPadding(FMargin(2));
 	auto* ClearOffset = WidgetTree->ConstructWidget<UButton>();
 	auto* ClearText = WidgetTree->ConstructWidget<UTextBlock>(); ClearText->SetText(FText::FromString(TEXT("Zero fields")));
 	AddFieldIcon(WidgetTree, ClearOffset, ClearText, 23); CompactApplyButton(ClearOffset);
 	ClearOffset->SetToolTipText(FText::FromString(TEXT("Reset the three input values without moving any objects.")));
 	ClearOffset->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearWorldOffset);
-	OffsetActions->AddChildToHorizontalBox(ClearOffset)->SetPadding(FMargin(4));
-	Rows->AddChildToVerticalBox(OffsetActions);
+	OffsetActions->AddChildToHorizontalBox(ClearOffset)->SetPadding(FMargin(2));
+
 	OffsetStatus = WidgetTree->ConstructWidget<UTextBlock>(); OffsetStatus->SetFont(OffsetFont);
 	OffsetStatus->SetText(FText::FromString(TEXT("Select objects, then enter an offset. Z changes height.")));
 	OffsetStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(OffsetStatus);
@@ -343,36 +345,36 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(RotationHeading);
 	auto* RotationFields = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddRotation = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
-		auto* Row = WidgetTree->ConstructWidget<UVerticalBox>();
+		auto* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
-		Row->AddChildToVerticalBox(Label);
+		Row->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
 		Input = WidgetTree->ConstructWidget<USpinBox>();
 		StyleNumericInput(Input);
 		Input->SetMinValue(-180.f); Input->SetMaxValue(180.f); Input->SetValue(0.f);
-		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(100.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(54.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("Rotation offset in degrees, from -180 to 180. Zero leaves this component unchanged. Apply combines roll, pitch and yaw into one world-space rotation.")));
-		Row->AddChildToVerticalBox(Input)->SetPadding(FMargin(4));
+		Row->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
 		RotationFields->AddChildToHorizontalBox(Row);
 	};
-	AddRotation(TEXT("Yaw / Z"), OffsetYaw);
-	AddRotation(TEXT("Pitch / Y"), OffsetPitch);
-	AddRotation(TEXT("Roll / X"), OffsetRoll);
+	AddRotation(TEXT("Y"), OffsetYaw);
+	AddRotation(TEXT("P"), OffsetPitch);
+	AddRotation(TEXT("R"), OffsetRoll);
 	Rows->AddChildToVerticalBox(RotationFields);
-	auto* RotationActions = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto* RotationActions = RotationFields;
 	ApplyRotationButton = WidgetTree->ConstructWidget<UButton>();
 	auto* RotateText = WidgetTree->ConstructWidget<UTextBlock>(); RotateText->SetText(FText::FromString(TEXT("Apply")));
 	AddFieldIcon(WidgetTree, ApplyRotationButton, RotateText, 3); CompactApplyButton(ApplyRotationButton);
 	ApplyRotationButton->SetIsEnabled(false);
 	ApplyRotationButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldRotationOffset);
 	ApplyRotationButton->SetToolTipText(FText::FromString(TEXT("Rotate the selection using world axes. Group mode uses the selected anchor, or the center of selected origins. Individual mode rotates in place. Target is excluded; scale is preserved. Ctrl+Z undoes the edit.")));
-	RotationActions->AddChildToHorizontalBox(ApplyRotationButton)->SetPadding(FMargin(4));
+	RotationActions->AddChildToHorizontalBox(ApplyRotationButton)->SetPadding(FMargin(2));
 	auto* ClearRotation = WidgetTree->ConstructWidget<UButton>();
 	auto* ResetText = WidgetTree->ConstructWidget<UTextBlock>(); ResetText->SetText(FText::FromString(TEXT("Zero fields")));
 	AddFieldIcon(WidgetTree, ClearRotation, ResetText, 23); CompactApplyButton(ClearRotation);
 	ClearRotation->SetToolTipText(FText::FromString(TEXT("Clear the rotation inputs without changing any objects.")));
 	ClearRotation->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearRotationOffset);
-	RotationActions->AddChildToHorizontalBox(ClearRotation)->SetPadding(FMargin(4));
-	Rows->AddChildToVerticalBox(RotationActions);
+	RotationActions->AddChildToHorizontalBox(ClearRotation)->SetPadding(FMargin(2));
+
 	RotationStatus = WidgetTree->ConstructWidget<UTextBlock>(); RotationStatus->SetFont(OffsetFont); RotationStatus->SetAutoWrapText(true);
 	RotationStatus->SetText(FText::FromString(TEXT("Select objects, then enter rotation offsets.")));
 	Rows->AddChildToVerticalBox(RotationStatus);
