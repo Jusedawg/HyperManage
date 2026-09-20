@@ -30,9 +30,9 @@ namespace {
 void StyleNumericInput(USpinBox* Input)
 {
  auto Style = Input->GetWidgetStyle();
- Style.BackgroundBrush = FSlateColorBrush(FLinearColor(0.025f, 0.03f, 0.035f));
- Style.HoveredBackgroundBrush = FSlateColorBrush(FLinearColor(0.055f, 0.065f, 0.075f));
- Style.ActiveBackgroundBrush = FSlateColorBrush(FLinearColor(0.04f, 0.055f, 0.07f));
+ Style.BackgroundBrush = FSlateColorBrush(FLinearColor(0.07f, 0.08f, 0.09f));
+ Style.HoveredBackgroundBrush = FSlateColorBrush(FLinearColor(0.10f, 0.115f, 0.13f));
+ Style.ActiveBackgroundBrush = FSlateColorBrush(FLinearColor(0.085f, 0.10f, 0.12f));
  Style.InactiveFillBrush = FSlateColorBrush(FLinearColor::Transparent);
  Style.HoveredFillBrush = FSlateColorBrush(FLinearColor::Transparent);
  Style.ActiveFillBrush = FSlateColorBrush(FLinearColor::Transparent);
@@ -41,6 +41,24 @@ void StyleNumericInput(USpinBox* Input)
  Input->SetWidgetStyle(Style); Input->SetForegroundColor(Style.ForegroundColor);
 }
 
+void StylePreset(UComboBoxString* Combo)
+{
+ Combo->ForegroundColor = FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f));
+ Combo->Font.Size = 11;
+ auto Style = Combo->GetWidgetStyle();
+ Style.ComboButtonStyle.ButtonStyle.Normal = FSlateColorBrush(FLinearColor(0.07f, 0.08f, 0.09f));
+ Style.ComboButtonStyle.ButtonStyle.Hovered = FSlateColorBrush(FLinearColor(0.12f, 0.14f, 0.16f));
+ Style.ComboButtonStyle.ButtonStyle.Pressed = Style.ComboButtonStyle.ButtonStyle.Hovered;
+ Style.ComboButtonStyle.DownArrowImage.TintColor = Combo->ForegroundColor;
+ Combo->SetWidgetStyle(Style);
+ auto ItemStyle = Combo->GetItemStyle();
+ ItemStyle.TextColor = Combo->ForegroundColor; ItemStyle.SelectedTextColor = FSlateColor(FLinearColor::White);
+ ItemStyle.EvenRowBackgroundBrush = FSlateColorBrush(FLinearColor(0.045f, 0.055f, 0.065f));
+ ItemStyle.OddRowBackgroundBrush = ItemStyle.EvenRowBackgroundBrush;
+ ItemStyle.EvenRowBackgroundHoveredBrush = FSlateColorBrush(FLinearColor(0.12f, 0.16f, 0.19f));
+ ItemStyle.OddRowBackgroundHoveredBrush = ItemStyle.EvenRowBackgroundHoveredBrush;
+ Combo->SetItemStyle(ItemStyle);
+}
 void StyleFieldButton(UButton* Button)
 {
  auto Style = Button->GetStyle();
@@ -71,6 +89,15 @@ UTextBlock* FieldButtonLabel(UButton* Button)
  auto* Stack = Tile ? Cast<UVerticalBox>(Tile->GetContent()) : nullptr;
  return Stack && Stack->GetChildrenCount() > 1 ? Cast<UTextBlock>(Stack->GetChildAt(1)) : nullptr;
 }
+}
+
+void UHyperManageToolWidget::CompactApplyButton(UButton* Button)
+{
+ auto* Text = FieldButtonLabel(Button);
+ if (!Text) return;
+ Text->RemoveFromParent();
+ auto* Box = WidgetTree->ConstructWidget<USizeBox>(); Box->SetWidthOverride(76); Box->SetHeightOverride(20); Box->SetContent(Text);
+ Button->SetContent(Box);
 }
 
 void UButtonProxy::ClickEvent()
@@ -178,7 +205,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.26")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.27")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -197,20 +224,25 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	PrecisionProfileLabel->SetText(FText::FromString(TEXT("Exact steps | type a value or choose a preset")));
 	auto ProfileFont = PrecisionProfileLabel->GetFont(); ProfileFont.Size = 13; PrecisionProfileLabel->SetFont(ProfileFont);
 	Presets->AddChildToVerticalBox(PrecisionProfileLabel);
+	auto* PresetGrid = WidgetTree->ConstructWidget<UUniformGridPanel>();
+	PresetGrid->SetSlotPadding(FMargin(2)); Presets->AddChildToVerticalBox(PresetGrid);
+	int32 PresetIndex = 0;
 	auto AddPreset = [&](const TCHAR* Label, const TArray<FString>& Options, TObjectPtr<USpinBox>& Input, float Minimum, float Maximum) {
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
 		Text->SetText(FText::FromString(Label));
 		auto* PresetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
-		Presets->AddChildToVerticalBox(PresetRow);
-		PresetRow->AddChildToHorizontalBox(Text)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+		auto* Cell = WidgetTree->ConstructWidget<UVerticalBox>();
+ Cell->AddChildToVerticalBox(Text); Cell->AddChildToVerticalBox(PresetRow);
+ PresetGrid->AddChildToUniformGrid(Cell, PresetIndex / 2, PresetIndex % 2); ++PresetIndex;
+
 		Input = WidgetTree->ConstructWidget<USpinBox>();
 		StyleNumericInput(Input);
 		Input->SetMinValue(Minimum); Input->SetMaxValue(Maximum); Input->SetValue(Minimum);
-		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(92.f);
+		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(78.f);
 		Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
 		Input->SetToolTipText(FText::FromString(TEXT("Type an exact value. Enter or leaving the field saves it. Movement and rotation use the active increment profile; the XY and Z grids are shared.")));
 		PresetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
-		auto* Combo = WidgetTree->ConstructWidget<UComboBoxString>();
+		auto* Combo = WidgetTree->ConstructWidget<UComboBoxString>(); StylePreset(Combo);
 		for (const FString& Option : Options) Combo->AddOption(Option);
 		PresetRow->AddChildToHorizontalBox(Combo)->SetPadding(FMargin(4));
 		return Combo;
@@ -290,14 +322,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* OffsetActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyOffsetButton = WidgetTree->ConstructWidget<UButton>();
 	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply")));
-	AddFieldIcon(WidgetTree, ApplyOffsetButton, ApplyText, 14);
+	AddFieldIcon(WidgetTree, ApplyOffsetButton, ApplyText, 14); CompactApplyButton(ApplyOffsetButton);
 	ApplyOffsetButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldOffset);
 	ApplyOffsetButton->SetToolTipText(FText::FromString(TEXT("Move selected objects together along world axes. Target is excluded. Rotation, scale and spacing are preserved. Ctrl+Z undoes the whole move.")));
 	ApplyOffsetButton->SetIsEnabled(false);
 	OffsetActions->AddChildToHorizontalBox(ApplyOffsetButton)->SetPadding(FMargin(4));
 	auto* ClearOffset = WidgetTree->ConstructWidget<UButton>();
 	auto* ClearText = WidgetTree->ConstructWidget<UTextBlock>(); ClearText->SetText(FText::FromString(TEXT("Zero fields")));
-	AddFieldIcon(WidgetTree, ClearOffset, ClearText, 23);
+	AddFieldIcon(WidgetTree, ClearOffset, ClearText, 23); CompactApplyButton(ClearOffset);
 	ClearOffset->SetToolTipText(FText::FromString(TEXT("Reset the three input values without moving any objects.")));
 	ClearOffset->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearWorldOffset);
 	OffsetActions->AddChildToHorizontalBox(ClearOffset)->SetPadding(FMargin(4));
@@ -329,14 +361,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* RotationActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyRotationButton = WidgetTree->ConstructWidget<UButton>();
 	auto* RotateText = WidgetTree->ConstructWidget<UTextBlock>(); RotateText->SetText(FText::FromString(TEXT("Apply")));
-	AddFieldIcon(WidgetTree, ApplyRotationButton, RotateText, 3);
+	AddFieldIcon(WidgetTree, ApplyRotationButton, RotateText, 3); CompactApplyButton(ApplyRotationButton);
 	ApplyRotationButton->SetIsEnabled(false);
 	ApplyRotationButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldRotationOffset);
 	ApplyRotationButton->SetToolTipText(FText::FromString(TEXT("Rotate the selection using world axes. Group mode uses the selected anchor, or the center of selected origins. Individual mode rotates in place. Target is excluded; scale is preserved. Ctrl+Z undoes the edit.")));
 	RotationActions->AddChildToHorizontalBox(ApplyRotationButton)->SetPadding(FMargin(4));
 	auto* ClearRotation = WidgetTree->ConstructWidget<UButton>();
 	auto* ResetText = WidgetTree->ConstructWidget<UTextBlock>(); ResetText->SetText(FText::FromString(TEXT("Zero fields")));
-	AddFieldIcon(WidgetTree, ClearRotation, ResetText, 23);
+	AddFieldIcon(WidgetTree, ClearRotation, ResetText, 23); CompactApplyButton(ClearRotation);
 	ClearRotation->SetToolTipText(FText::FromString(TEXT("Clear the rotation inputs without changing any objects.")));
 	ClearRotation->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ClearRotationOffset);
 	RotationActions->AddChildToHorizontalBox(ClearRotation)->SetPadding(FMargin(4));
@@ -365,7 +397,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* ScalePresetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* PresetLabel = WidgetTree->ConstructWidget<UTextBlock>(); PresetLabel->SetText(FText::FromString(TEXT("Uniform preset")));
 	ScalePresetRow->AddChildToHorizontalBox(PresetLabel)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	ScalePreset = WidgetTree->ConstructWidget<UComboBoxString>();
+	ScalePreset = WidgetTree->ConstructWidget<UComboBoxString>(); StylePreset(ScalePreset);
 	for (const TCHAR* Option : {TEXT("25"), TEXT("50"), TEXT("75"), TEXT("100"), TEXT("125"), TEXT("150"), TEXT("200")}) ScalePreset->AddOption(Option);
 	ScalePreset->SetToolTipText(FText::FromString(TEXT("Fill all three fields with a percentage, then click Apply scale. Choosing a preset alone does not change objects.")));
 	ScalePreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeScalePreset);
@@ -374,13 +406,13 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* ScaleActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyScaleButton = WidgetTree->ConstructWidget<UButton>();
 	auto* ScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ScaleText->SetText(FText::FromString(TEXT("Apply")));
-	AddFieldIcon(WidgetTree, ApplyScaleButton, ScaleText, 6); ApplyScaleButton->SetIsEnabled(false);
+	AddFieldIcon(WidgetTree, ApplyScaleButton, ScaleText, 6); CompactApplyButton(ApplyScaleButton); ApplyScaleButton->SetIsEnabled(false);
 	ApplyScaleButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyScalePercent);
 	ApplyScaleButton->SetToolTipText(FText::FromString(TEXT("Set the selected objects to these absolute local scales. Target is excluded. Position and rotation stay unchanged regardless of group mode. Ctrl+Z undoes the edit.")));
 	ScaleActions->AddChildToHorizontalBox(ApplyScaleButton)->SetPadding(FMargin(4));
 	auto* ResetScale = WidgetTree->ConstructWidget<UButton>();
 	auto* ResetScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ResetScaleText->SetText(FText::FromString(TEXT("100%")));
-	AddFieldIcon(WidgetTree, ResetScale, ResetScaleText, 23);
+	AddFieldIcon(WidgetTree, ResetScale, ResetScaleText, 23); CompactApplyButton(ResetScale);
 	ResetScale->SetToolTipText(FText::FromString(TEXT("Fill X/Y/Z with 100%. Click Apply scale to restore original size.")));
 	ResetScale->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ResetScaleFields);
 	ScaleActions->AddChildToHorizontalBox(ResetScale)->SetPadding(FMargin(4));
@@ -546,7 +578,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	Sync(RotationPreset, RotationValue, Increment.DegreesToRotate);
 	Sync(GridPreset, GridValue, Config.AlignmentGridCm / 100.f);
 	Sync(HeightGridPreset, HeightGridValue, Config.HeightGridCm / 100.f);
-	if (PrecisionProfileLabel) PrecisionProfileLabel->SetText(FText::FromString(FString::Printf(TEXT("Exact steps | %s profile | grids shared"), *UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString())));
+	if (PrecisionProfileLabel) PrecisionProfileLabel->SetText(FText::FromString(FString::Printf(TEXT("%s steps | shared grids"), *UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString())));
 	if (btnIsGrouped) {
 		if (auto* Text = FieldButtonLabel(btnIsGrouped)) Text->SetText(FText::FromString(Config.IsGrouped ? TEXT("Together") : TEXT("Individual")));
 	}

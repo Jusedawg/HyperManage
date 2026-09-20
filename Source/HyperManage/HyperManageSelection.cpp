@@ -7,6 +7,9 @@
 #include "HyperManageEquip.h"
 
 #include "FGOutlineComponent.h"
+#include "Components/PostProcessComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Materials/MaterialInterface.h"
 
 #include "FGVehicle.h"
 #include "Buildables/FGBuildableWire.h"
@@ -38,15 +41,26 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 	if (!IsValid(Actor)) return;
 	auto* Outline = UFGOutlineComponent::Get(Actor->GetWorld());
 	if (!Outline) return;
-	const EOutlineColor Color = Actor == TargetActor ? EOutlineColor::OC_RED :
-		Actor == AnchorActor ? EOutlineColor::OC_HOLOGRAM : EOutlineColor::OC_DISMANTLE;
+	if (!IsValid(SelectionPostProcess)) {
+  auto* Material = LoadObject<UMaterialInterface>(nullptr, TEXT("/HyperManage/Materials/M_SelectionOutline.M_SelectionOutline"));
+  if (!Material || !Outline->GetOwner()) return;
+  SelectionPostProcess = NewObject<UPostProcessComponent>(Outline->GetOwner());
+  SelectionPostProcess->bUnbound = true; SelectionPostProcess->Priority = 100.f;
+  SelectionPostProcess->Settings.AddBlendable(Material, 1.f); SelectionPostProcess->RegisterComponent();
+ }
+ const EOutlineColor Color = EOutlineColor::OC_USABLE;
 	ActorInfo.Outline = Outline;
 	ActorInfo.PreviousOutlineColor = static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor));
 	ActorInfo.SelectionOutlineColor = static_cast<uint8>(Color);
 	if (Actor->IsA<AHyperManageLightweightProxy>()) Actor->SetActorHiddenInGame(false);
-	// Same custom-depth/stencil rendering path used by AFGBuildable::TogglePendingDismantleMaterial.
+	// Use depth-only proxies and a dedicated stencil range for the steady selection effect.
 	// Lightweight proxy meshes supply geometry only; they never render a second surface in the main pass.
 	Outline->ShowOutline(Actor, Color);
+ if (const auto* State = Outline->GetImmutableOutlineStateForActor(Actor)) {
+  const int32 Stencil = Actor == TargetActor ? 242 : Actor == AnchorActor ? 241 : 240;
+  for (const auto& Pair : State->OutlineProxies) if (Pair.Value) Pair.Value->SetCustomDepthStencilValue(Stencil);
+  for (const auto& Pair : State->InstancedOutlineProxies) if (Pair.Value) Pair.Value->SetCustomDepthStencilValue(Stencil);
+ }
 }
 
 void UHyperManageSelection::HideHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
@@ -171,6 +185,7 @@ bool UHyperManageSelection::SelectActor(AActor* Actor, bool Select, bool DeleteF
 			HideHologram(Actor, ActorInfo);
 			if (DeleteFromMap) {
 				SelectedMap.Remove(Actor);
+				if (SelectedMap.IsEmpty() && IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 			}
 			if (Actor == AnchorActor) {
 				AnchorActor = nullptr;
@@ -356,6 +371,7 @@ void UHyperManageSelection::ClearWithoutHistory()
 	TargetActor = nullptr;
 	for (auto& Elem : SelectedMap) SelectActor(Elem.Key, false, false);
 	SelectedMap.Empty();
+	if (IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 }
 
 void UHyperManageSelection::SelectClear(bool ConfirmClicked)

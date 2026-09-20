@@ -40,6 +40,7 @@ protected:
 	UPROPERTY()
 	TArray<UButtonProxy*> ButtonProxyArray;
 
+	void CompactApplyButton(UButton* Button);
 	void HookWidget(EActionNameIdx ToolAction, UButton* Button, FString ToolTip);
 
 	virtual void NativeConstruct() override;

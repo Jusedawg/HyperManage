@@ -27,6 +27,8 @@ private:
 	TMap<AActor*, FSelectedActorInfo> SelectedMap;
 	UPROPERTY(Transient)
 	TArray<AHyperManageLightweightProxy*> LightweightProxies;
+	UPROPERTY(Transient)
+	TObjectPtr<class UPostProcessComponent> SelectionPostProcess;
 
 
 	UPROPERTY(Transient)
