@@ -21,7 +21,7 @@ Use a packaged HyperManage build that matches your game version; downloading thi
 
 With the tool equipped, aim at an object and press **Ctrl + left click** to select it. Select additional objects the same way, or use **Ctrl + right click** to remove an object from the selection.
 
-Press **right click** to open the tools panel. Pick your movement and rotation increments, then use the action buttons or the shortcuts below. The compact icon tiles have short captions; hover for detailed tooltips. Drag the right scroll rail to reach more controls. Scrolling over a field-adjustment icon changes the selected objects instead of scrolling the panel.
+Press **right click** to open the tools panel. Pick your movement and rotation increments, then use the action buttons or the shortcuts below. The compact icon tiles have short captions; hover for detailed tooltips. Field adjustment tiles have a **-** side on the left and a **+** side on the right; click the side for the direction you want. Drag the right scroll rail to reach more controls. Scrolling over a field-adjustment icon changes the selected objects instead of scrolling the panel.
 
 ## Default controls
 

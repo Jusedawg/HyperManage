@@ -26,6 +26,9 @@ public:
 
 	UFUNCTION()
 	void ClickEvent();
+ UPROPERTY(Transient) TObjectPtr<UButton> SplitButton;
+ EActionNameIdx DecreaseAction = EActionNameIdx::NoAction;
+ UFUNCTION() void ClickSplitEvent();
 
 public:
 };

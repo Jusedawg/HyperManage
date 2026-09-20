@@ -5,6 +5,7 @@
 #include "HyperManageTransform.h"
 #include "HyperManageSelection.h"
 #include "HyperManageActionGlyph.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Brushes/SlateColorBrush.h"
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Components/VerticalBoxSlot.h"
@@ -100,6 +101,14 @@ void UHyperManageToolWidget::CompactApplyButton(UButton* Button)
  Glyph->RemoveFromParent();
  auto* Box = WidgetTree->ConstructWidget<USizeBox>(); Box->SetWidthOverride(26); Box->SetHeightOverride(24); Box->SetContent(Glyph);
  Button->SetContent(Box);
+}
+
+void UButtonProxy::ClickSplitEvent()
+{
+ if (!SplitButton || !FSlateApplication::IsInitialized()) return;
+ const auto& Geometry = SplitButton->GetCachedGeometry();
+ const float X = Geometry.AbsoluteToLocal(FSlateApplication::Get().GetCursorPos()).X;
+ if (auto* System = UHyperManageSystem::Get()) System->ExecuteAction(X < Geometry.GetLocalSize().X * 0.5f ? DecreaseAction : ToolAction);
 }
 
 void UButtonProxy::ClickEvent()
@@ -207,7 +216,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.32")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.33")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -634,6 +643,9 @@ void UHyperManageToolWidget::RepairQuickActions()
  if (!Scale || !QuickActionHost) return;
  Scale->SetVisibility(ESlateVisibility::Collapsed);
  const TCHAR* Names[] = {TEXT("btnUpDown"), TEXT("btnLeftRight"), TEXT("btnFrontBack"), TEXT("btnSpin"), TEXT("btnPitch"), TEXT("btnRoll"), TEXT("btnGrowShrink")};
+ const EActionNameIdx Decrease[] = {MoveDown, MoveLeft, MoveToward, SpinLeft, PitchToward, RollLeft, Shrink};
+ const EActionNameIdx Increase[] = {MoveUp, MoveRight, MoveAway, SpinRight, PitchAway, RollRight, Grow};
+ const TCHAR* Directions[] = {TEXT("down / up"), TEXT("left / right"), TEXT("toward / away"), TEXT("spin left / right"), TEXT("pitch toward / away"), TEXT("roll left / right"), TEXT("shrink / grow")};
  const TCHAR* Labels[] = {TEXT("Lift"), TEXT("Sideways"), TEXT("Forward"), TEXT("Yaw"), TEXT("Pitch"), TEXT("Roll"), TEXT("Scale")};
  auto* Panel = WidgetTree->ConstructWidget<UBorder>();
  Panel->SetBrushColor(FLinearColor(0.025f,0.032f,0.035f,0.98f)); Panel->SetPadding(FMargin(2));
@@ -648,7 +660,7 @@ void UHyperManageToolWidget::RepairQuickActions()
   } else Rows->AddChildToVerticalBox(Label);
  };
  AddLabel(TEXT("FIELD ADJUSTMENTS"),16);
- AddLabel(TEXT("Wheel: adjust | Drag right rail: scroll"),12);
+ AddLabel(TEXT("Click - / + sides | Wheel: adjust"),12);
  auto* Grid=WidgetTree->ConstructWidget<UUniformGridPanel>(); Grid->SetSlotPadding(FMargin(3));
  for (int32 Index=0; Index<7; ++Index) {
   auto* Button=FindObjectFast<UButton>(WidgetTree,FName(Names[Index]));
@@ -656,7 +668,20 @@ void UHyperManageToolWidget::RepairQuickActions()
   Button->RemoveFromParent();
   auto* Label=WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Labels[Index]));
   AddFieldIcon(WidgetTree, Button, Label, Index);
-  Button->SetToolTipText(FText::FromString(FString(Labels[Index])+TEXT(": hover and scroll in either direction. Uses the current increment and reference frame.")));
+  auto* Tile = CastChecked<USizeBox>(Button->GetContent());
+  auto* Center = Tile->GetContent(); Center->RemoveFromParent();
+  auto* Sides = WidgetTree->ConstructWidget<UHorizontalBox>();
+  auto AddSign = [&](const TCHAR* Sign) {
+   auto* Text = WidgetTree->ConstructWidget<UTextBlock>(); Text->SetText(FText::FromString(Sign));
+   auto Font = Text->GetFont(); Font.Size = 13; Text->SetFont(Font);
+   Text->SetColorAndOpacity(FSlateColor(FLinearColor(0.96f, 0.82f, 0.5f)));
+   Sides->AddChildToHorizontalBox(Text)->SetVerticalAlignment(VAlign_Center);
+  };
+  AddSign(TEXT("-")); Sides->AddChildToHorizontalBox(Center)->SetSize(FSlateChildSize(ESlateSizeRule::Fill)); AddSign(TEXT("+"));
+  Sides->SetVisibility(ESlateVisibility::HitTestInvisible); Tile->SetContent(Sides);
+  auto* Proxy = UButtonProxy::Create(Increase[Index]); Proxy->DecreaseAction = Decrease[Index]; Proxy->SplitButton = Button;
+  ButtonProxyArray.Add(Proxy); Button->OnPressed.Clear(); Button->OnPressed.AddDynamic(Proxy, &UButtonProxy::ClickSplitEvent);
+  Button->SetToolTipText(FText::FromString(FString::Printf(TEXT("%s: left - / right + = %s. Hover and scroll also adjusts. Uses the current step and reference frame. Drag the right scroll rail to navigate."), Labels[Index], Directions[Index])));
   Grid->AddChildToUniformGrid(Button,Index/4,Index%4);
  }
  Rows->AddChildToVerticalBox(Grid); Panel->SetContent(Rows); QuickActionHost->AddChildToVerticalBox(Panel);

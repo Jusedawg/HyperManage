@@ -2,41 +2,32 @@
 #include "Buildables/FGBuildable.h"
 #include "Components/StaticMeshComponent.h"
 #include "AbstractInstanceManager.h"
-#include "FGMaterialEffectComponent.h"
+#include "FGBuildEffectActor.h"
+#include "EngineUtils.h"
 #include "UObject/UnrealType.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
 namespace {
-AActor* GetInstanceEffectActor(AFGLightweightBuildableSubsystem* Subsystem)
-{
- const auto* Property = FindFProperty<FObjectPropertyBase>(Subsystem->GetClass(), TEXT("mBuildEffectComponentActor"));
- return Property ? Cast<AActor>(Property->GetObjectPropertyValue_InContainer(Subsystem)) : nullptr;
-}
-
-// Finish only effects created synchronously by this replacement. Stop runs the game's material restoration
-// and completion delegates, including deferred instance removal. Existing construction/dismantling is untouched.
+// The current game uses build-effect actors, not the older material-effect components.
 struct FScopedInstantEditEffects
 {
- AFGLightweightBuildableSubsystem* Subsystem;
- TSet<UFGMaterialEffectComponent*> Existing;
- explicit FScopedInstantEditEffects(AFGLightweightBuildableSubsystem* InSubsystem) : Subsystem(InSubsystem)
+ UWorld* World;
+ TSet<AFGBuildEffectActor*> Existing;
+ explicit FScopedInstantEditEffects(AFGLightweightBuildableSubsystem* Subsystem) : World(Subsystem->GetWorld())
  {
-  if (auto* Actor = GetInstanceEffectActor(Subsystem)) {
-   for (auto* Effect : TInlineComponentArray<UFGMaterialEffectComponent*>(Actor)) Existing.Add(Effect);
-  }
+  for (TActorIterator<AFGBuildEffectActor> It(World); It; ++It) Existing.Add(*It);
  }
  ~FScopedInstantEditEffects()
  {
-  FString Report = FString::Printf(TEXT("Existing effects=%d\n"), Existing.Num());
-  if (auto* Actor = GetInstanceEffectActor(Subsystem)) {
-   // Snapshot first: Stop can destroy components through the subsystem's completion callback.
-   const TInlineComponentArray<UFGMaterialEffectComponent*> Effects(Actor);
-   for (auto* Effect : Effects) if (IsValid(Effect) && !Existing.Contains(Effect)) {
-    Report += FString::Printf(TEXT("Finished %s\n"), *Effect->GetClass()->GetName());
-    Effect->Stop();
-   }
-  } else Report += TEXT("No effect actor found\n");
+  TArray<TWeakObjectPtr<AFGBuildEffectActor>> Created;
+  for (TActorIterator<AFGBuildEffectActor> It(World); It; ++It) if (!Existing.Contains(*It)) Created.Add(*It);
+  FString Report = FString::Printf(TEXT("Existing build-effect actors=%d; edit-created actors=%d\n"), Existing.Num(), Created.Num());
+  for (const auto& Weak : Created) if (auto* Effect = Weak.Get()) {
+   Report += FString::Printf(TEXT("Hidden %s dismantle=%d\n"), *Effect->GetClass()->GetName(), Effect->mIsMarkedDismantle);
+   // Hide only the edit-created cosmetic actor; let its normal lifecycle finish cleanup and notifications.
+   Effect->SetActorHiddenInGame(true);
+  }
   FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-EditEffects.txt")));
  }
 };
