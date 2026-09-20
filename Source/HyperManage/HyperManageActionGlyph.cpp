@@ -27,6 +27,26 @@ int32 UHyperManageActionGlyph::NativePaint(const FPaintArgs& Args, const FGeomet
   Line(A, B, Accent); const FVector2D D = (B - A).GetSafeNormal(), S(-D.Y, D.X);
   Line(B, B - D * 6 + S * 3, Accent); Line(B, B - D * 6 - S * 3, Accent);
  };
+ // Height snapping and anchor-axis matching need distinct silhouettes in the icon-only toolbar.
+ if (Kind >= 24 && Kind <= 27) {
+  if (Kind == 24) {
+   for (int32 I = -1; I <= 1; ++I) Line(FVector2D(-24, I * 18), FVector2D(5, I * 18), Ink);
+   Arrow(FVector2D(20, -26), FVector2D(20, 0)); Arrow(FVector2D(20, 26), FVector2D(20, 0));
+  } else {
+   Line(FVector2D(-23, -26), FVector2D(-23, 26), Ink);
+   Arrow(FVector2D(28, 19), FVector2D(-16, 19));
+   if (Kind == 25) {
+    Line(FVector2D(-1, -22), FVector2D(19, 3), Accent); Line(FVector2D(19, -22), FVector2D(-1, 3), Accent);
+   } else if (Kind == 26) {
+    Line(FVector2D(-1, -22), FVector2D(9, -10), Accent); Line(FVector2D(19, -22), FVector2D(9, -10), Accent);
+    Line(FVector2D(9, -10), FVector2D(9, 3), Accent);
+   } else {
+    Line(FVector2D(-1, -22), FVector2D(19, -22), Accent); Line(FVector2D(19, -22), FVector2D(-1, 3), Accent);
+    Line(FVector2D(-1, 3), FVector2D(19, 3), Accent);
+   }
+  }
+  return Layer;
+ }
  if (Kind >= 21 && Kind <= 23) {
   const float Direction = Kind == 22 ? -1.f : 1.f;
   Arrow(FVector2D(18 * Direction, -15), FVector2D(-23 * Direction, -15));

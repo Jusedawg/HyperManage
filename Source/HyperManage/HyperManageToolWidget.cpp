@@ -93,14 +93,14 @@ UTextBlock* FieldButtonLabel(UButton* Button)
 }
 }
 
-void UHyperManageToolWidget::CompactApplyButton(UButton* Button)
+void UHyperManageToolWidget::CompactApplyButton(UButton* Button, bool Toolbar)
 {
  auto* Tile = Cast<USizeBox>(Button->GetContent());
  auto* Stack = Tile ? Cast<UVerticalBox>(Tile->GetContent()) : nullptr;
  auto* Glyph = Stack && Stack->GetChildrenCount() ? Cast<UHyperManageActionGlyph>(Stack->GetChildAt(0)) : nullptr;
  if (!Glyph) return;
  Glyph->RemoveFromParent();
- auto* Box = WidgetTree->ConstructWidget<USizeBox>(); Box->SetWidthOverride(26); Box->SetHeightOverride(24); Box->SetContent(Glyph);
+ auto* Box = WidgetTree->ConstructWidget<USizeBox>(); Box->SetWidthOverride(Toolbar ? 36 : 26); Box->SetHeightOverride(Toolbar ? 30 : 24); Box->SetContent(Glyph);
  Button->SetContent(Box);
 }
 
@@ -217,7 +217,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.36")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.37")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -278,8 +278,9 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		auto* Button = WidgetTree->ConstructWidget<UButton>();
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
 		Text->SetText(FText::FromString(Label));
-		AddFieldIcon(WidgetTree, Button, Text, (Action == EActionNameIdx::SnapWorldXY || Action == EActionNameIdx::SnapWorldZ || Action == EActionNameIdx::MatchAnchorX || Action == EActionNameIdx::MatchAnchorY || Action == EActionNameIdx::MatchAnchorZ) ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
-		HookWidget(Action, Button, Tip);
+		AddFieldIcon(WidgetTree, Button, Text, Action == EActionNameIdx::SnapWorldXY ? 19 : Action == EActionNameIdx::SnapWorldZ ? 24 : Action == EActionNameIdx::MatchAnchorX ? 25 : Action == EActionNameIdx::MatchAnchorY ? 26 : Action == EActionNameIdx::MatchAnchorZ ? 27 : Action == EActionNameIdx::LevelWorldRotation ? 20 : 3);
+		CompactApplyButton(Button, true);
+		HookWidget(Action, Button, FString(Label) + TEXT("\n") + Tip);
 		Wrap->AddChildToWrapBox(Button)->SetPadding(FMargin(3, 3));
 		return Button;
 	};
@@ -307,6 +308,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		Button = WidgetTree->ConstructWidget<UButton>();
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>(); Text->SetText(FText::FromString(Label));
 		AddFieldIcon(WidgetTree, Button, Text, Action == EActionNameIdx::Redo ? 22 : 21);
+		CompactApplyButton(Button, true);
 		HookWidget(Action, Button, Tip); Button->SetIsEnabled(false);
 		HistoryRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(3, 3));
 	};
@@ -592,11 +594,9 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
    };
    Append(TEXT("UNDO - newest first"), UndoEntries); Append(TEXT("REDO - next first"), RedoEntries);
    HistoryDetails->SetText(FText::FromString(Details.IsEmpty() ? TEXT("No recorded edits yet.") : Details));
-   if (UndoButton) UndoButton->SetToolTipText(FText::FromString(UndoEntries.IsEmpty() ? TEXT("Nothing to undo") : TEXT("Undo: ") + UndoEntries[0]));
-   if (RedoButton) RedoButton->SetToolTipText(FText::FromString(RedoEntries.IsEmpty() ? TEXT("Nothing to redo") : TEXT("Redo: ") + RedoEntries[0]));
+   if (UndoButton) UndoButton->SetToolTipText(FText::FromString(UndoEntries.IsEmpty() ? TEXT("Nothing to undo") : FString::Printf(TEXT("Undo (%d): %s"), System->Undo->GetUndoCount(), *UndoEntries[0])));
+   if (RedoButton) RedoButton->SetToolTipText(FText::FromString(RedoEntries.IsEmpty() ? TEXT("Nothing to redo") : FString::Printf(TEXT("Redo (%d): %s"), System->Undo->GetRedoCount(), *RedoEntries[0])));
   }
-		if (auto* Text = FieldButtonLabel(UndoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Undo (%d)"), System->Undo->GetUndoCount())));
-		if (auto* Text = FieldButtonLabel(RedoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Redo (%d)"), System->Undo->GetRedoCount())));
 		if (UndoButton) UndoButton->SetIsEnabled(!Pending && System->Undo->CanUndo());
 		if (RedoButton) RedoButton->SetIsEnabled(!Pending && System->Undo->CanRedo());
 	}

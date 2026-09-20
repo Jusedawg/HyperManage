@@ -259,17 +259,19 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Exact grid field created"), Tools->GridValue.Get());
 	TestFalse(TEXT("Numeric fields cannot consume drag gestures as a slider"), Tools->MovementValue->GetEnableSlider());
 	TestNotNull(TEXT("Toolbar body has an explicit size"), Cast<USizeBox>(Content->GetParent()));
+	TArray<FString> Tips;
 	TArray<FString> Labels;
 	Tree->ForEachWidget([&](UWidget* Widget) {
 		if (auto* Text = Cast<UTextBlock>(Widget)) Labels.Add(Text->GetText().ToString());
+		if (auto* Button = Cast<UButton>(Widget)) Tips.Add(Button->GetToolTipText().ToString());
 	});
 	TestTrue(TEXT("Working actions get readable labels"), Labels.Contains(TEXT("Clear")));
 	TestNull(TEXT("Unfinished copy action is removed from the visible layout"), Tools->btnCopySelection->GetParent());
-	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
-	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap angle")));
-	TestTrue(TEXT("Snap Z is visible"), Labels.Contains(TEXT("Snap Z")));
-	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.36")));
+	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap XY\n")); }));
+	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
+	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
+	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.37")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
