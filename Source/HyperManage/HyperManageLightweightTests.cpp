@@ -135,7 +135,7 @@ bool FHyperManageSelectionOverlayTest::RunTest(const FString& Parameters)
 	Selection->HideHologram(Actor, Info);
 	TestTrue(TEXT("Deselecting restores the pre-existing overlay"), Mesh->GetOverlayMaterial() == PreviousOverlay);
 	TestTrue(TEXT("Deselecting preserves the original surface"), Mesh->GetMaterial(0) == Original);
-	TestTrue(TEXT("Highlight components released"), Info.HighlightMeshes.IsEmpty());
+	TestFalse(TEXT("Outline reference cleared"), Info.Outline.IsValid());
 	World->DestroyWorld(false);
 	return true;
 }
@@ -263,7 +263,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap angle")));
 	TestTrue(TEXT("Snap Z is visible"), Labels.Contains(TEXT("Snap Z")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.28")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.29")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

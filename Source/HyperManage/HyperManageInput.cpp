@@ -91,7 +91,10 @@ void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionInde
 		}
 	}
 
-	System->ExecuteAction(ActionIndex);
+	if (InputEvent == EInputEvent::IE_Pressed && Key.IsMouseButton()) {
+  UE_LOG(LogTemp, Display, TEXT("HyperManage input: key=%s action=%d"), *Key.ToString(), static_cast<int32>(ActionIndex));
+ }
+ System->ExecuteAction(ActionIndex);
 }
 
 void UHyperManageInput::Attach(AHyperManageEquip* Equipment)

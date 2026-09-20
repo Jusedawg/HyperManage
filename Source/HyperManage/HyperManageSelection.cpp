@@ -6,10 +6,7 @@
 #include "HyperManageUI.h"
 #include "HyperManageEquip.h"
 
-#include "Components/StaticMeshComponent.h"
-#include "Components/PostProcessComponent.h"
-#include "Components/InstancedStaticMeshComponent.h"
-#include "Materials/MaterialInterface.h"
+#include "FGOutlineComponent.h"
 
 #include "FGVehicle.h"
 #include "Buildables/FGBuildableWire.h"
@@ -38,46 +35,33 @@ void UHyperManageSelection::SelectNextMaterial()
 
 void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
 {
- if (!IsValid(Actor) || !System || !System->GetWorld() || !System->GetLocalController()) return;
- if (!IsValid(SelectionPostProcess)) {
-  auto* Material = LoadObject<UMaterialInterface>(nullptr, TEXT("/HyperManage/Materials/M_SelectionOutline.M_SelectionOutline"));
-  if (!Material) return;
-  SelectionPostProcess = NewObject<UPostProcessComponent>(System->GetLocalController());
-  SelectionPostProcess->bUnbound = true; SelectionPostProcess->Priority = 100.f;
-  SelectionPostProcess->Settings.AddBlendable(Material, 1.f); SelectionPostProcess->RegisterComponent();
- }
- const int32 Stencil = Actor == TargetActor ? 12 : Actor == AnchorActor ? 11 : 10;
- // Own the depth-only geometry instead of asking the game interaction outline to create or update it.
- // Snapshot before adding components; highlight meshes must never become sources for other highlights.
- const TInlineComponentArray<UStaticMeshComponent*> Sources(Actor);
- for (auto* Source : Sources) {
-  if (!Source || !Source->GetStaticMesh() || Source->ComponentHasTag(TEXT("HyperManageHighlight"))) continue;
-  const auto* Instances = Cast<UInstancedStaticMeshComponent>(Source);
-  UStaticMeshComponent* Mesh = Instances ? NewObject<UInstancedStaticMeshComponent>(Actor, NAME_None, RF_Transient) :
-   NewObject<UStaticMeshComponent>(Actor, NAME_None, RF_Transient);
-  Mesh->ComponentTags.Add(TEXT("HyperManageHighlight"));
-  Mesh->SetStaticMesh(Source->GetStaticMesh()); Mesh->SetMobility(EComponentMobility::Movable);
-  Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); Mesh->SetGenerateOverlapEvents(false); Mesh->SetCastShadow(false);
-  Mesh->SetRenderInMainPass(false); Mesh->SetRenderInDepthPass(false);
-  Mesh->SetRenderCustomDepth(true); Mesh->SetCustomDepthStencilValue(Stencil);
-  Mesh->SetupAttachment(Source); Mesh->SetRelativeTransform(FTransform::Identity);
-  if (Instances) {
-   auto* Copy = CastChecked<UInstancedStaticMeshComponent>(Mesh);
-   for (int32 Index = 0; Index < Instances->GetInstanceCount(); ++Index) {
-    FTransform Transform;
-    if (Instances->GetInstanceTransform(Index, Transform, false)) Copy->AddInstance(Transform);
-   }
-  }
-  Mesh->RegisterComponent(); ActorInfo.HighlightMeshes.Add(Mesh);
- }
- if (Actor->IsA<AHyperManageLightweightProxy>()) Actor->SetActorHiddenInGame(false);
+	if (!IsValid(Actor)) return;
+	auto* Outline = UFGOutlineComponent::Get(Actor->GetWorld());
+	if (!Outline) return;
+	const EOutlineColor Color = Actor == TargetActor ? EOutlineColor::OC_RED :
+		Actor == AnchorActor ? EOutlineColor::OC_HOLOGRAM : EOutlineColor::OC_DISMANTLE;
+	ActorInfo.Outline = Outline;
+	ActorInfo.PreviousOutlineColor = static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor));
+	ActorInfo.SelectionOutlineColor = static_cast<uint8>(Color);
+	if (Actor->IsA<AHyperManageLightweightProxy>()) Actor->SetActorHiddenInGame(false);
+	// Same custom-depth/stencil rendering path used by AFGBuildable::TogglePendingDismantleMaterial.
+	// Lightweight proxy meshes supply geometry only; they never render a second surface in the main pass.
+	Outline->ShowOutline(Actor, Color);
 }
 
 void UHyperManageSelection::HideHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
 {
- for (const auto& Mesh : ActorInfo.HighlightMeshes) if (IsValid(Mesh)) Mesh->DestroyComponent();
- ActorInfo.HighlightMeshes.Empty();
- if (IsValid(Actor) && Actor->IsA<AHyperManageLightweightProxy>()) Actor->SetActorHiddenInGame(true);
+	if (!IsValid(Actor)) return;
+	if (auto* Outline = ActorInfo.Outline.Get()) {
+		if (static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor)) == ActorInfo.SelectionOutlineColor) {
+			Outline->HideOutline(Actor);
+			if (ActorInfo.PreviousOutlineColor != static_cast<uint8>(EOutlineColor::OC_NONE)) {
+				Outline->ShowOutline(Actor, static_cast<EOutlineColor>(ActorInfo.PreviousOutlineColor));
+			}
+		}
+	}
+	ActorInfo.Outline.Reset();
+	if (Actor->IsA<AHyperManageLightweightProxy>()) Actor->SetActorHiddenInGame(true);
 }
 
 void UHyperManageSelection::ResetHologram(AActor* Actor)
@@ -187,7 +171,6 @@ bool UHyperManageSelection::SelectActor(AActor* Actor, bool Select, bool DeleteF
 			HideHologram(Actor, ActorInfo);
 			if (DeleteFromMap) {
 				SelectedMap.Remove(Actor);
-				if (SelectedMap.IsEmpty() && IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 			}
 			if (Actor == AnchorActor) {
 				AnchorActor = nullptr;
@@ -373,7 +356,6 @@ void UHyperManageSelection::ClearWithoutHistory()
 	TargetActor = nullptr;
 	for (auto& Elem : SelectedMap) SelectActor(Elem.Key, false, false);
 	SelectedMap.Empty();
-	if (IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 }
 
 void UHyperManageSelection::SelectClear(bool ConfirmClicked)
@@ -437,6 +419,7 @@ AActor* UHyperManageSelection::LineTraceFromPlayer()
 	FCollisionQueryParams TraceParams(TEXT("MMTrace"), false, System->GetLocalController()->GetPawn());
 	if (System->GetWorld()->
 		LineTraceSingleByChannel(HitResult, Start, End, ECollisionChannel::ECC_Visibility, TraceParams)) {
+		UE_LOG(LogTemp, Display, TEXT("HyperManage trace: actor=%s component=%s item=%d"), *GetNameSafe(HitResult.GetActor()), *GetNameSafe(HitResult.GetComponent()), HitResult.Item);
 		FInstanceHandle Handle;
 		if (auto* Manager = AAbstractInstanceManager::GetInstanceManager(System->GetWorld()); Manager && Manager->ResolveHit(HitResult, Handle)) {
 			FLightweightBuildableInstanceRef Instance;

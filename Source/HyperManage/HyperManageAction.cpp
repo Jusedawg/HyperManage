@@ -178,7 +178,10 @@ void UHyperManageAction::MakeActorMovable(AActor* Actor)
 
 void UHyperManageAction::SelectActor(AActor* Actor, bool Select)
 {
-	if (System->Selection->SelectActorWithHistory(Actor, Select) && Select) {
+	const bool Changed = System->Selection->SelectActorWithHistory(Actor, Select);
+ UE_LOG(LogTemp, Display, TEXT("HyperManage selection: select=%d actor=%s changed=%d count=%d pending=%d"),
+  Select, *GetNameSafe(Actor), Changed, System->Selection->SelectCount(), System->Selection->HasPendingOperations());
+ if (Changed && Select) {
 		MakeActorMovable(Actor);
 	}
 }
