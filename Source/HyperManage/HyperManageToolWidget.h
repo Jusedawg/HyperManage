@@ -53,6 +53,9 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
+	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> HistoryDetails;
+	uint64 HistoryRevision = MAX_uint64;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetX;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetY;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetZ;

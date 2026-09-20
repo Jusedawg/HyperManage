@@ -3,6 +3,7 @@
 
 void FUndoInfo::Clear()
 {
+	Description.Empty();
 	Lightweights.Empty();
 	ColorSlotItems.Empty();
 	TransformActors.Empty();
@@ -12,6 +13,7 @@ void FUndoInfo::Clear()
 
 void UHyperManageUndo::ClearUndoStack()
 {
+	++Revision;
 	UndoStack.Empty();
 	RedoStack.Empty();
 }
@@ -28,6 +30,7 @@ bool UHyperManageUndo::HasPending(const FUndoInfo& Info) const
 void UHyperManageUndo::Push(FUndoInfo&& Info)
 {
 	if (Info.TransformActors.IsEmpty() && Info.TransformComponents.IsEmpty() && Info.Lightweights.IsEmpty() && Info.ColorSlotItems.IsEmpty() && Info.SelectItems.IsEmpty()) return;
+	++Revision;
 	RedoStack.Empty();
 	if (UndoStack.Num() == MAXUNDO) UndoStack.RemoveAt(0);
 	UndoStack.Add(MoveTemp(Info));
@@ -39,11 +42,13 @@ bool UHyperManageUndo::Transfer(TArray<FUndoInfo>& From, TArray<FUndoInfo>& To, 
 	while (!From.IsEmpty()) {
 		if (HasPending(From.Last())) return false;
 		Info = From.Pop();
+		++Revision;
 		Info.TransformActors.RemoveAll([](const auto& Item) { return !IsValid(Item.Actor); });
 		Info.TransformComponents.RemoveAll([](const auto& Item) { return !IsValid(Item.Component) || !IsValid(Item.Component->GetOwner()); });
 		Info.ColorSlotItems.RemoveAll([](const auto& Item) { return !IsValid(Item.Buildable); });
 		Info.Lightweights.RemoveAll([](const auto& Item) { return !IsValid(Item.Proxy) || !Item.Proxy->IsAvailable(); });
 		FUndoInfo Inverse;
+		Inverse.Description = Info.Description;
 		for (const auto& Item : Info.TransformActors) {
 			FUndoTransformActor Current; Current.Actor = Item.Actor; Current.Transform = Item.Actor->GetActorTransform(); Inverse.TransformActors.Add(Current);
 		}
@@ -80,9 +85,21 @@ bool UHyperManageUndo::Transfer(TArray<FUndoInfo>& From, TArray<FUndoInfo>& To, 
 bool UHyperManageUndo::PopUndo(FUndoInfo& Info) { return Transfer(UndoStack, RedoStack, Info); }
 bool UHyperManageUndo::PopRedo(FUndoInfo& Info) { return Transfer(RedoStack, UndoStack, Info); }
 
-void UHyperManageUndo::PushUndoTransforms(TArray<AActor*>& Actors)
+void UHyperManageUndo::PushUndoTransforms(TArray<AActor*>& Actors) { PushNamedTransforms(Actors, TEXT("Transform")); }
+
+TArray<FString> UHyperManageUndo::GetRecentDescriptions(bool Redo, int32 Limit) const
 {
-	FUndoInfo Info;
+ const auto& Stack = Redo ? RedoStack : UndoStack;
+ TArray<FString> Result;
+ const int32 Count = FMath::Clamp(Limit, 0, Stack.Num());
+ for (int32 Offset = 0; Offset < Count; ++Offset) Result.Add(Stack[Stack.Num() - 1 - Offset].Description);
+ return Result;
+}
+
+void UHyperManageUndo::PushNamedTransforms(TArray<AActor*>& Actors, const FString& Description)
+{
+ FUndoInfo Info;
+ Info.Description = Description.IsEmpty() ? TEXT("Transform") : Description;
 	for (auto* Actor : Actors) {
 		if (!IsValid(Actor)) continue;
 		if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
@@ -105,6 +122,7 @@ void UHyperManageUndo::PushUndoTransforms(TArray<AActor*>& Actors)
 void UHyperManageUndo::PushUndoColorSlot(TArray<AActor*>& Actors)
 {
 	FUndoInfo Info;
+	Info.Description = TEXT("Match paint");
 	for (auto* Actor : Actors) {
 		if (!IsValid(Actor)) continue;
 		if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
@@ -121,6 +139,7 @@ void UHyperManageUndo::PushUndoSelection(TArray<AActor*>& Actors)
 {
 	if (!System || !System->Selection) return;
 	FUndoInfo Info;
+	Info.Description = TEXT("Selection / anchor / target");
 	auto Add = [&](AActor* Actor) {
 		FUndoSelect Item; Item.Actor = IsValid(Actor) ? Actor : nullptr;
 		Item.Select = Item.Actor && System->Selection->Contains(Item.Actor); Info.SelectItems.Add(Item);

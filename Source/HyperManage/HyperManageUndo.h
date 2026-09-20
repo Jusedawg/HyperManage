@@ -102,6 +102,8 @@ public:
 	UPROPERTY()
 	TArray<FUndoSelect> SelectItems;
 
+	UPROPERTY() FString Description;
+
 	void Clear();
 
 public:
@@ -118,6 +120,7 @@ class HYPERMANAGE_API UHyperManageUndo : public UHyperManageComponent
 private:
 	UPROPERTY(Transient) TArray<FUndoInfo> UndoStack;
 	UPROPERTY(Transient) TArray<FUndoInfo> RedoStack;
+	uint64 Revision = 0;
 	void Push(FUndoInfo&& Info);
 	bool Transfer(TArray<FUndoInfo>& From, TArray<FUndoInfo>& To, FUndoInfo& Info);
 	bool HasPending(const FUndoInfo& Info) const;
@@ -137,6 +140,9 @@ public:
 	UFUNCTION()
 	void ClearUndoStack();
 	bool PopRedo(FUndoInfo& UndoInfo);
+	void PushNamedTransforms(TArray<AActor*>& Actors, const FString& Description);
+	TArray<FString> GetRecentDescriptions(bool Redo, int32 Limit = 5) const;
+	uint64 GetRevision() const { return Revision; }
 	int32 GetUndoCount() const { return UndoStack.Num(); }
 	int32 GetRedoCount() const { return RedoStack.Num(); }
 	bool CanUndo() const { return !UndoStack.IsEmpty() && !HasPending(UndoStack.Last()); }

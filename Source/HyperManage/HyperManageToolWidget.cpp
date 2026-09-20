@@ -26,6 +26,7 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/ScrollBox.h"
+#include "Components/ExpandableArea.h"
 
 namespace {
 void StyleNumericInput(USpinBox* Input)
@@ -216,7 +217,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.34")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.35")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -312,6 +313,19 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddHistory(UndoButton, TEXT("Undo (0)"), EActionNameIdx::Undo, TEXT("Undo the last recorded edit [Ctrl+Z]. Waiting for a lightweight edit to finish temporarily disables history."));
 	AddHistory(RedoButton, TEXT("Redo (0)"), EActionNameIdx::Redo, TEXT("Restore an undone edit [Ctrl+Y]. A new recorded edit clears redo history."));
 	Rows->AddChildToVerticalBox(HistoryRow);
+ HistoryArea = WidgetTree->ConstructWidget<UExpandableArea>();
+ auto* HistoryHeading = WidgetTree->ConstructWidget<UTextBlock>();
+ HistoryHeading->SetText(FText::FromString(TEXT("Recent history")));
+ auto HistoryFont = HistoryHeading->GetFont(); HistoryFont.Size = 11; HistoryHeading->SetFont(HistoryFont);
+ HistoryHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
+ HistoryDetails = WidgetTree->ConstructWidget<UTextBlock>(); HistoryDetails->SetFont(HistoryFont); HistoryDetails->SetAutoWrapText(true);
+ HistoryDetails->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.88f, 0.90f)));
+ HistoryDetails->SetText(FText::FromString(TEXT("No recorded edits yet.")));
+ HistoryArea->SetContentForSlot(TEXT("Header"), HistoryHeading); HistoryArea->SetContentForSlot(TEXT("Body"), HistoryDetails);
+ HistoryArea->SetBorderBrush(FSlateColorBrush(FLinearColor(0.045f, 0.05f, 0.055f)));
+ HistoryArea->SetHeaderPadding(FMargin(4)); HistoryArea->SetAreaPadding(FMargin(8, 4)); HistoryArea->SetIsExpanded(false);
+ HistoryArea->SetToolTipText(FText::FromString(TEXT("Most recent records first. Undo/Redo replay one step at a time. Unavailable objects are skipped; history lasts for this session only.")));
+ Rows->AddChildToVerticalBox(HistoryArea)->SetPadding(FMargin(3, 2, 3, 6));
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	OffsetHeading->SetText(FText::FromString(TEXT("WORLD OFFSET (m)")));
 	auto OffsetFont = OffsetHeading->GetFont(); OffsetFont.Size = 14; OffsetHeading->SetFont(OffsetFont);
@@ -531,6 +545,22 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	if (!System || !System->Config) return;
 	if (System->Undo) {
 		const bool Pending = System->Selection && System->Selection->HasPendingOperations();
+  if (HistoryDetails && HistoryRevision != System->Undo->GetRevision()) {
+   HistoryRevision = System->Undo->GetRevision();
+   const auto UndoEntries = System->Undo->GetRecentDescriptions(false);
+   const auto RedoEntries = System->Undo->GetRecentDescriptions(true);
+   FString Details;
+   auto Append = [&](const TCHAR* Heading, const TArray<FString>& Entries) {
+    if (Entries.IsEmpty()) return;
+    if (!Details.IsEmpty()) Details += TEXT("\n\n");
+    Details += Heading;
+    for (int32 Index = 0; Index < Entries.Num(); ++Index) Details += FString::Printf(TEXT("\n%d. %s"), Index + 1, *Entries[Index]);
+   };
+   Append(TEXT("UNDO - newest first"), UndoEntries); Append(TEXT("REDO - next first"), RedoEntries);
+   HistoryDetails->SetText(FText::FromString(Details.IsEmpty() ? TEXT("No recorded edits yet.") : Details));
+   if (UndoButton) UndoButton->SetToolTipText(FText::FromString(UndoEntries.IsEmpty() ? TEXT("Nothing to undo") : TEXT("Undo: ") + UndoEntries[0]));
+   if (RedoButton) RedoButton->SetToolTipText(FText::FromString(RedoEntries.IsEmpty() ? TEXT("Nothing to redo") : TEXT("Redo: ") + RedoEntries[0]));
+  }
 		if (auto* Text = FieldButtonLabel(UndoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Undo (%d)"), System->Undo->GetUndoCount())));
 		if (auto* Text = FieldButtonLabel(RedoButton)) Text->SetText(FText::FromString(FString::Printf(TEXT("Redo (%d)"), System->Undo->GetRedoCount())));
 		if (UndoButton) UndoButton->SetIsEnabled(!Pending && System->Undo->CanUndo());

@@ -40,7 +40,7 @@ void UHyperManageAction::PrepareTransform(const FVector& Loc, const FRotator& Ro
 	if (Actors.Num() == 0) {
 		return;
 	}
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, !Scale.Equals(FVector::OneVector) ? TEXT("Scale") : !Rot.IsNearlyZero() ? TEXT("Rotate") : TEXT("Move"));
 
 	// Initialize TransformData with current settings
 	FHyperManageTransformData TransformData;
@@ -85,7 +85,7 @@ void UHyperManageAction::MoveSelectionToTarget(bool IgnoreTranslation)
 	if (Actors.Num() == 0) {
 		return;
 	}
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, TEXT("Align to target"));
 
 	// Initialize TransformData with current settings
 	FHyperManageTransformData TransformData;
@@ -420,7 +420,7 @@ void UHyperManageAction::SetSameScale()
 		}
 
 		// save undo information
-		System->Undo->PushUndoTransforms(Actors);
+		System->Undo->PushNamedTransforms(Actors, TEXT("Match scale"));
 
 		System->GetMMRCO()->RequestAbsoluteTransforms(Actors, Scale);
 	}
@@ -472,7 +472,7 @@ void UHyperManageAction::AlignToWorld(EActionNameIdx Action)
 	AActor* Reference = Actors.Contains(System->Selection->AnchorActor) ? System->Selection->AnchorActor : Actors[0];
 	Data.PivotLoc = Reference->GetActorLocation();
 	Data.AnchorQuat = Reference->GetActorQuat();
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, Data.SnapWorldPosition ? TEXT("Snap XY") : Data.SnapWorldHeight ? TEXT("Snap Z") : Data.SnapWorldRotation ? TEXT("Snap angle") : TEXT("Level"));
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 }
 
@@ -486,7 +486,7 @@ bool UHyperManageAction::ApplyWorldOffset(const FVector& Meters)
 	System->Selection->SelectedActorsNoTarget(Actors);
 	Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
 	if (Actors.IsEmpty()) return false;
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, TEXT("World offset"));
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 	return true;
 }
@@ -504,7 +504,7 @@ bool UHyperManageAction::ApplyWorldRotationOffset(const FRotator& Degrees)
 	const FVector Pivot = System->Transform->CalculatePivotLoc(Actors, Anchor, nullptr);
 	FHyperManageTransformData Data;
 	if (!UHyperManageTransform::MakeWorldRotationOffset(Degrees, System->Config->MMConfig.IsGrouped, Pivot, Data)) return false;
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, TEXT("World rotation offset"));
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 	return true;
 }
@@ -523,7 +523,7 @@ bool UHyperManageAction::ApplyScalePercent(const FVector& Percent)
 		return !UHyperManageTransform::MakeAbsoluteScale(Actor->GetActorTransform(), Scale, Result);
 	});
 	if (Actors.IsEmpty()) return false;
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, TEXT("Exact scale"));
 	System->GetMMRCO()->RequestAbsoluteTransforms(Actors, Scale);
 	return true;
 }
@@ -543,6 +543,6 @@ void UHyperManageAction::MatchAnchorOrigin(EAxis::Type Axis)
 			UHyperManageTransform::OriginAlignmentDelta(Actor->GetActorLocation(), Data.PivotLoc, Axis).IsNearlyZero(0.000001);
 	});
 	if (Actors.IsEmpty()) return;
-	System->Undo->PushUndoTransforms(Actors);
+	System->Undo->PushNamedTransforms(Actors, Axis == EAxis::X ? TEXT("Match anchor X") : Axis == EAxis::Y ? TEXT("Match anchor Y") : TEXT("Match anchor Z"));
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 }

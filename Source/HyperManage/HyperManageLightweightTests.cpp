@@ -12,6 +12,7 @@
 #include "HyperManageToolWidget.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
+#include "Components/ExpandableArea.h"
 #include "WheeledVehicles/FGTargetPoint.h"
 #include "JsonObjectConverter.h"
 #include <limits>
@@ -241,6 +242,8 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Reset prepares original Z size"), Tools->ScaleZ->GetValue(), 100.f);
 	TestEqual(TEXT("Three anchor alignment controls created"), Tools->AnchorAlignmentButtons.Num(), 3);
 	for (const auto& Button : Tools->AnchorAlignmentButtons) TestFalse(TEXT("Anchor alignment requires a reference and selection"), Button->GetIsEnabled());
+	TestNotNull(TEXT("Recent history is present"), Tools->HistoryArea.Get());
+	TestFalse(TEXT("History starts collapsed to preserve tray space"), Tools->HistoryArea->GetIsExpanded());
 	TestNotNull(TEXT("Undo control created"), Tools->UndoButton.Get());
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
@@ -263,7 +266,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap angle")));
 	TestTrue(TEXT("Snap Z is visible"), Labels.Contains(TEXT("Snap Z")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.34")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.35")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -372,7 +375,8 @@ bool FHyperManageHistoryTest::RunTest(const FString& Parameters)
 	const FTransform Before(FRotator(0, 15, 0), FVector(100, 200, 300));
 	const FTransform After(FRotator(0, 45, 0), FVector(400, 500, 600));
 	Actor->SetActorTransform(Before);
-	History->PushUndoTransforms(Actors);
+	History->PushNamedTransforms(Actors, TEXT("World offset"));
+	TestEqual(TEXT("Undo preview names the next edit"), History->GetRecentDescriptions(false)[0], FString(TEXT("World offset")));
 	Actor->SetActorTransform(After);
 	FUndoInfo Info;
 	for (int32 Index = 0; Index < 3; ++Index) {
@@ -380,6 +384,7 @@ bool FHyperManageHistoryTest::RunTest(const FString& Parameters)
 		if (Info.TransformActors.Num() != 1) { AddError(TEXT("Expected one valid transform record")); break; }
 		TestTrue(TEXT("Undo restores the original transform"), Info.TransformActors[0].Transform.Equals(Before));
 		Actor->SetActorTransform(Info.TransformActors[0].Transform);
+		TestEqual(TEXT("Description survives transfer to redo"), History->GetRecentDescriptions(true)[0], FString(TEXT("World offset")));
 		TestTrue(TEXT("Redo is available"), History->PopRedo(Info));
 		if (Info.TransformActors.Num() != 1) { AddError(TEXT("Expected one redo transform")); break; }
 		TestTrue(TEXT("Redo restores the edited transform"), Info.TransformActors[0].Transform.Equals(After));
@@ -391,9 +396,20 @@ bool FHyperManageHistoryTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Empty edit preserves redo"), History->GetRedoCount(), 1);
 	History->PushUndoTransforms(Actors);
 	TestEqual(TEXT("New edit discards redo"), History->GetRedoCount(), 0);
+ History->PushNamedTransforms(Actors, TEXT("Rotate"));
+ History->PushNamedTransforms(Actors, TEXT("Snap Z"));
+ const auto Preview = History->GetRecentDescriptions(false, 2);
+ TestEqual(TEXT("History preview respects its limit"), Preview.Num(), 2);
+ TestEqual(TEXT("Newest operation appears first"), Preview[0], FString(TEXT("Snap Z")));
+ TestEqual(TEXT("Previous operation follows"), Preview[1], FString(TEXT("Rotate")));
+ TestTrue(TEXT("Negative preview limit returns no entries"), History->GetRecentDescriptions(false, -1).IsEmpty());
+ TestTrue(TEXT("Branch removes redo preview"), History->GetRecentDescriptions(true).IsEmpty());
 	for (int32 Index = 0; Index < 1005; ++Index) History->PushUndoTransforms(Actors);
 	TestEqual(TEXT("History stays bounded"), History->GetUndoCount(), 1000);
+	const uint64 PreviousRevision = History->GetRevision();
 	History->ClearUndoStack();
+	TestTrue(TEXT("Clear invalidates cached history display"), History->GetRevision() > PreviousRevision);
+	TestTrue(TEXT("Clear removes preview entries"), History->GetRecentDescriptions(false).IsEmpty());
 	TestFalse(TEXT("Clear removes undo"), History->CanUndo());
 	TestFalse(TEXT("Clear removes redo"), History->CanRedo());
 	History->PushUndoTransforms(Actors);

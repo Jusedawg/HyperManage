@@ -82,6 +82,8 @@ A **Uniform preset** fills all three fields. **100%** prepares a return to origi
 
 Use **Undo** and **Redo** in the tools panel, or **Ctrl + Z** and **Ctrl + Y**. The buttons show the number of recorded edits. History covers transforms, matching paint, selection clicks, anchor/target changes, box selection, Clear selection and Recall, with up to 1,000 steps for the current session. A new recorded edit clears redo; **Clear history** empties both lists. Connections are not recorded. Repeating a selection click that changes nothing does not add a history step. Clearing or recalling a selection is one step, including its anchor and target.
 
+Expand **Recent history** below Undo/Redo to see the five newest undo records and the next five redo records. Hover Undo or Redo to see the next operation, such as World offset, Snap Z or Exact scale. The list is a read-only preview; the buttons replay one step at a time. Unavailable objects are skipped during replay.
+
 History pauses while a lightweight building edit is awaiting acknowledgement. History is not saved with your game.
 
 ## Feedback
