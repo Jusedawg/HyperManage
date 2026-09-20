@@ -459,11 +459,12 @@ void UHyperManageAction::AlignToWorld(EActionNameIdx Action)
 	FHyperManageTransformData Data;
 	Data.WorldAlignment = true;
 	Data.SnapWorldPosition = Action == EActionNameIdx::SnapWorldXY;
+	Data.SnapWorldHeight = Action == EActionNameIdx::SnapWorldZ;
 	Data.SnapWorldRotation = Action == EActionNameIdx::SnapWorldRotation;
 	Data.LevelWorldRotation = Action == EActionNameIdx::LevelWorldRotation;
 	Data.GroupMode = System->Config->MMConfig.IsGrouped;
 	Data.ViewRelative = false;
-	Data.AlignmentGridCm = System->Config->MMConfig.AlignmentGridCm;
+	Data.AlignmentGridCm = Data.SnapWorldHeight ? System->Config->MMConfig.HeightGridCm : System->Config->MMConfig.AlignmentGridCm;
 	Data.AlignmentAngle = System->Config->MMConfig.IncrementSettings[System->Config->CurrentIncrementSize()].DegreesToRotate;
 	AActor* Reference = Actors.Contains(System->Selection->AnchorActor) ? System->Selection->AnchorActor : Actors[0];
 	Data.PivotLoc = Reference->GetActorLocation();

@@ -206,14 +206,15 @@ void UHyperManageTransform::ProcessTransform(const TArray<AActor*>& Actors, cons
 	FHyperManageTransformData SingleTransformData = TransformData;
 	for (const auto& Actor : Actors) {
 		if (System->Selection->IsValidActor(Actor)) {
-			const FVector AlignmentDelta = TransformData.WorldAlignment && TransformData.WorldOriginAlignment ?
-				OriginAlignmentDelta(Actor->GetActorLocation(), TransformData.PivotLoc, TransformData.TransformAxis) : FVector::ZeroVector;
+			const bool TranslateWholeActor = TransformData.WorldAlignment && (TransformData.WorldOriginAlignment || TransformData.SnapWorldHeight);
+			const FVector AlignmentDelta = TranslateWholeActor ?
+				ComputeTransform(Actor->GetActorTransform(), TransformData).GetLocation() - Actor->GetActorLocation() : FVector::ZeroVector;
 			// process all "root" components
 			for (const auto& ActorComp : TInlineComponentArray<USceneComponent*>(Actor)) {
 				USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp);
 				if (SceneComp && !SceneComp->GetAttachParent()) {
 					FTransform Transform = SceneComp->GetComponentTransform();
-					if (TransformData.WorldAlignment && TransformData.WorldOriginAlignment) {
+					if (TranslateWholeActor) {
 						Transform.AddToTranslation(AlignmentDelta);
 					} else if (TransformData.WorldAlignment) {
 						Transform = ComputeTransform(Transform, TransformData);
@@ -343,6 +344,7 @@ FTransform UHyperManageTransform::ComputeTransform(FTransform Transform, const F
 			SnappedLocation.X = FMath::GridSnap(ReferenceLocation.X, Data.AlignmentGridCm);
 			SnappedLocation.Y = FMath::GridSnap(ReferenceLocation.Y, Data.AlignmentGridCm);
 		}
+		if (Data.SnapWorldHeight) SnappedLocation.Z = FMath::GridSnap(ReferenceLocation.Z, Data.AlignmentGridCm);
 		if (Data.SnapWorldRotation) {
 			SnappedRotation.Pitch = FMath::GridSnap(SnappedRotation.Pitch, Data.AlignmentAngle);
 			SnappedRotation.Yaw = FMath::GridSnap(SnappedRotation.Yaw, Data.AlignmentAngle);

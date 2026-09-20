@@ -342,6 +342,7 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 			Selection->SelectNextMaterial();
 			Config->SaveHyperManageConfig();
 			break;
+		case EActionNameIdx::SnapWorldZ:
 		case EActionNameIdx::SnapWorldXY:
 		case EActionNameIdx::SnapWorldRotation:
 		case EActionNameIdx::LevelWorldRotation:

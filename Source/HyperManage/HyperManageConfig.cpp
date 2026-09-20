@@ -11,9 +11,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogHyperManageConfig, Log, All);
 bool UHyperManageConfiguration::SetPrecisionValue(EHyperManagePrecisionSetting Setting, float Value)
 {
 	if (!FMath::IsFinite(Value)) return false;
-	if (Setting == EHyperManagePrecisionSetting::Grid) {
-		if (Value < 0.01f || Value > 1000.f || MMConfig.AlignmentGridCm == Value * 100.f) return false;
-		MMConfig.AlignmentGridCm = Value * 100.f;
+	if (Setting == EHyperManagePrecisionSetting::Grid || Setting == EHyperManagePrecisionSetting::HeightGrid) {
+		float& Grid = Setting == EHyperManagePrecisionSetting::Grid ? MMConfig.AlignmentGridCm : MMConfig.HeightGridCm;
+		if (Value < 0.01f || Value > 1000.f || Grid == Value * 100.f) return false;
+		Grid = Value * 100.f;
 		return true;
 	}
 	if (!MMConfig.IncrementSettings.IsValidIndex(MMConfig.IncrementSize)) return false;
@@ -95,6 +96,7 @@ void UHyperManageConfiguration::LoadHyperManageConfig()
 	MMConfig.MaxTargetRangeMeters = 100.f;
 	MMConfig.SelectionTolerance = 0.5f;
 	MMConfig.AlignmentGridCm = 800.f;
+	MMConfig.HeightGridCm = 100.f;
 	MMConfig.CurrentSelectedMaterial = 0;
 	MMConfig.IsGrouped = true;
 	MMConfig.IsViewBased = true;
@@ -110,6 +112,7 @@ void UHyperManageConfiguration::LoadHyperManageConfig()
 	if (!FMath::IsFinite(MMConfig.MaxTargetRangeMeters) || MMConfig.MaxTargetRangeMeters <= 0.f) MMConfig.MaxTargetRangeMeters = 100.f;
 	if (!FMath::IsFinite(MMConfig.SelectionTolerance) || MMConfig.SelectionTolerance < 0.f) MMConfig.SelectionTolerance = 0.5f;
 	if (!FMath::IsFinite(MMConfig.AlignmentGridCm) || MMConfig.AlignmentGridCm < 1.f || MMConfig.AlignmentGridCm > 100000.f) MMConfig.AlignmentGridCm = 800.f;
+	if (!FMath::IsFinite(MMConfig.HeightGridCm) || MMConfig.HeightGridCm < 1.f || MMConfig.HeightGridCm > 100000.f) MMConfig.HeightGridCm = 100.f;
 	MMConfig.CurrentSelectedMaterial = FMath::Clamp(MMConfig.CurrentSelectedMaterial, 0, 1);
 
 	// Keep a fixed enum order even if the JSON contains reordered, duplicate or unknown entries.

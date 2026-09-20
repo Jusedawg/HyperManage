@@ -92,7 +92,8 @@ enum EActionNameIdx
 	Redo UMETA(DisplayName = "Redo" ),
 	MatchAnchorX UMETA(DisplayName = "Match Anchor X"),
 	MatchAnchorY UMETA(DisplayName = "Match Anchor Y"),
-	MatchAnchorZ UMETA(DisplayName = "Match Anchor Z")
+	MatchAnchorZ UMETA(DisplayName = "Match Anchor Z"),
+	SnapWorldZ UMETA(DisplayName = "Snap To Height Grid")
 };
 
 class AHyperManageEquip;

@@ -77,6 +77,7 @@ public:
 	UPROPERTY() double AlignmentAngle = 5.0;
 	UPROPERTY() bool WorldRotationOffset = false;
 	UPROPERTY() bool WorldOriginAlignment = false;
+	UPROPERTY() bool SnapWorldHeight = false;
 
 public:
 	FORCEINLINE ~FHyperManageTransformData() = default;

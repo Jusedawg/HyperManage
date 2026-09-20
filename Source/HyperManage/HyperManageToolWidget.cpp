@@ -154,7 +154,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.22")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.23")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -183,7 +183,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		Input->SetMinValue(Minimum); Input->SetMaxValue(Maximum); Input->SetValue(Minimum);
 		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(92.f);
 		Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
-		Input->SetToolTipText(FText::FromString(TEXT("Type an exact value. Enter or leaving the field saves it. Movement and rotation use the active increment profile; the grid is shared.")));
+		Input->SetToolTipText(FText::FromString(TEXT("Type an exact value. Enter or leaving the field saves it. Movement and rotation use the active increment profile; the XY and Z grids are shared.")));
 		PresetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
 		auto* Combo = WidgetTree->ConstructWidget<UComboBoxString>();
 		for (const FString& Option : Options) Combo->AddOption(Option);
@@ -193,6 +193,9 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	MovementPreset = AddPreset(TEXT("Move (m)"), {TEXT("0.01"), TEXT("0.1"), TEXT("0.25"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")}, MovementValue, 0.01f, 1000.f);
 	RotationPreset = AddPreset(TEXT("Rotate (deg)"), {TEXT("1"), TEXT("5"), TEXT("10"), TEXT("15"), TEXT("30"), TEXT("45"), TEXT("90")}, RotationValue, 0.1f, 180.f);
 	GridPreset = AddPreset(TEXT("Grid XY (m)"), {TEXT("0.1"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")}, GridValue, 0.01f, 1000.f);
+	HeightGridPreset = AddPreset(TEXT("Grid Z (m)"), {TEXT("0.1"), TEXT("0.25"), TEXT("0.5"), TEXT("1"), TEXT("2"), TEXT("4"), TEXT("8")}, HeightGridValue, 0.01f, 1000.f);
+	HeightGridValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitHeightGridValue);
+	HeightGridPreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeHeightGridPreset);
 	MovementValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitMovementValue);
 	RotationValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitRotationValue);
 	GridValue->OnValueCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitGridValue);
@@ -206,12 +209,13 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		auto* Button = WidgetTree->ConstructWidget<UButton>();
 		auto* Text = WidgetTree->ConstructWidget<UTextBlock>();
 		Text->SetText(FText::FromString(Label));
-		AddFieldIcon(WidgetTree, Button, Text, (Action == EActionNameIdx::SnapWorldXY || Action == EActionNameIdx::MatchAnchorX || Action == EActionNameIdx::MatchAnchorY || Action == EActionNameIdx::MatchAnchorZ) ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
+		AddFieldIcon(WidgetTree, Button, Text, (Action == EActionNameIdx::SnapWorldXY || Action == EActionNameIdx::SnapWorldZ || Action == EActionNameIdx::MatchAnchorX || Action == EActionNameIdx::MatchAnchorY || Action == EActionNameIdx::MatchAnchorZ) ? 19 : (Action == EActionNameIdx::LevelWorldRotation ? 20 : 3));
 		HookWidget(Action, Button, Tip);
 		Wrap->AddChildToWrapBox(Button)->SetPadding(FMargin(6, 4));
 		return Button;
 	};
 	AddAlignment(Alignments, TEXT("Snap XY"), EActionNameIdx::SnapWorldXY, TEXT("Snap to the world-origin XY grid. 8m is foundation spacing. Height and scale stay unchanged. Group mode preserves spacing; set an anchor to choose the reference."));
+	AddAlignment(Alignments, TEXT("Snap Z"), EActionNameIdx::SnapWorldZ, TEXT("Snap origins to the world-zero height grid using Grid Z. X/Y, rotation and scale stay unchanged. Group mode preserves relative heights using the anchor or first selected origin. Individual mode snaps each origin independently. Ctrl+Z undoes alignment."));
 	AddAlignment(Alignments, TEXT("Snap rotation"), EActionNameIdx::SnapWorldRotation, TEXT("Round world pitch/yaw/roll to the selected rotation step. Uses group mode and anchor; scale is preserved. Ctrl+Z undoes alignment."));
 	AddAlignment(Alignments, TEXT("Level"), EActionNameIdx::LevelWorldRotation, TEXT("Set world pitch and roll to zero, retaining yaw. Group mode levels around the anchor/reference."));
 	Rows->AddChildToVerticalBox(Alignments);
@@ -499,7 +503,8 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	Sync(MovementPreset, MovementValue, Increment.CentimetersToMove / 100.f);
 	Sync(RotationPreset, RotationValue, Increment.DegreesToRotate);
 	Sync(GridPreset, GridValue, Config.AlignmentGridCm / 100.f);
-	if (PrecisionProfileLabel) PrecisionProfileLabel->SetText(FText::FromString(FString::Printf(TEXT("Exact steps | %s profile | grid shared"), *UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString())));
+	Sync(HeightGridPreset, HeightGridValue, Config.HeightGridCm / 100.f);
+	if (PrecisionProfileLabel) PrecisionProfileLabel->SetText(FText::FromString(FString::Printf(TEXT("Exact steps | %s profile | grids shared"), *UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString())));
 	if (btnIsGrouped) {
 		if (auto* Text = FieldButtonLabel(btnIsGrouped)) Text->SetText(FText::FromString(Config.IsGrouped ? TEXT("Group: together") : TEXT("Group: individual")));
 	}
@@ -651,4 +656,18 @@ void UHyperManageToolWidget::ChangeScalePreset(FString Value, ESelectInfo::Type 
 void UHyperManageToolWidget::ClearScalePreset(float Value)
 {
 	if (ScalePreset && !ScalePreset->GetSelectedOption().IsEmpty()) ScalePreset->ClearSelection();
+}
+
+
+void UHyperManageToolWidget::CommitHeightGridValue(float Value, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod == ETextCommit::OnCleared) return;
+	if (auto* System = UHyperManageSystem::Get(); System && System->Config) {
+		if (System->Config->SetPrecisionValue(EHyperManagePrecisionSetting::HeightGrid, Value)) System->Config->SaveHyperManageConfig();
+	}
+}
+
+void UHyperManageToolWidget::ChangeHeightGridPreset(FString Value, ESelectInfo::Type SelectionType)
+{
+	if (SelectionType != ESelectInfo::Direct) CommitHeightGridValue(FCString::Atof(*Value), ETextCommit::OnEnter);
 }

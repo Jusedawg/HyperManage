@@ -245,6 +245,8 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Redo control created"), Tools->RedoButton.Get());
 	TestNotNull(TEXT("Movement presets created"), Tools->MovementPreset.Get());
 	TestNotNull(TEXT("Rotation presets created"), Tools->RotationPreset.Get());
+	TestNotNull(TEXT("Independent height-grid field created"), Tools->HeightGridValue.Get());
+	TestNotNull(TEXT("Independent height-grid presets created"), Tools->HeightGridPreset.Get());
 	TestNotNull(TEXT("Grid presets created"), Tools->GridPreset.Get());
 	TestNotNull(TEXT("Exact movement field created"), Tools->MovementValue.Get());
 	TestNotNull(TEXT("Exact rotation field created"), Tools->RotationValue.Get());
@@ -259,8 +261,9 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNull(TEXT("Unfinished copy action is removed from the visible layout"), Tools->btnCopySelection->GetParent());
 	TestTrue(TEXT("Snap XY is in the visible hierarchy"), Labels.Contains(TEXT("Snap XY")));
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Labels.Contains(TEXT("Snap rotation")));
+	TestTrue(TEXT("Snap Z is visible"), Labels.Contains(TEXT("Snap Z")));
 	TestTrue(TEXT("Level is in the visible hierarchy"), Labels.Contains(TEXT("Level")));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.22")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.23")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -329,13 +332,16 @@ bool FHyperManagePrecisionSettingsTest::RunTest(const FString& Parameters)
 	Config->MMConfig.CurrentIncrementSize = TEXT("Medium");
 	TestTrue(TEXT("Accept custom movement in meters"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 0.375f));
 	TestTrue(TEXT("Accept fractional degrees"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, 22.5f));
+	TestTrue(TEXT("Accept independent height grid"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::HeightGrid, 2.5f));
 	TestTrue(TEXT("Accept custom world grid in meters"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Grid, 1.25f));
 	TestEqual(TEXT("Movement converts to centimeters"), Config->MMConfig.IncrementSettings[1].CentimetersToMove, 37.5f);
 	TestEqual(TEXT("Other profiles remain unchanged"), Config->MMConfig.IncrementSettings[0].CentimetersToMove, 1.f);
+	TestEqual(TEXT("Height grid converts independently"), Config->MMConfig.HeightGridCm, 250.f);
 	TestEqual(TEXT("Grid converts to centimeters"), Config->MMConfig.AlignmentGridCm, 125.f);
 	TestFalse(TEXT("Unchanged value does not request another write"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 0.375f));
 	for (float Invalid : {-1.f, 0.f, 1001.f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
 		TestFalse(TEXT("Reject invalid movement"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, Invalid));
+		TestFalse(TEXT("Reject invalid height grid"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::HeightGrid, Invalid));
 		TestFalse(TEXT("Reject invalid grid"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Grid, Invalid));
 		TestFalse(TEXT("Reject invalid rotation"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Rotation, Invalid));
 	}
@@ -349,6 +355,7 @@ bool FHyperManagePrecisionSettingsTest::RunTest(const FString& Parameters)
 	if (Restored.IncrementSettings.Num() != 4) { AddError(TEXT("Saved profiles did not round-trip")); return false; }
 	TestEqual(TEXT("Saved custom movement survives round-trip"), Restored.IncrementSettings[1].CentimetersToMove, 37.5f);
 	TestEqual(TEXT("Saved custom rotation survives round-trip"), Restored.IncrementSettings[1].DegreesToRotate, 22.5f);
+	TestEqual(TEXT("Saved height grid survives round-trip"), Restored.HeightGridCm, 250.f);
 	TestEqual(TEXT("Saved custom grid survives round-trip"), Restored.AlignmentGridCm, 125.f);
 	Config->MMConfig.IncrementSettings.Empty();
 	TestFalse(TEXT("Missing active profile cannot cause an out-of-bounds write"), Config->SetPrecisionValue(EHyperManagePrecisionSetting::Movement, 1.f));
@@ -574,6 +581,12 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 	System->Transform->ProcessTransform({C}, Alignment);
 	TestTrue(TEXT("Native actor origin aligns to reference height"), C->GetActorLocation().Equals(FVector(100, 200, 500)));
 	TestTrue(TEXT("Detached actor component preserves its relative offset"), DetachedPart->GetComponentLocation().Equals(FVector(-100, 400, 1000)));
+	Root->SetWorldLocation(FVector(100, 200, 537));
+	DetachedPart->SetWorldLocation(FVector(-100, 400, 1037));
+	Alignment.WorldOriginAlignment = false; Alignment.SnapWorldHeight = true; Alignment.AlignmentGridCm = 100;
+	System->Transform->ProcessTransform({C}, Alignment);
+	TestTrue(TEXT("Height grid snaps native root"), C->GetActorLocation().Equals(FVector(100, 200, 500)));
+	TestTrue(TEXT("Height grid preserves detached component offsets"), DetachedPart->GetComponentLocation().Equals(FVector(-100, 400, 1000)));
 	B->Destroy();
 	Replay(false); Replay(true);
 	TestNull(TEXT("Destroyed target is not restored"), Selection->TargetActor);
@@ -606,6 +619,34 @@ bool FHyperManageOriginAlignmentTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("No axis is rejected"), UHyperManageTransform::MakeWorldOriginAlignment(Reference, EAxis::None, Invalid));
 	TestFalse(TEXT("Nonfinite reference is rejected"), UHyperManageTransform::MakeWorldOriginAlignment(FVector(std::numeric_limits<double>::infinity(), 0, 0), EAxis::X, Invalid));
 	TestTrue(TEXT("Invalid replay axis cannot move an object"), UHyperManageTransform::OriginAlignmentDelta(Original.GetLocation(), Reference, EAxis::None).IsZero());
+	return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageHeightGridTest, "HyperManage.Transform.HeightGrid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageHeightGridTest::RunTest(const FString& Parameters)
+{
+	auto* Calculator = NewObject<UHyperManageTransform>();
+	FHyperManageTransformData Data;
+	Data.WorldAlignment = true; Data.SnapWorldHeight = true; Data.GroupMode = false; Data.AlignmentGridCm = 100;
+	const FTransform Original(FRotator(17, -43, 9), FVector(-813, 274, -176), FVector(2, 0.5, 1.25));
+	const FTransform Result = Calculator->ComputeTransform(Original, Data);
+	TestTrue(TEXT("Height rounds correctly below world zero without changing XY"), Result.GetLocation().Equals(FVector(-813, 274, -200)));
+	TestTrue(TEXT("Height snap preserves rotation"), Result.GetRotation().Equals(Original.GetRotation()));
+	TestTrue(TEXT("Height snap preserves scale"), Result.GetScale3D().Equals(Original.GetScale3D()));
+	TestTrue(TEXT("Repeated height snap is stable"), Calculator->ComputeTransform(Result, Data).Equals(Result));
+	Data.GroupMode = true; Data.PivotLoc = Original.GetLocation(); Data.AnchorQuat = Original.GetRotation();
+	FTransform Member = Original; Member.AddToTranslation(FVector(300, -100, 37));
+	const FTransform GroupMember = Calculator->ComputeTransform(Member, Data);
+	TestTrue(TEXT("Grouped snap preserves relative height and spacing"), (GroupMember.GetLocation() - Result.GetLocation()).Equals(FVector(300, -100, 37)));
+	Data.GroupMode = false;
+	TestTrue(TEXT("Individual snap uses each object's own height"), Calculator->ComputeTransform(Member, Data).GetLocation().Equals(FVector(-513, 174, -100)));
+	Data.AlignmentGridCm = 25;
+	TestTrue(TEXT("Fractional-meter grid is supported"), Calculator->ComputeTransform(Original, Data).GetLocation().Equals(FVector(-813, 274, -175)));
+	Data.AlignmentGridCm = 0;
+	TestTrue(TEXT("Invalid grid cannot move objects"), Calculator->ComputeTransform(Original, Data).Equals(Original));
+	FHyperManageConfig Legacy;
+	TestTrue(TEXT("Older settings without height grid still load"), FJsonObjectConverter::JsonObjectStringToUStruct(TEXT("{\"alignmentGridCm\":400}"), &Legacy));
+	TestEqual(TEXT("Older settings get a one-meter height grid"), Legacy.HeightGridCm, 100.f);
+	TestEqual(TEXT("Older horizontal grid stays intact"), Legacy.AlignmentGridCm, 400.f);
 	return true;
 }
 #endif

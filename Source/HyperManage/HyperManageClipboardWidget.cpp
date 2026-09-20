@@ -66,7 +66,7 @@ TSharedRef<SWidget> UHyperManageClipboardWidget::RebuildWidget()
 			AddText(Keys[Index], Positions[Index].X, Positions[Index].Y, 20, 24, 11);
 		}
 		ScaleText = AddText(TEXT("Ctrl+Alt+J  Shrink    Ctrl+Alt+L  Grow"), 56, 449, 296, 40, 10);
-		StatusText = AddText(TEXT("Increment: Medium\nMove: 0.1m  Rotate: 5 deg\nGrid: 8m | Group | View axes"), 56, 489, 296, 60, 9);
+		StatusText = AddText(TEXT("Increment: Medium\nMove: 0.1m  Rotate: 5 deg\nXY: 8m Z: 1m | Group | View"), 56, 489, 296, 60, 9);
 		NotesText = AddText(TEXT("Ctrl+Alt+K  Cycle notes"), 100, 552, 248, 24, 10);
 		SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
@@ -110,9 +110,9 @@ void UHyperManageClipboardWidget::UpdateReference(const UHyperManageConfiguratio
 	Set(RedoText, Binding(Redo) + TEXT("  Redo"));
 	Set(ScaleText, Binding(Shrink) + TEXT("  Shrink    ") + Binding(Grow) + TEXT("  Grow"));
 	Set(NotesText, Binding(KnowNotes) + TEXT("  Cycle notes"));
-	Set(StatusText, FString::Printf(TEXT("%s  Increment: %s\nMove: %gm   Rotate: %g deg\nGrid: %gm | %s | %s"), *Binding(ChangeIncSize),
+	Set(StatusText, FString::Printf(TEXT("%s  Increment: %s\nMove: %gm   Rotate: %g deg\nXY: %gm Z: %gm | %s | %s"), *Binding(ChangeIncSize),
 		*UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString(), Increment.CentimetersToMove / 100.f, Increment.DegreesToRotate,
-		Config.AlignmentGridCm / 100.f, Config.IsGrouped ? TEXT("Group") : TEXT("Individual"), Config.IsViewBased ? TEXT("View axes") : TEXT("Object axes")));
+		Config.AlignmentGridCm / 100.f, Config.HeightGridCm / 100.f, Config.IsGrouped ? TEXT("Group") : TEXT("Individual"), Config.IsViewBased ? TEXT("View") : TEXT("Object")));
 }
 
 // Original pen-style diagrams, drawn in logical UI coordinates over the paper.

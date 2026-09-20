@@ -116,6 +116,8 @@ public:
 	float SelectionTolerance = 0.5f;
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
 	float AlignmentGridCm = 800.f;
+	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
+	float HeightGridCm = 100.f;
 
 	TEnumAsByte<EIncrementSize> IncrementSize = EIncrementSize::Medium;
 
@@ -150,7 +152,7 @@ public:
 	FORCEINLINE ~FHyperManageConfig() = default;
 };
 
-enum class EHyperManagePrecisionSetting : uint8 { Movement, Rotation, Grid };
+enum class EHyperManagePrecisionSetting : uint8 { Movement, Rotation, Grid, HeightGrid };
 
 UCLASS(BlueprintType)
 class HYPERMANAGE_API UHyperManageConfiguration : public UHyperManageComponent

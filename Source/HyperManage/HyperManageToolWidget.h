@@ -75,6 +75,10 @@ protected:
 	UFUNCTION() void ChangeScalePreset(FString Value, ESelectInfo::Type SelectionType);
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> AnchorAlignmentButtons;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> AnchorAlignmentStatus;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> HeightGridValue;
+	UPROPERTY(Transient) TObjectPtr<UComboBoxString> HeightGridPreset;
+	UFUNCTION() void CommitHeightGridValue(float Value, ETextCommit::Type CommitMethod);
+	UFUNCTION() void ChangeHeightGridPreset(FString Value, ESelectInfo::Type SelectionType);
 	float TrayOpenTime = 0.f;
 	virtual void NativeTick(const FGeometry& Geometry, float DeltaTime) override;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> MovementValue;
