@@ -219,6 +219,8 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("World position fields created"), Tools->PositionX.Get());
 	TestFalse(TEXT("Position apply requires a selection"), Tools->ApplyPositionButton->GetIsEnabled());
 	TestFalse(TEXT("Read position requires a selection"), Tools->ReadPositionButton->GetIsEnabled());
+	TestNotNull(TEXT("Absolute orientation input created"), Tools->OrientationYaw.Get());
+	TestFalse(TEXT("Absolute orientation apply starts disabled"), Tools->ApplyOrientationButton->GetIsEnabled());
 	TestNotNull(TEXT("Yaw input created"), Tools->OffsetYaw.Get());
 	TestNotNull(TEXT("Pitch input created"), Tools->OffsetPitch.Get());
 	TestNotNull(TEXT("Roll input created"), Tools->OffsetRoll.Get());
@@ -271,7 +273,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.39")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.40")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -694,6 +696,33 @@ bool FHyperManageWorldPositionTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Out-of-range world coordinates are rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(10001, 0, 0), FVector(1000000, 0, 0), Data));
  TestFalse(TEXT("Invalid reference is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector::ZeroVector, FVector(std::numeric_limits<double>::infinity(), 0, 0), Data));
  TestFalse(TEXT("Invalid destination is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), FVector::ZeroVector, Data));
+ return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageWorldOrientationTest, "HyperManage.Transform.WorldOrientation", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageWorldOrientationTest::RunTest(const FString& Parameters)
+{
+ auto* Transform = NewObject<UHyperManageTransform>();
+ const FTransform Reference(FRotator(25, 170, -35), FVector(-1000, 2300, 750), FVector(2, 0.5, 1));
+ const FTransform Neighbor(FRotator(-10, 70, 20), FVector(-300, 2000, 950));
+ for (const FRotator Desired : {FRotator::ZeroRotator, FRotator(40, -170, 65), FRotator(90, 35, -20), FRotator(-90, 180, 0)}) {
+  FHyperManageTransformData Data;
+  TestTrue(TEXT("Absolute orientation creates an edit"), UHyperManageTransform::MakeWorldOrientation(Desired, Reference, Data));
+  const auto Result = Transform->ComputeTransform(Reference, Data);
+  const auto Other = Transform->ComputeTransform(Neighbor, Data);
+  TestTrue(TEXT("Reference reaches requested quaternion including wraparound and vertical pitch"), Result.GetRotation().Equals(Desired.Quaternion(), 0.000001));
+  TestTrue(TEXT("Reference origin stays fixed"), Result.GetLocation().Equals(Reference.GetLocation()));
+  TestTrue(TEXT("Nonuniform scale is preserved"), Result.GetScale3D().Equals(Reference.GetScale3D()));
+  TestTrue(TEXT("Group distance is preserved"), FMath::IsNearlyEqual(FVector::Distance(Result.GetLocation(), Other.GetLocation()), FVector::Distance(Reference.GetLocation(), Neighbor.GetLocation()), 0.000001));
+  const FQuat RelativeBefore = Reference.GetRotation().Inverse() * Neighbor.GetRotation();
+  TestTrue(TEXT("Group relative orientations are preserved"), (Result.GetRotation().Inverse() * Other.GetRotation()).Equals(RelativeBefore, 0.000001));
+  TestFalse(TEXT("Repeated absolute orientation is a no-op"), UHyperManageTransform::MakeWorldOrientation(Desired, Result, Data));
+ }
+ FHyperManageTransformData Data;
+ TestFalse(TEXT("Angles outside input bounds are rejected"), UHyperManageTransform::MakeWorldOrientation(FRotator(0, 181, 0), Reference, Data));
+ TestFalse(TEXT("NaN angle is rejected"), UHyperManageTransform::MakeWorldOrientation(FRotator(0, std::numeric_limits<double>::quiet_NaN(), 0), Reference, Data));
+ FTransform Invalid = Reference; Invalid.SetRotation(FQuat(0, 0, 0, 0));
+ TestFalse(TEXT("Invalid reference rotation is rejected"), UHyperManageTransform::MakeWorldOrientation(FRotator::ZeroRotator, Invalid, Data));
  return true;
 }
 

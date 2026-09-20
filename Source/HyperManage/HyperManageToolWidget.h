@@ -78,6 +78,14 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> RotationStatus;
 	UFUNCTION() void ApplyWorldRotationOffset();
 	UFUNCTION() void ClearRotationOffset();
+ UPROPERTY(Transient) TObjectPtr<USpinBox> OrientationYaw;
+ UPROPERTY(Transient) TObjectPtr<USpinBox> OrientationPitch;
+ UPROPERTY(Transient) TObjectPtr<USpinBox> OrientationRoll;
+ UPROPERTY(Transient) TObjectPtr<UButton> ApplyOrientationButton;
+ UPROPERTY(Transient) TObjectPtr<UButton> ReadOrientationButton;
+ UPROPERTY(Transient) TObjectPtr<class UTextBlock> OrientationStatus;
+ UFUNCTION() void ApplyWorldOrientation();
+ UFUNCTION() void ReadWorldOrientation();
 	UPROPERTY(Transient) TObjectPtr<USpinBox> ScaleX;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> ScaleY;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> ScaleZ;

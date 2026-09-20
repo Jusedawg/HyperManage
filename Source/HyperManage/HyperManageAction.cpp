@@ -573,3 +573,31 @@ bool UHyperManageAction::ApplyWorldPosition(const FVector& Meters)
  System->GetMMRCO()->RequestTransform(Actors, Data);
  return true;
 }
+
+bool UHyperManageAction::GetWorldOrientationReference(FTransform& Reference)
+{
+ if (!System || !System->Selection || System->Selection->HasPendingOperations()) return false;
+ TArray<AActor*> Actors;
+ System->Selection->SelectedActorsNoTarget(Actors);
+ Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
+ if (Actors.IsEmpty()) return false;
+ AActor* Anchor = Actors.Contains(System->Selection->AnchorActor) ? System->Selection->AnchorActor : nullptr;
+ if (!Anchor && Actors.Num() != 1) return false;
+ Reference = (Anchor ? Anchor : Actors[0])->GetActorTransform();
+ return HyperManageLightweight::IsValidTransform(Reference);
+}
+
+bool UHyperManageAction::ApplyWorldOrientation(const FRotator& Degrees)
+{
+ FTransform Reference;
+ if (!System || !System->Undo || !System->GetMMRCO() || !GetWorldOrientationReference(Reference)) return false;
+ FHyperManageTransformData Data;
+ if (!UHyperManageTransform::MakeWorldOrientation(Degrees, Reference, Data)) return false;
+ TArray<AActor*> Actors;
+ System->Selection->SelectedActorsNoTarget(Actors);
+ Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
+ if (Actors.IsEmpty()) return false;
+ System->Undo->PushNamedTransforms(Actors, TEXT("World orientation"));
+ System->GetMMRCO()->RequestTransform(Actors, Data);
+ return true;
+}

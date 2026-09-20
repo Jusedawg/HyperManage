@@ -224,7 +224,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.39")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.40")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -446,6 +446,41 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	RotationStatus = WidgetTree->ConstructWidget<UTextBlock>(); RotationStatus->SetFont(OffsetFont); RotationStatus->SetAutoWrapText(true);
 	RotationStatus->SetText(FText::FromString(TEXT("Select objects, then enter rotation offsets.")));
 	Rows->AddChildToVerticalBox(RotationStatus);
+ auto* OrientationArea = WidgetTree->ConstructWidget<UExpandableArea>();
+ StyleExpansionArrow(OrientationArea);
+ auto* OrientationHeading = WidgetTree->ConstructWidget<UTextBlock>();
+ OrientationHeading->SetText(FText::FromString(TEXT("WORLD ORIENTATION (deg)"))); OrientationHeading->SetFont(OffsetFont);
+ OrientationHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+ auto* OrientationBody = WidgetTree->ConstructWidget<UVerticalBox>();
+ auto* OrientationRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+ auto AddOrientation = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
+  auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
+  OrientationRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
+  Input = WidgetTree->ConstructWidget<USpinBox>(); StyleNumericInput(Input);
+  Input->SetMinValue(-180.f); Input->SetMaxValue(180.f); Input->SetValue(0.f);
+  Input->SetEnableSlider(false); Input->SetMinDesiredWidth(54.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+  Input->SetToolTipText(FText::FromString(TEXT("Absolute world angle in degrees, from -180 to 180. Read orientation fills current values. Zero means zero rotation on this axis, not an unchanged value.")));
+  OrientationRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
+ };
+ AddOrientation(TEXT("Y"), OrientationYaw); AddOrientation(TEXT("P"), OrientationPitch); AddOrientation(TEXT("R"), OrientationRoll);
+ ApplyOrientationButton = WidgetTree->ConstructWidget<UButton>();
+ auto* OrientationApplyText = WidgetTree->ConstructWidget<UTextBlock>(); OrientationApplyText->SetText(FText::FromString(TEXT("Apply orientation")));
+ AddFieldIcon(WidgetTree, ApplyOrientationButton, OrientationApplyText, 3); CompactApplyButton(ApplyOrientationButton);
+ ApplyOrientationButton->SetToolTipText(FText::FromString(TEXT("Set the reference to this world orientation. A single object rotates in place; multiple objects require a selected anchor and rotate together around it. Target stays in place. Scale and relative orientations are preserved. Undoable; independent of group mode.")));
+ ApplyOrientationButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldOrientation); ApplyOrientationButton->SetIsEnabled(false);
+ OrientationRow->AddChildToHorizontalBox(ApplyOrientationButton)->SetPadding(FMargin(2));
+ ReadOrientationButton = WidgetTree->ConstructWidget<UButton>();
+ auto* OrientationReadText = WidgetTree->ConstructWidget<UTextBlock>(); OrientationReadText->SetText(FText::FromString(TEXT("Read orientation")));
+ AddFieldIcon(WidgetTree, ReadOrientationButton, OrientationReadText, 11); CompactApplyButton(ReadOrientationButton);
+ ReadOrientationButton->SetToolTipText(FText::FromString(TEXT("Read yaw/pitch/roll from the selected anchor, or the only selected object, without rotating anything.")));
+ ReadOrientationButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReadWorldOrientation); ReadOrientationButton->SetIsEnabled(false);
+ OrientationRow->AddChildToHorizontalBox(ReadOrientationButton)->SetPadding(FMargin(2));
+ OrientationBody->AddChildToVerticalBox(OrientationRow);
+ OrientationStatus = WidgetTree->ConstructWidget<UTextBlock>(); OrientationStatus->SetFont(OffsetFont); OrientationStatus->SetAutoWrapText(true);
+ OrientationStatus->SetText(FText::FromString(TEXT("Select objects, then read their current orientation."))); OrientationBody->AddChildToVerticalBox(OrientationStatus);
+ OrientationArea->SetContentForSlot(TEXT("Header"), OrientationHeading); OrientationArea->SetContentForSlot(TEXT("Body"), OrientationBody);
+ OrientationArea->SetBorderBrush(FSlateColorBrush(FLinearColor::Transparent)); OrientationArea->SetIsExpanded(false);
+ OrientationArea->SetHeaderPadding(FMargin(0, 4)); OrientationArea->SetAreaPadding(FMargin(0, 2)); Rows->AddChildToVerticalBox(OrientationArea);
 	auto* ScaleHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	ScaleHeading->SetText(FText::FromString(TEXT("EXACT LOCAL SCALE (%)")));
 	ScaleHeading->SetFont(OffsetFont); ScaleHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
@@ -643,6 +678,16 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 			!System->Config->MMConfig.IsGrouped ? TEXT("Individual: rotate each object in place") :
 			HasAnchor ? TEXT("Group: rotate around the selected anchor") : TEXT("Group: rotate around the selection center")));
 	}
+ if (ApplyOrientationButton && ReadOrientationButton && OrientationYaw && OrientationPitch && OrientationRoll && System->Action) {
+  FTransform Reference;
+  const bool Available = System->Action->GetWorldOrientationReference(Reference);
+  FHyperManageTransformData Data;
+  const FRotator Degrees(OrientationPitch->GetValue(), OrientationYaw->GetValue(), OrientationRoll->GetValue());
+  ReadOrientationButton->SetIsEnabled(Available);
+  ApplyOrientationButton->SetIsEnabled(Available && UHyperManageTransform::MakeWorldOrientation(Degrees, Reference, Data));
+  if (OrientationStatus) OrientationStatus->SetText(FText::FromString(!Available ? TEXT("Select one object, or select an anchor for a group. Wait for pending edits.") :
+   TEXT("Reference stays in place | group rotates around it")));
+ }
 	if (ApplyScaleButton && ScaleX && ScaleY && ScaleZ && System->Selection) {
 		const FVector Percent(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue());
 		const int32 Count = System->Selection->SelectCount();
@@ -867,5 +912,23 @@ void UHyperManageToolWidget::ApplyWorldPosition()
  if (!PositionX || !PositionY || !PositionZ) return;
  if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
   System->Action->ApplyWorldPosition(FVector(PositionX->GetValue(), PositionY->GetValue(), PositionZ->GetValue()));
+ }
+}
+
+void UHyperManageToolWidget::ReadWorldOrientation()
+{
+ if (!OrientationYaw || !OrientationPitch || !OrientationRoll) return;
+ FTransform Reference;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Action && System->Action->GetWorldOrientationReference(Reference)) {
+  const FRotator Degrees = Reference.Rotator();
+  OrientationYaw->SetValue(Degrees.Yaw); OrientationPitch->SetValue(Degrees.Pitch); OrientationRoll->SetValue(Degrees.Roll);
+ }
+}
+
+void UHyperManageToolWidget::ApplyWorldOrientation()
+{
+ if (!OrientationYaw || !OrientationPitch || !OrientationRoll) return;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
+  System->Action->ApplyWorldOrientation(FRotator(OrientationPitch->GetValue(), OrientationYaw->GetValue(), OrientationRoll->GetValue()));
  }
 }

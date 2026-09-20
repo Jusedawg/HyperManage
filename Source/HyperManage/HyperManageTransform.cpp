@@ -447,3 +447,13 @@ bool UHyperManageTransform::MakeWorldPositionOffset(const FVector& Meters, const
  if (Meters.ContainsNaN() || Meters.GetAbsMax() > 10000.0 || ReferenceCm.ContainsNaN()) return false;
  return MakeWorldOffset(Meters - ReferenceCm / 100.0, Data);
 }
+
+bool UHyperManageTransform::MakeWorldOrientation(const FRotator& Degrees, const FTransform& Reference, FHyperManageTransformData& Data)
+{
+ if (Degrees.ContainsNaN() || FMath::Abs(Degrees.Pitch) > 180.0 || FMath::Abs(Degrees.Yaw) > 180.0 || FMath::Abs(Degrees.Roll) > 180.0 ||
+  !HyperManageLightweight::IsValidTransform(Reference)) return false;
+ const FQuat Desired = Degrees.Quaternion();
+ if (Desired.Equals(Reference.GetRotation(), 0.000001)) return false;
+ const FQuat Delta = (Desired * Reference.GetRotation().Inverse()).GetNormalized();
+ return MakeWorldRotationOffset(Delta.Rotator(), true, Reference.GetLocation(), Data);
+}

@@ -78,6 +78,12 @@ Under **World rotation offset (deg)**, enter yaw, pitch and roll changes, then c
 
 In **Together** mode, objects rotate around the selected anchor, or the center of the selected object origins if no anchor is selected. In **Individual** mode, each object rotates in place. The target stays stationary and scale is preserved. The panel describes the active pivot behavior. **Zero fields** clears only the inputs; each Apply is one undoable edit.
 
+## Exact world orientation
+
+Expand **World orientation (deg)** and click **Read orientation** to fill yaw (Y), pitch (P) and roll (R). Enter the desired angles from -180 to 180 degrees, then Apply. These are absolute angles: zero means a zero angle, unlike an offset. Applying the same orientation again does nothing.
+
+One selected object rotates in place. For multiple objects, select an anchor with **Shift + left click** first. The anchor reaches the requested orientation while the group rotates around its origin, preserving spacing, relative orientations and scale. This operates on the group regardless of Together/Individual mode; the target remains excluded. Each Apply creates one **World orientation** history step. Read orientation changes only the fields. Equivalent Euler angles can look different after reading them back, especially near vertical pitch, while describing the same orientation.
+
 ## Exact scale
 
 Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **100%** is original size, **50%** is half size, and **200%** is double size. Values are absolute rather than repeated multipliers, so applying 125% twice still leaves an object at 125%. Each axis accepts 1-1,000%.
