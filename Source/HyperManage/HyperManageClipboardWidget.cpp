@@ -42,7 +42,7 @@ TSharedRef<SWidget> UHyperManageClipboardWidget::RebuildWidget()
 			TextSlot->SetPosition(FVector2D(X, Y)); TextSlot->SetSize(FVector2D(Width, Height));
 			return Label;
 		};
-		AddText(TEXT("HyperManage"), 114, 130, 230, 36, 16);
+		AddText(TEXT("Hyper Manage"), 50, 130, 300, 36, 16)->SetJustification(ETextJustify::Center);
 		ShortcutsText = AddText(TEXT("RMB  Tool menu"), 56, 171, 145, 24, 11);
 		AnchorText = AddText(TEXT("Shift+LMB  Anchor"), 56, 198, 145, 22, 10);
 		AnchorText->SetColorAndOpacity(FSlateColor(FLinearColor(0.04f, 0.25f, 0.05f)));
@@ -132,7 +132,7 @@ int32 UHyperManageClipboardWidget::NativePaint(const FPaintArgs& Args, const FGe
 		const FVector2D Side(-Direction.Y, Direction.X);
 		Line(B, B - Direction * 5 + Side * 3); Line(B, B - Direction * 5 - Side * 3);
 	};
-	Line(FVector2D(114, 164), FVector2D(273, 165));
+	Line(FVector2D(120, 164), FVector2D(280, 165));
 	Line(FVector2D(56, 270), FVector2D(348, 269));
 	Ink = FLinearColor(0.35f, 0.035f, 0.02f, 0.9f);
 	Line(FVector2D(210, 167), FVector2D(350, 166));
