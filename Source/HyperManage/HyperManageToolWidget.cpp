@@ -212,12 +212,12 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Content->RemoveFromParent();
 	Window->ClearChildren();
 	auto* Frame = WidgetTree->ConstructWidget<UBorder>();
-	Frame->SetBrushColor(FLinearColor(0.025f, 0.032f, 0.035f, 0.98f));
+	Frame->SetBrushColor(FLinearColor(0.025f, 0.032f, 0.035f, 0.86f));
 	Frame->SetPadding(FMargin(8));
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.37")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.38")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -541,8 +541,9 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	// Wheel input belongs to the hovered transform buttons; use the scroll rail to navigate the tray.
 	Scroll->SetWheelScrollMultiplier(0.f); Scroll->SetConsumeMouseWheel(EConsumeMouseWheel::Never);
 	Scroll->AddChild(Frame);
+	// Hollow border layers let the world show through the translucent content background.
 	auto* Rail = WidgetTree->ConstructWidget<UBorder>();
- Rail->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.055f, 0.058f, 0.05f), FVector4(12, 0, 0, 12)));
+ Rail->SetBrush(FSlateRoundedBoxBrush(FLinearColor::Transparent, FVector4(12, 0, 0, 12), FLinearColor(0.055f, 0.058f, 0.05f), 5.f));
  Rail->SetPadding(FMargin(5, 5, 0, 5)); Rail->SetContent(Scroll);
  auto* Face = WidgetTree->ConstructWidget<UVerticalBox>();
  Face->AddChildToVerticalBox(Rail)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
@@ -550,10 +551,10 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  Nameplate->SetText(FText::FromString(TEXT("HYPERMANAGE  /  FIELD TOOLS"))); Nameplate->SetJustification(ETextJustify::Center);
  Face->AddChildToVerticalBox(Nameplate)->SetPadding(FMargin(4, 10, 4, 6));
  auto* Rim = WidgetTree->ConstructWidget<UBorder>();
- Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.10f, 0.11f, 0.12f), FVector4(24, 0, 0, 24)));
+ Rim->SetBrush(FSlateRoundedBoxBrush(FLinearColor::Transparent, FVector4(24, 0, 0, 24), FLinearColor(0.10f, 0.11f, 0.12f), 14.f));
  Rim->SetPadding(FMargin(14, 14, 0, 6)); Rim->SetContent(Face);
  auto* Edge = WidgetTree->ConstructWidget<UBorder>();
- Edge->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.045f, 0.05f, 0.055f), FVector4(27, 0, 0, 27)));
+ Edge->SetBrush(FSlateRoundedBoxBrush(FLinearColor::Transparent, FVector4(27, 0, 0, 27), FLinearColor(0.045f, 0.05f, 0.055f), 3.f));
  Edge->SetPadding(FMargin(3, 3, 0, 3)); Edge->SetContent(Rim);
 	auto* DockRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Handle = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(Handle);
@@ -724,7 +725,7 @@ void UHyperManageToolWidget::RepairQuickActions()
  const TCHAR* Directions[] = {TEXT("down / up"), TEXT("left / right"), TEXT("toward / away"), TEXT("spin left / right"), TEXT("pitch toward / away"), TEXT("roll left / right"), TEXT("shrink / grow")};
  const TCHAR* Labels[] = {TEXT("Lift"), TEXT("Sideways"), TEXT("Forward"), TEXT("Yaw"), TEXT("Pitch"), TEXT("Roll"), TEXT("Scale")};
  auto* Panel = WidgetTree->ConstructWidget<UBorder>();
- Panel->SetBrushColor(FLinearColor(0.025f,0.032f,0.035f,0.98f)); Panel->SetPadding(FMargin(2));
+ Panel->SetBrushColor(FLinearColor::Transparent); Panel->SetPadding(FMargin(2));
  auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
  auto AddLabel = [&](const TCHAR* Value, int32 Size) {
   auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Value));
