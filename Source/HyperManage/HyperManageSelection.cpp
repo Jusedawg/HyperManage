@@ -7,11 +7,35 @@
 #include "HyperManageEquip.h"
 
 #include "FGOutlineComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 #include "FGVehicle.h"
 #include "Buildables/FGBuildableWire.h"
 #include "WheeledVehicles/FGTargetPoint.h"
 
+
+namespace {
+EOutlineColor FindSteadyGreenOutline(AActor* Context)
+{
+ // PP_OutlineColored maps its first green slot to stencil 252. Resolve the enum through the running game,
+ // since the SDK enum ordinals are not the actual stencil values used by ShowOutline.
+ auto* Probe = NewObject<UStaticMeshComponent>(Context, NAME_None, RF_Transient);
+ EOutlineColor Green = EOutlineColor::OC_DISMANTLE;
+ FString Report(TEXT("HyperManage outline mapping\n"));
+ for (uint8 Index = 1; Index <= static_cast<uint8>(EOutlineColor::OC_SOFTCLEARANCEOVERLAP); ++Index) {
+  Probe->SetRenderCustomDepth(false); Probe->SetCustomDepthStencilValue(0);
+  UFGBlueprintFunctionLibrary::ShowOutline(Probe, static_cast<EOutlineColor>(Index));
+  Report += FString::Printf(TEXT("enum=%d stencil=%d enabled=%d\n"), Index, Probe->CustomDepthStencilValue, Probe->bRenderCustomDepth);
+  if (Probe->bRenderCustomDepth && Probe->CustomDepthStencilValue == 252) Green = static_cast<EOutlineColor>(Index);
+ }
+ Report += FString::Printf(TEXT("Selection enum=%d; fallback=%d\n"), static_cast<uint8>(Green), Green == EOutlineColor::OC_DISMANTLE);
+ FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-Outline.txt")));
+ Probe->DestroyComponent();
+ return Green;
+}
+}
 
 void UHyperManageSelection::Init()
 {
@@ -38,13 +62,14 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 	if (!IsValid(Actor)) return;
 	auto* Outline = UFGOutlineComponent::Get(Actor->GetWorld());
 	if (!Outline) return;
+	static const EOutlineColor SelectionColor = FindSteadyGreenOutline(Actor);
 	const EOutlineColor Color = Actor == TargetActor ? EOutlineColor::OC_RED :
-		Actor == AnchorActor ? EOutlineColor::OC_HOLOGRAM : EOutlineColor::OC_DISMANTLE;
+		Actor == AnchorActor ? EOutlineColor::OC_HOLOGRAM : SelectionColor;
 	ActorInfo.Outline = Outline;
 	ActorInfo.PreviousOutlineColor = static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor));
 	ActorInfo.SelectionOutlineColor = static_cast<uint8>(Color);
 	if (Actor->IsA<AHyperManageLightweightProxy>()) Actor->SetActorHiddenInGame(false);
-	// Same custom-depth/stencil rendering path used by AFGBuildable::TogglePendingDismantleMaterial.
+	// Preserve the working game-managed geometry and cleanup; only the selection color channel changes.
 	// Lightweight proxy meshes supply geometry only; they never render a second surface in the main pass.
 	Outline->ShowOutline(Actor, Color);
 }
