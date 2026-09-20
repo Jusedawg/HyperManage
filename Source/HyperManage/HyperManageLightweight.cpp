@@ -2,32 +2,42 @@
 #include "Buildables/FGBuildable.h"
 #include "Components/StaticMeshComponent.h"
 #include "AbstractInstanceManager.h"
-#include "FGBuildEffectActor.h"
-#include "EngineUtils.h"
+#include "FGMaterialEffectComponent.h"
+#include "UObject/UObjectHash.h"
 #include "UObject/UnrealType.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
 namespace {
-// The current game uses build-effect actors, not the older material-effect components.
+// Effects are outered to the subsystem; their proxy meshes belong to a separate actor.
+// They need not be in either actor's registered-component list.
+TSet<UFGMaterialEffectComponent*> GetSubsystemEffects(AFGLightweightBuildableSubsystem* Subsystem)
+{
+ TArray<UObject*> Objects;
+ GetObjectsWithOuter(Subsystem, Objects, false);
+ TSet<UFGMaterialEffectComponent*> Effects;
+ for (auto* Object : Objects) if (auto* Effect = Cast<UFGMaterialEffectComponent>(Object); IsValid(Effect)) Effects.Add(Effect);
+ return Effects;
+}
+
+// Scope only edit removal. Existing effects and ordinary build-gun dismantling are untouched.
 struct FScopedInstantEditEffects
 {
- UWorld* World;
- TSet<AFGBuildEffectActor*> Existing;
- explicit FScopedInstantEditEffects(AFGLightweightBuildableSubsystem* Subsystem) : World(Subsystem->GetWorld())
- {
-  for (TActorIterator<AFGBuildEffectActor> It(World); It; ++It) Existing.Add(*It);
- }
+ AFGLightweightBuildableSubsystem* Subsystem;
+ TSet<UFGMaterialEffectComponent*> Existing;
+ explicit FScopedInstantEditEffects(AFGLightweightBuildableSubsystem* InSubsystem) : Subsystem(InSubsystem), Existing(GetSubsystemEffects(InSubsystem)) {}
  ~FScopedInstantEditEffects()
  {
-  TArray<TWeakObjectPtr<AFGBuildEffectActor>> Created;
-  for (TActorIterator<AFGBuildEffectActor> It(World); It; ++It) if (!Existing.Contains(*It)) Created.Add(*It);
-  FString Report = FString::Printf(TEXT("Existing build-effect actors=%d; edit-created actors=%d\n"), Existing.Num(), Created.Num());
-  for (const auto& Weak : Created) if (auto* Effect = Weak.Get()) {
-   Report += FString::Printf(TEXT("Hidden %s dismantle=%d\n"), *Effect->GetClass()->GetName(), Effect->mIsMarkedDismantle);
-   // Hide only the edit-created cosmetic actor; let its normal lifecycle finish cleanup and notifications.
-   Effect->SetActorHiddenInGame(true);
+  // Snapshot before Stop: the game's completion delegate destroys the effect and its temporary meshes.
+  const auto Effects = GetSubsystemEffects(Subsystem);
+  int32 Finished = 0;
+  FString Report;
+  for (auto* Effect : Effects) if (IsValid(Effect) && !Existing.Contains(Effect)) {
+   Report += FString::Printf(TEXT("Finished %s; proxy meshes=%d\n"), *Effect->GetClass()->GetName(), Effect->GetMeshes().Num());
+   Effect->Stop();
+   ++Finished;
   }
+  Report += FString::Printf(TEXT("Existing subsystem effects=%d; edit effects finished=%d\n"), Existing.Num(), Finished);
   FFileHelper::SaveStringToFile(Report, *FPaths::Combine(FPaths::ProjectLogDir(), TEXT("HyperManage-EditEffects.txt")));
  }
 };
@@ -122,7 +132,6 @@ bool HyperManageLightweight::Replace(AFGLightweightBuildableSubsystem* Subsystem
 	const auto* Original = Subsystem->GetRuntimeDataForBuildableClassAndIndex(Ref.BuildableClass, Ref.Index);
 	if (!Ref.Matches(Original)) return false;
 	if (Original->Transform.Equals(Transform)) return true;
-	FScopedInstantEditEffects InstantEffects(Subsystem);
 	FRuntimeBuildableInstanceData Replacement = *Original;
 	Replacement.Transform = Transform;
 	Replacement.ConstructId = MAX_uint16;
@@ -133,7 +142,10 @@ bool HyperManageLightweight::Replace(AFGLightweightBuildableSubsystem* Subsystem
 	const int32 NewIndex = Subsystem->AddFromBuildableInstanceData(Ref.BuildableClass, Replacement);
 	const auto* Created = NewIndex != INDEX_NONE ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Ref.BuildableClass, NewIndex) : nullptr;
 	if (!Created || !Created->IsValid()) return false;
-	Subsystem->RemoveByInstanceIndex(Ref.BuildableClass, Ref.Index);
+	{
+		FScopedInstantEditEffects InstantEffects(Subsystem);
+		Subsystem->RemoveByInstanceIndex(Ref.BuildableClass, Ref.Index);
+	}
 	Ref.Index = NewIndex;
 	Ref.ExpectedTransform = Transform;
 	return true;
