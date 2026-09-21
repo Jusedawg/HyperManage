@@ -559,12 +559,12 @@ bool UHyperManageAction::GetWorldPositionReference(FVector& ReferenceCm)
  return !ReferenceCm.ContainsNaN();
 }
 
-bool UHyperManageAction::ApplyWorldPosition(const FVector& Meters)
+bool UHyperManageAction::ApplyWorldPosition(const FVector& Meters, uint8 AxisMask)
 {
  FVector Reference;
  if (!System || !System->Undo || !System->GetMMRCO() || !GetWorldPositionReference(Reference)) return false;
  FHyperManageTransformData Data;
- if (!UHyperManageTransform::MakeWorldPositionOffset(Meters, Reference, Data)) return false;
+ if (!UHyperManageTransform::MakeWorldPositionOffset(Meters, Reference, Data, AxisMask)) return false;
  TArray<AActor*> Actors;
  System->Selection->SelectedActorsNoTarget(Actors);
  Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });

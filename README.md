@@ -70,6 +70,8 @@ Offsets always use world axes and move the selected objects together, preserving
 
 Expand **World position (m)** and use **Read position** to fill X/Y/Z from the current selection. Edit the destination coordinates, then click the Apply icon. Unlike offsets, **zero means world zero**. For example, read the position and change only Z to **150** to place the reference at 150 meters high.
 
+The checkboxes beside X/Y/Z choose which coordinates to apply. Uncheck X and Y to set only height; uncheck Z to keep the current height while moving horizontally. Unchecked fields are dimmed and ignored. All three start checked when the panel opens. Read position fills the fields without changing your axis choices. These switches affect only World position, not other movement controls.
+
 The reference is the selected anchor, or the center of the selected object origins if no anchor is selected. For one object, it is that object's origin. The entire selection moves together, preserving spacing, rotation and scale, regardless of Together/Individual mode. The target stays in place. Coordinates accept -10,000 to 10,000 meters, with a maximum move of 1,000 meters per axis per Apply. Typing and Read position do not change objects. Each Apply is one undoable **World position** edit; applying the same destination again does nothing.
 
 ## Exact rotation offsets
@@ -98,9 +100,9 @@ Set an anchor and target at the region boundaries, then use **Remove edges** or 
 
 ## Remember selection groups
 
-Choose **Slot 1–10** above the selection controls, then click **Remember** to store the current selection, anchor and target. Remember replaces only the chosen slot. Switch slots and click **Recall** to return to a group; switching the dropdown alone leaves the current selection unchanged.
+Choose **Slot 1-10** above the selection controls, then click **Remember** to store the current selection, anchor and target. Remember replaces only the chosen slot. Switch slots and click **Recall** to return to a group; switching the dropdown alone leaves the current selection unchanged.
 
-The slot status shows the number of available editable objects. Unused slots cannot be recalled, and removed objects are skipped. Recall is one undoable selection change. Remembering an empty selection intentionally stores an empty group. Slots follow the objects as you edit them, but last only for the current session—they are not yet saved with your game.
+The slot status shows the number of available editable objects. Unused slots cannot be recalled, and removed objects are skipped. Recall is one undoable selection change. Remembering an empty selection intentionally stores an empty group. Slots follow the objects as you edit them, but last only for the current session; they are not yet saved with your game.
 
 ## Undo and redo
 

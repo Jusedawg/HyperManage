@@ -70,6 +70,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> OffsetStatus;
 	UFUNCTION() void ApplyWorldOffset();
 	UFUNCTION() void ClearWorldOffset();
+ UPROPERTY(Transient) TArray<TObjectPtr<class UCheckBox>> PositionAxes;
+ uint8 GetPositionAxisMask() const;
  UPROPERTY(Transient) TObjectPtr<USpinBox> PositionX;
  UPROPERTY(Transient) TObjectPtr<USpinBox> PositionY;
  UPROPERTY(Transient) TObjectPtr<USpinBox> PositionZ;

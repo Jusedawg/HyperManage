@@ -120,7 +120,7 @@ public:
 	static bool IsValidRotationOffset(const FRotator& Degrees);
 	static bool MakeWorldRotationOffset(const FRotator& Degrees, bool Grouped, const FVector& Pivot, FHyperManageTransformData& Data);
 	static bool MakeWorldOrientation(const FRotator& Degrees, const FTransform& Reference, FHyperManageTransformData& Data);
-	static bool MakeWorldPositionOffset(const FVector& Meters, const FVector& ReferenceCm, FHyperManageTransformData& Data);
+	static bool MakeWorldPositionOffset(const FVector& Meters, const FVector& ReferenceCm, FHyperManageTransformData& Data, uint8 AxisMask = 7);
 	static bool MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data);
 	FTransform ComputeTransform(FTransform Transform, const FHyperManageTransformData& Data);
 

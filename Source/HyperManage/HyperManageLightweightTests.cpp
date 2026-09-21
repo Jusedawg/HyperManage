@@ -14,6 +14,7 @@
 #include "HyperManageUndo.h"
 #include "Components/ExpandableArea.h"
 #include "Components/BoxComponent.h"
+#include "Components/CheckBox.h"
 #include "WheeledVehicles/FGTargetPoint.h"
 #include "JsonObjectConverter.h"
 #include <limits>
@@ -218,6 +219,10 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Zero fields resets Y"), Tools->OffsetY->GetValue(), 0.f);
 	TestEqual(TEXT("Zero fields resets Z"), Tools->OffsetZ->GetValue(), 0.f);
 	TestNotNull(TEXT("World position fields created"), Tools->PositionX.Get());
+ TestEqual(TEXT("All position axes start enabled"), Tools->GetPositionAxisMask(), uint8(7));
+ Tools->PositionAxes[0]->SetIsChecked(false); Tools->PositionAxes[1]->SetIsChecked(false);
+ TestEqual(TEXT("Position switches can isolate height"), Tools->GetPositionAxisMask(), uint8(4));
+ Tools->PositionAxes[0]->SetIsChecked(true); Tools->PositionAxes[1]->SetIsChecked(true);
 	TestFalse(TEXT("Position apply requires a selection"), Tools->ApplyPositionButton->GetIsEnabled());
 	TestFalse(TEXT("Read position requires a selection"), Tools->ReadPositionButton->GetIsEnabled());
 	TestNotNull(TEXT("Absolute orientation input created"), Tools->OrientationYaw.Get());
@@ -276,7 +281,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.42")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.43")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -751,6 +756,21 @@ bool FHyperManageWorldPositionTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Out-of-range world coordinates are rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(10001, 0, 0), FVector(1000000, 0, 0), Data));
  TestFalse(TEXT("Invalid reference is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector::ZeroVector, FVector(std::numeric_limits<double>::infinity(), 0, 0), Data));
  TestFalse(TEXT("Invalid destination is rejected"), UHyperManageTransform::MakeWorldPositionOffset(FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), FVector::ZeroVector, Data));
+ for (uint8 Mask = 1; Mask <= 7; ++Mask) {
+  TestTrue(TEXT("Any nonempty axis combination can move"), UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, Data, Mask));
+  const auto A = Transform->ComputeTransform(First, Data), B = Transform->ComputeTransform(Second, Data);
+  const FVector Center = (A.GetLocation() + B.GetLocation()) / 2.0;
+  for (int32 Axis = 0; Axis < 3; ++Axis) {
+   TestTrue(TEXT("Checked axes reach destination; unchecked axes remain fixed"), FMath::IsNearlyEqual(Center[Axis], Mask & (1 << Axis) ? Destination[Axis] * 100.0 : Reference[Axis]));
+  }
+  TestTrue(TEXT("Axis-constrained move preserves spacing"), (B.GetLocation() - A.GetLocation()).Equals(Second.GetLocation() - First.GetLocation()));
+  TestTrue(TEXT("Axis-constrained move preserves rotation and scale"), A.GetRotation().Equals(First.GetRotation()) && A.GetScale3D().Equals(First.GetScale3D()));
+  TestFalse(TEXT("Same checked coordinates are a no-op"), UHyperManageTransform::MakeWorldPositionOffset(Destination, Center, Data, Mask));
+ }
+ TestFalse(TEXT("All unchecked makes no edit"), UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, Data, 0));
+ TestFalse(TEXT("Unknown axis bits rejected"), UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, Data, 8));
+ TestTrue(TEXT("Unchecked distant coordinates do not block a height-only move"), UHyperManageTransform::MakeWorldPositionOffset(FVector(-9999, 9999, 130), Reference, Data, 4));
+ TestTrue(TEXT("Height-only move has no horizontal offset"), Data.PivotTranslation.X == 0 && Data.PivotTranslation.Y == 0);
  return true;
 }
 

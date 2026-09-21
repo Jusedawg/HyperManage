@@ -442,10 +442,16 @@ bool UHyperManageTransform::MakeWorldOriginAlignment(const FVector& Reference, E
 }
 
 // Reuse the validated translation transport. One apply may move at most 1 km along each world axis.
-bool UHyperManageTransform::MakeWorldPositionOffset(const FVector& Meters, const FVector& ReferenceCm, FHyperManageTransformData& Data)
+bool UHyperManageTransform::MakeWorldPositionOffset(const FVector& Meters, const FVector& ReferenceCm, FHyperManageTransformData& Data, uint8 AxisMask)
 {
- if (Meters.ContainsNaN() || Meters.GetAbsMax() > 10000.0 || ReferenceCm.ContainsNaN()) return false;
- return MakeWorldOffset(Meters - ReferenceCm / 100.0, Data);
+ if (Meters.ContainsNaN() || ReferenceCm.ContainsNaN() || AxisMask == 0 || AxisMask > 7) return false;
+ FVector Offset = FVector::ZeroVector;
+ for (int32 Axis = 0; Axis < 3; ++Axis) {
+  if (!(AxisMask & (1 << Axis))) continue;
+  if (FMath::Abs(Meters[Axis]) > 10000.0) return false;
+  Offset[Axis] = Meters[Axis] - ReferenceCm[Axis] / 100.0;
+ }
+ return MakeWorldOffset(Offset, Data);
 }
 
 bool UHyperManageTransform::MakeWorldOrientation(const FRotator& Degrees, const FTransform& Reference, FHyperManageTransformData& Data)

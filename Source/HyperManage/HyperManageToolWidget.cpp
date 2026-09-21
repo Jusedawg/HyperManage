@@ -27,6 +27,7 @@
 #include "Components/VerticalBox.h"
 #include "Components/ScrollBox.h"
 #include "Components/ExpandableArea.h"
+#include "Components/CheckBox.h"
 
 namespace {
 void StyleExpansionArrow(UExpandableArea* Area)
@@ -224,7 +225,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.42")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.43")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -379,20 +380,24 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  PositionHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
  auto* PositionBody = WidgetTree->ConstructWidget<UVerticalBox>();
  auto* PositionRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+ PositionAxes.Reset();
  auto AddPosition = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
+  auto* Enabled = WidgetTree->ConstructWidget<UCheckBox>(); Enabled->SetIsChecked(true);
+  Enabled->SetToolTipText(FText::FromString(TEXT("Checked: apply this world coordinate. Unchecked: keep this axis fixed. These switches affect only World position.")));
+  PositionAxes.Add(Enabled); PositionRow->AddChildToHorizontalBox(Enabled)->SetVerticalAlignment(VAlign_Center);
   auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
   PositionRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
   Input = WidgetTree->ConstructWidget<USpinBox>(); StyleNumericInput(Input);
   Input->SetMinValue(-10000.f); Input->SetMaxValue(10000.f); Input->SetValue(0.f);
-  Input->SetEnableSlider(false); Input->SetMinDesiredWidth(65.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
-  Input->SetToolTipText(FText::FromString(TEXT("Absolute world coordinate in meters. Read position fills current values. Zero means world zero, not an unchanged axis. Apply moves at most 1000 m per axis.")));
+  Input->SetEnableSlider(false); Input->SetMinDesiredWidth(46.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
+  Input->SetToolTipText(FText::FromString(TEXT("Absolute world coordinate in meters. Read position fills current values. Zero means world zero when this axis is checked. Uncheck an axis to hold it fixed. Apply moves at most 1000 m per axis.")));
   PositionRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
  };
  AddPosition(TEXT("X"), PositionX); AddPosition(TEXT("Y"), PositionY); AddPosition(TEXT("Z"), PositionZ);
  ApplyPositionButton = WidgetTree->ConstructWidget<UButton>();
  auto* PositionApplyText = WidgetTree->ConstructWidget<UTextBlock>(); PositionApplyText->SetText(FText::FromString(TEXT("Apply position")));
  AddFieldIcon(WidgetTree, ApplyPositionButton, PositionApplyText, 14); CompactApplyButton(ApplyPositionButton);
- ApplyPositionButton->SetToolTipText(FText::FromString(TEXT("Move the selected anchor, or selection center, to these coordinates. All selected objects move together; the target stays in place. Undoable. Group/individual mode does not change this operation.")));
+ ApplyPositionButton->SetToolTipText(FText::FromString(TEXT("Move the selected anchor, or selection center, to the checked coordinates. Unchecked axes stay fixed. All selected objects move together; the target stays in place. Undoable. Group/individual mode does not change this operation.")));
  ApplyPositionButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldPosition); ApplyPositionButton->SetIsEnabled(false);
  PositionRow->AddChildToHorizontalBox(ApplyPositionButton)->SetPadding(FMargin(2));
  ReadPositionButton = WidgetTree->ConstructWidget<UButton>();
@@ -703,11 +708,16 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool Available = System->Action->GetWorldPositionReference(Reference);
   FHyperManageTransformData PositionData;
   const FVector Destination(PositionX->GetValue(), PositionY->GetValue(), PositionZ->GetValue());
-  const bool CanApply = Available && UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, PositionData);
+  const uint8 AxisMask = GetPositionAxisMask();
+  const bool CanApply = Available && UHyperManageTransform::MakeWorldPositionOffset(Destination, Reference, PositionData, AxisMask);
+  PositionX->SetIsEnabled((AxisMask & 1) != 0); PositionY->SetIsEnabled((AxisMask & 2) != 0); PositionZ->SetIsEnabled((AxisMask & 4) != 0);
+  FVector Offset = Available ? Destination - Reference / 100.0 : FVector::ZeroVector;
+  for (int32 Axis = 0; Axis < 3; ++Axis) if (!(AxisMask & (1 << Axis))) Offset[Axis] = 0;
   ReadPositionButton->SetIsEnabled(Available); ApplyPositionButton->SetIsEnabled(CanApply);
   const bool HasAnchor = System->Selection && System->Selection->AnchorActor != System->Selection->TargetActor && System->Selection->Contains(System->Selection->AnchorActor);
   if (PositionStatus) PositionStatus->SetText(FText::FromString(!Available ? TEXT("Select objects; wait for pending edits to finish.") :
-   (Destination - Reference / 100.0).GetAbsMax() > 1000.0 ? TEXT("Destination too far: maximum 1000 m per axis per apply.") :
+   AxisMask == 0 ? TEXT("Check at least one axis to apply a position.") :
+   Offset.GetAbsMax() > 1000.0 ? TEXT("Destination too far: maximum 1000 m per axis per apply.") :
    HasAnchor ? TEXT("Reference: selected anchor | preserve group spacing") : TEXT("Reference: selection center | preserve group spacing")));
  }
 	if (ApplyRotationButton && OffsetYaw && OffsetPitch && OffsetRoll && System->Selection) {
@@ -941,6 +951,13 @@ void UHyperManageToolWidget::ChangeHeightGridPreset(FString Value, ESelectInfo::
 	if (SelectionType != ESelectInfo::Direct) CommitHeightGridValue(FCString::Atof(*Value), ETextCommit::OnEnter);
 }
 
+uint8 UHyperManageToolWidget::GetPositionAxisMask() const
+{
+ uint8 Mask = 0;
+ for (int32 Axis = 0; Axis < FMath::Min(PositionAxes.Num(), 3); ++Axis) if (PositionAxes[Axis] && PositionAxes[Axis]->IsChecked()) Mask |= 1 << Axis;
+ return Mask;
+}
+
 void UHyperManageToolWidget::ReadWorldPosition()
 {
  if (!PositionX || !PositionY || !PositionZ) return;
@@ -954,7 +971,7 @@ void UHyperManageToolWidget::ApplyWorldPosition()
 {
  if (!PositionX || !PositionY || !PositionZ) return;
  if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
-  System->Action->ApplyWorldPosition(FVector(PositionX->GetValue(), PositionY->GetValue(), PositionZ->GetValue()));
+  System->Action->ApplyWorldPosition(FVector(PositionX->GetValue(), PositionY->GetValue(), PositionZ->GetValue()), GetPositionAxisMask());
  }
 }
 
