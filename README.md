@@ -90,6 +90,12 @@ Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **
 
 A **Uniform preset** fills all three fields. **100%** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
 
+## Remove an area from a selection
+
+Set an anchor and target at the region boundaries, then use **Remove edges** or **Remove centers** in the Selection controls. These subtract objects from the current selection without moving or dismantling anything. The anchor and target stay selected so you can reuse the same region.
+
+**Remove centers** uses the region between the reference centers; **Remove edges** extends it using their bounds. As with the additive Edges/Centers controls, reference orientations and selection tolerance define the region, and candidate bounds centers determine inclusion. The operation works on selected normal and lightweight objects, and one Undo restores the removed selection.
+
 ## Remember selection groups
 
 Choose **Slot 1–10** above the selection controls, then click **Remember** to store the current selection, anchor and target. Remember replaces only the chosen slot. Switch slots and click **Recall** to return to a group; switching the dropdown alone leaves the current selection unchanged.

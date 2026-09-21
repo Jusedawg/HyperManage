@@ -13,6 +13,7 @@
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
 #include "Components/ExpandableArea.h"
+#include "Components/BoxComponent.h"
 #include "WheeledVehicles/FGTargetPoint.h"
 #include "JsonObjectConverter.h"
 #include <limits>
@@ -275,7 +276,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.41")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.42")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -642,6 +643,35 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("An intentionally saved empty selection is occupied"), Selection->HasSavedSelection());
  Selection->SelectActor(A); Selection->LoadSelection();
  TestEqual(TEXT("Saved empty selection can be recalled"), Selection->SelectCount(), 0);
+ System->Config = InitComponent<UHyperManageConfiguration>(System);
+ System->Config->MMConfig.SelectionTolerance = 1.f;
+ Selection->ClearWithoutHistory();
+ auto MakeBoxActor = [&](const FVector& Location) {
+  auto* Actor = World->SpawnActor<AFGTargetPoint>();
+  auto* Box = NewObject<UBoxComponent>(Actor); Box->SetBoxExtent(FVector(50));
+  Actor->SetRootComponent(Box); Actor->AddInstanceComponent(Box); Box->RegisterComponent();
+  Actor->SetActorLocation(Location); Selection->SelectActor(Actor); return Actor;
+ };
+ auto* BoxAnchor = MakeBoxActor(FVector(-100, -100, -100));
+ auto* BoxTarget = MakeBoxActor(FVector(100, 100, 100));
+ auto* Inside = MakeBoxActor(FVector::ZeroVector);
+ auto* EdgeOnly = MakeBoxActor(FVector(125, 0, 0));
+ auto* Outside = MakeBoxActor(FVector(500, 500, 500));
+ Selection->SetAnchor(BoxAnchor); Selection->SetTarget(BoxTarget);
+ History->ClearUndoStack();
+ Selection->ChangeAnchorTargetBoxSelection(false, true);
+ TestFalse(TEXT("Center subtraction removes interior selection"), Selection->Contains(Inside));
+ TestTrue(TEXT("Center subtraction keeps objects beyond reference centers"), Selection->Contains(EdgeOnly));
+ TestTrue(TEXT("Box subtraction keeps references and outside objects"), Selection->Contains(BoxAnchor) && Selection->Contains(BoxTarget) && Selection->Contains(Outside));
+ TestTrue(TEXT("Box subtraction preserves markers"), Selection->AnchorActor == BoxAnchor && Selection->TargetActor == BoxTarget);
+ TestEqual(TEXT("Box subtraction is one undo step"), History->GetUndoCount(), 1);
+ Selection->ChangeAnchorTargetBoxSelection(false, true);
+ TestEqual(TEXT("No-op subtraction creates no history"), History->GetUndoCount(), 1);
+ Replay(false); TestTrue(TEXT("Undo restores subtracted selection"), Selection->Contains(Inside));
+ Replay(true); TestFalse(TEXT("Redo repeats subtraction"), Selection->Contains(Inside));
+ Selection->ChangeAnchorTargetBoxSelection(true, true);
+ TestFalse(TEXT("Edge subtraction includes reference extents"), Selection->Contains(EdgeOnly));
+ TestTrue(TEXT("Deselecting never destroys objects"), IsValid(Inside) && IsValid(EdgeOnly));
 	World->DestroyWorld(false);
 	return true;
 }

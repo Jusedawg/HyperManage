@@ -111,6 +111,7 @@ public:
 
 	UFUNCTION()
 	void AddAnchorTargetBoxToSelection(bool UseSides = true);
+	void ChangeAnchorTargetBoxSelection(bool UseSides, bool Remove);
 
 	//
 	UFUNCTION(BlueprintCallable, Category = "HyperManage")

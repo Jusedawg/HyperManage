@@ -224,7 +224,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.41")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.42")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -529,7 +529,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
 	Body->SetWidthOverride(360);
-	Body->SetHeightOverride(375);
+	Body->SetHeightOverride(430);
 	// Replace the overflowing legacy icon strips, retaining the existing buttons and their action bindings.
 	if (auto* Canvas = Cast<UCanvasPanel>(Content)) {
 		Canvas->ClearChildren();
@@ -557,6 +557,8 @@ void UHyperManageToolWidget::RepairToolbarLayout()
                 int32 Kind = 7;
                 if (Entry.Key == btnSelectBoxSides) Kind = 8;
                 else if (Entry.Key == btnSelectBoxPivot) Kind = 9;
+                else if (Entry.Key == RemoveBoxEdgesButton) Kind = 28;
+                else if (Entry.Key == RemoveBoxCentersButton) Kind = 29;
                 else if (Entry.Key == btnSaveSelection) Kind = 10;
                 else if (Entry.Key == btnLoadSelection) Kind = 11;
                 else if (Entry.Key == btnIsGrouped) Kind = 12;
@@ -588,7 +590,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   SelectionSlotStatus->SetText(FText::FromString(TEXT("Empty | this session")));
   SlotRow->AddChildToHorizontalBox(SelectionSlotStatus)->SetVerticalAlignment(VAlign_Center);
   Groups->AddChildToVerticalBox(SlotRow);
-		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear")}, {btnSelectBoxSides, TEXT("Edges")}, {btnSelectBoxPivot, TEXT("Centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
+  RemoveBoxEdgesButton = WidgetTree->ConstructWidget<UButton>();
+  RemoveBoxEdgesButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RemoveBoxEdges);
+  RemoveBoxEdgesButton->SetToolTipText(FText::FromString(TEXT("Deselect objects inside the anchor/target edge-bounded region. Keeps anchor and target selected. Does not dismantle or move anything. Undo restores the removed selection.")));
+  RemoveBoxCentersButton = WidgetTree->ConstructWidget<UButton>();
+  RemoveBoxCentersButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RemoveBoxCenters);
+  RemoveBoxCentersButton->SetToolTipText(FText::FromString(TEXT("Deselect objects whose bounds centers lie between the anchor and target centers. Keeps the two reference objects selected. Does not dismantle objects. Undoable.")));
+  RemoveBoxEdgesButton->SetIsEnabled(false); RemoveBoxCentersButton->SetIsEnabled(false);
+		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear")}, {btnSelectBoxSides, TEXT("Edges")}, {btnSelectBoxPivot, TEXT("Centers")}, {RemoveBoxEdgesButton, TEXT("Remove edges")}, {RemoveBoxCentersButton, TEXT("Remove centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}});
 		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("To target")}, {btnSameRotation, TEXT("Rotation")}, {btnSameScale, TEXT("Size")}, {btnSamePaint, TEXT("Paint")}});
 		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear history")}});
 	}
@@ -652,6 +661,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
    btnLoadSelection->SetIsEnabled(Saved && !Pending);
    btnLoadSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Recall Slot %d, skipping unavailable objects. Undo restores your previous selection."), SlotNumber)));
   }
+ }
+ if (System->Selection && RemoveBoxEdgesButton && RemoveBoxCentersButton) {
+  const bool Ready = !System->Selection->HasPendingOperations() && System->Selection->IsValidActor(System->Selection->AnchorActor) &&
+   System->Selection->IsValidActor(System->Selection->TargetActor);
+  RemoveBoxEdgesButton->SetIsEnabled(Ready); RemoveBoxCentersButton->SetIsEnabled(Ready);
  }
 	if (System->Undo) {
 		const bool Pending = System->Selection && System->Selection->HasPendingOperations();
@@ -968,4 +982,14 @@ void UHyperManageToolWidget::ChangeSelectionSlot(FString Value, ESelectInfo::Typ
  if (auto* System = UHyperManageSystem::Get(); System && System->Selection) {
   System->Selection->SetSelectionSlot(SelectionSlotPicker->FindOptionIndex(Value));
  }
+}
+
+void UHyperManageToolWidget::RemoveBoxEdges()
+{
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->ChangeAnchorTargetBoxSelection(true, true);
+}
+
+void UHyperManageToolWidget::RemoveBoxCenters()
+{
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->ChangeAnchorTargetBoxSelection(false, true);
 }

@@ -51,6 +51,10 @@ protected:
 	void RepairQuickActions();
 	UPROPERTY(Transient) TObjectPtr<class UVerticalBox> QuickActionHost;
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
+	UPROPERTY(Transient) TObjectPtr<UButton> RemoveBoxEdgesButton;
+	UPROPERTY(Transient) TObjectPtr<UButton> RemoveBoxCentersButton;
+	UFUNCTION() void RemoveBoxEdges();
+	UFUNCTION() void RemoveBoxCenters();
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> SelectionSlotPicker;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> SelectionSlotStatus;
 	UFUNCTION() void ChangeSelectionSlot(FString Value, ESelectInfo::Type SelectionType);

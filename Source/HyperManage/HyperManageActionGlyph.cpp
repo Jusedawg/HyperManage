@@ -61,10 +61,11 @@ int32 UHyperManageActionGlyph::NativePaint(const FPaintArgs& Args, const FGeomet
    Line(FVector2D(X,Y),FVector2D(X+W,Y),Ink); Line(FVector2D(X+W,Y),FVector2D(X+W,Y+H),Ink);
    Line(FVector2D(X+W,Y+H),FVector2D(X,Y+H),Ink); Line(FVector2D(X,Y+H),FVector2D(X,Y),Ink);
   };
-  if (Kind == 7 || Kind == 8 || Kind == 9) {
+  if (Kind == 7 || Kind == 8 || Kind == 9 || Kind == 28 || Kind == 29) {
    Box(-22,-20,44,40);
    if (Kind == 7) { Line(FVector2D(-12,-12),FVector2D(12,12),Accent); Line(FVector2D(12,-12),FVector2D(-12,12),Accent); }
-   else if (Kind == 8) { Box(-29,-27,14,14); Box(15,13,14,14); }
+   else if (Kind == 8 || Kind == 28) { Box(-29,-27,14,14); Box(15,13,14,14); if (Kind == 28) Line(FVector2D(-10,0),FVector2D(10,0),Accent); }
+   else if (Kind == 29) { Line(FVector2D(-11,0),FVector2D(11,0),Accent); }
    else { Line(FVector2D(-11,0),FVector2D(11,0),Accent); Line(FVector2D(0,-11),FVector2D(0,11),Accent); }
   } else if (Kind == 10 || Kind == 11) {
    Box(-23,-22,46,44); Box(-12,4,24,18);

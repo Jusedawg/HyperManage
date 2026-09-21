@@ -269,8 +269,11 @@ void UHyperManageSelection::GetSelectionOrLineTrace(TArray<AActor*>& Actors)
 // When CenterOnPlane is false, the buildable must be on the positive distance side of all planes
 // (within delta) to be added.
 
-void UHyperManageSelection::AddAnchorTargetBoxToSelection(bool UseSides)
+void UHyperManageSelection::AddAnchorTargetBoxToSelection(bool UseSides) { ChangeAnchorTargetBoxSelection(UseSides, false); }
+
+void UHyperManageSelection::ChangeAnchorTargetBoxSelection(bool UseSides, bool Remove)
 {
+ if (HasPendingOperations()) return;
 	struct FCubeSide
 	{
 		FPlane Plane;
@@ -290,7 +293,7 @@ void UHyperManageSelection::AddAnchorTargetBoxToSelection(bool UseSides)
 		}
 	};
 
-	if (!AnchorActor || !TargetActor) {
+	if (!IsValidActor(AnchorActor) || !IsValidActor(TargetActor)) {
 		System->UI->ShowPopup(TITLE_REQUIRES_ANCHOR_AND_TARGET, BODY_REQUIRES_ANCHOR_AND_TARGET);
 		return;
 	}
@@ -328,6 +331,20 @@ void UHyperManageSelection::AddAnchorTargetBoxToSelection(bool UseSides)
 		}
 		return true;
 	};
+ if (Remove) {
+  TArray<AActor*> Actors, Removed;
+  SelectedActors(Actors);
+  for (auto* Actor : Actors) {
+   if (Actor == AnchorActor || Actor == TargetActor || !IsValidActor(Actor)) continue;
+   FVector Center, Extent;
+   Actor->GetActorBounds(false, Center, Extent);
+   if (InsideCube(Center)) Removed.Add(Actor);
+  }
+  if (Removed.IsEmpty()) return;
+  System->Undo->PushUndoSelection(Removed);
+  for (auto* Actor : Removed) SelectActor(Actor, false);
+  return;
+ }
 	TArray<AActor*> AddedActors;
 	for (TObjectIterator<AFGBuildable> Worker; Worker; ++Worker) {
 		if (Worker->GetWorld() != System->GetWorld() || !IsValidActor(*Worker) || Worker->GetIsLightweightTemporary() || Contains(*Worker) || Worker->IsA<AFGBuildableWire>()) continue;
