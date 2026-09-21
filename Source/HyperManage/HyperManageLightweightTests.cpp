@@ -285,7 +285,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.46")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.47")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -479,6 +479,20 @@ bool FHyperManageWorldOffsetTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Oversized offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(1000.01, 0, 0), Data));
 	TestFalse(TEXT("NaN offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(std::numeric_limits<double>::quiet_NaN(), 0, 0), Data));
 	TestFalse(TEXT("Infinite offset is rejected"), UHyperManageTransform::MakeWorldOffset(FVector(0, std::numeric_limits<double>::infinity(), 0), Data));
+ const FTransform Reference(FRotator(0, 90, 0), FVector(700, -300, 500), FVector(3, 0.5, 2));
+ TestTrue(TEXT("Object X follows rotated reference"), UHyperManageTransform::MakeObjectOffset(FVector(1, 0, 0), Reference, Data));
+ const auto LocalFirst = Transform->ComputeTransform(First, Data), LocalSecond = Transform->ComputeTransform(Second, Data);
+ TestTrue(TEXT("One local meter is one world meter regardless of reference scale"), LocalFirst.GetLocation().Equals(First.GetLocation() + FVector(0, 100, 0), 0.000001));
+ TestTrue(TEXT("Object offset preserves group spacing"), (LocalSecond.GetLocation() - LocalFirst.GetLocation()).Equals(Second.GetLocation() - First.GetLocation()));
+ TestTrue(TEXT("Object offset preserves orientation and scale"), LocalFirst.GetRotation().Equals(First.GetRotation()) && LocalFirst.GetScale3D().Equals(First.GetScale3D()));
+ TestTrue(TEXT("Negative local offset reverses the move"), UHyperManageTransform::MakeObjectOffset(FVector(-1, 0, 0), Reference, Data));
+ TestTrue(TEXT("Inverse local offset restores original"), Transform->ComputeTransform(LocalFirst, Data).Equals(First));
+ TestTrue(TEXT("Tilted reference supports vertical local forward"), UHyperManageTransform::MakeObjectOffset(FVector(1, 0, 0), FTransform(FRotator(90, 0, 0)), Data));
+ TestTrue(TEXT("Pitch tilts the movement axes"), Data.PivotTranslation.Equals(FVector(0, 0, 100), 0.000001));
+ TestFalse(TEXT("Zero local offset is not an edit"), UHyperManageTransform::MakeObjectOffset(FVector::ZeroVector, Reference, Data));
+ TestFalse(TEXT("Rotated world-axis transport limit is enforced"), UHyperManageTransform::MakeObjectOffset(FVector(1000, 1000, 0), FTransform(FRotator(0, 45, 0)), Data));
+ FTransform Invalid = Reference; Invalid.SetRotation(FQuat(0, 0, 0, 0));
+ TestFalse(TEXT("Invalid local reference rejected"), UHyperManageTransform::MakeObjectOffset(FVector(1, 0, 0), Invalid, Data));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageWorldRotationOffsetTest, "HyperManage.Transform.WorldRotationOffset", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

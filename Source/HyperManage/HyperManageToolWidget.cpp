@@ -225,7 +225,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.46")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.47")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -345,10 +345,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   Area->SetHeaderPadding(FMargin(0, 4)); Area->SetAreaPadding(FMargin(0, 2)); Rows->AddChildToVerticalBox(Area);
  };
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
-	OffsetHeading->SetText(FText::FromString(TEXT("WORLD OFFSET (m)")));
+	OffsetHeading->SetText(FText::FromString(TEXT("OFFSET (m)")));
 	auto OffsetFont = OffsetHeading->GetFont(); OffsetFont.Size = 14; OffsetHeading->SetFont(OffsetFont);
 	OffsetHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
 	auto* OffsetBody = WidgetTree->ConstructWidget<UVerticalBox>();
+ OffsetAxes = WidgetTree->ConstructWidget<UComboBoxString>(); StylePreset(OffsetAxes);
+ OffsetAxes->AddOption(TEXT("World axes")); OffsetAxes->AddOption(TEXT("Object axes")); OffsetAxes->SetSelectedOption(TEXT("World axes"));
+ OffsetAxes->SetToolTipText(FText::FromString(TEXT("World: fixed X/Y/Z. Object: selected anchor's local directions, or the only selected object. All selected objects move together. Scale does not multiply the distance. This affects only the offset fields below.")));
+ OffsetBody->AddChildToVerticalBox(OffsetAxes)->SetPadding(FMargin(2, 2, 2, 4));
 	auto* OffsetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddOffset = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
@@ -357,7 +361,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		StyleNumericInput(Input);
 		Input->SetMinValue(-1000.f); Input->SetMaxValue(1000.f); Input->SetValue(0.f);
 		Input->SetEnableSlider(false); Input->SetMinDesiredWidth(54.f); Input->SetMinFractionalDigits(0); Input->SetMaxFractionalDigits(3);
-		Input->SetToolTipText(FText::FromString(TEXT("World-axis offset in meters, from -1000 to 1000. Zero leaves this axis unchanged. Apply moves the selection; typing alone does not.")));
+		Input->SetToolTipText(FText::FromString(TEXT("Offset in meters along the chosen axes, from -1000 to 1000. Object Z may be tilted; use World axes for height. Zero leaves this axis unchanged. Apply moves the selection; typing alone does not.")));
 		OffsetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
 	};
 	AddOffset(TEXT("X"), OffsetX); AddOffset(TEXT("Y"), OffsetY); AddOffset(TEXT("Z"), OffsetZ);
@@ -367,7 +371,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply")));
 	AddFieldIcon(WidgetTree, ApplyOffsetButton, ApplyText, 14); CompactApplyButton(ApplyOffsetButton);
 	ApplyOffsetButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ApplyWorldOffset);
-	ApplyOffsetButton->SetToolTipText(FText::FromString(TEXT("Move selected objects together along world axes. Target is excluded. Rotation, scale and spacing are preserved. Ctrl+Z undoes the whole move.")));
+	ApplyOffsetButton->SetToolTipText(FText::FromString(TEXT("Move selected objects together along the chosen axes. Object axes require one selected object or a selected anchor. Target is excluded. Rotation, scale and spacing are preserved. Ctrl+Z undoes the whole move.")));
 	ApplyOffsetButton->SetIsEnabled(false);
 	OffsetActions->AddChildToHorizontalBox(ApplyOffsetButton)->SetPadding(FMargin(2));
 	auto* ClearOffset = WidgetTree->ConstructWidget<UButton>();
@@ -715,13 +719,19 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	}
 	if (ApplyOffsetButton && OffsetX && OffsetY && OffsetZ && System->Selection) {
 		FHyperManageTransformData OffsetData;
-		const bool HasOffset = UHyperManageTransform::MakeWorldOffset(FVector(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue()), OffsetData);
+  const bool ObjectAxes = OffsetAxes && OffsetAxes->GetSelectedIndex() == 1;
+  FTransform Reference;
+  const bool HasReference = !ObjectAxes || (System->Action && System->Action->GetWorldOrientationReference(Reference));
+  const FVector Meters(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue());
+  const bool HasOffset = HasReference && (ObjectAxes ? UHyperManageTransform::MakeObjectOffset(Meters, Reference, OffsetData) : UHyperManageTransform::MakeWorldOffset(Meters, OffsetData));
 		const int32 Count = System->Selection->SelectCount();
 		const bool Pending = System->Selection->HasPendingOperations();
 		ApplyOffsetButton->SetIsEnabled(Count > 0 && HasOffset && !Pending);
 		if (OffsetStatus) OffsetStatus->SetText(FText::FromString(Pending ? TEXT("Waiting for the previous building edit...") :
 			Count <= 0 ? TEXT("Select objects to move. The target stays in place.") :
-			FString::Printf(TEXT("%d objects | world axes | Z changes height"), Count)));
+			!HasReference ? TEXT("Object axes: select one object or select an anchor for the group.") :
+   ObjectAxes && !HasOffset && !Meters.IsNearlyZero(0.000001) ? TEXT("Offset exceeds 1000 m on an input or world axis.") :
+   ObjectAxes ? TEXT("Object directions | group spacing preserved | Z may tilt") : FString::Printf(TEXT("%d objects | world axes | Z changes height"), Count)));
 	}
  if (ApplyPositionButton && ReadPositionButton && PositionX && PositionY && PositionZ && System->Action) {
   FVector Reference;
@@ -904,7 +914,7 @@ void UHyperManageToolWidget::ApplyWorldOffset()
 {
 	if (!OffsetX || !OffsetY || !OffsetZ) return;
 	if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
-		System->Action->ApplyWorldOffset(FVector(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue()));
+		System->Action->ApplyWorldOffset(FVector(OffsetX->GetValue(), OffsetY->GetValue(), OffsetZ->GetValue()), OffsetAxes && OffsetAxes->GetSelectedIndex() == 1);
 	}
 }
 

@@ -64,9 +64,15 @@ The five exact-edit sections start collapsed to keep the panel compact. Click a 
 
 ## Exact world offsets
 
-Under **World offset (m)**, enter X, Y and Z distances, then click **Apply**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.
+Under **Offset (m)** with **World axes** selected, enter X, Y and Z distances, then click **Apply**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.
 
 Offsets always use world axes and move the selected objects together, preserving spacing, rotation and scale. The target stays in place. This requires a selection; it does not move an object merely because you are looking at it. Values stay in the fields while the panel is open so you can repeat the move. **Zero fields** clears the values without changing any objects. Undo and redo treat each Apply as one edit.
+
+## Offsets along a rotated object
+
+In **Offset (m)** choose **Object axes** to move along the selected anchor's local X/Y/Z directions. With one selected object, its own orientation supplies the axes. Multiple objects require a selected anchor. All selected objects receive the same movement, preserving spacing, rotation and scale; the target stays in place. This ignores Together/Individual mode and does not change keyboard movement settings.
+
+For example, when a reference has yaw 90 degrees, X **1** moves one meter along its rotated forward direction. Reference scale does not multiply that distance. On a tilted reference, local Z is not world height; choose World axes for vertical moves. Both input components and the resulting world-axis movement are limited to 1,000 m per axis. Apply records one **Object-axis offset** history step. The picker starts on World axes whenever the panel opens.
 
 ## Exact world position
 

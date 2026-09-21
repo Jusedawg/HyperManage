@@ -369,6 +369,13 @@ FTransform UHyperManageTransform::ComputeTransform(FTransform Transform, const F
 	return Transform;
 }
 
+bool UHyperManageTransform::MakeObjectOffset(const FVector& Meters, const FTransform& Reference, FHyperManageTransformData& Data)
+{
+ if (!HyperManageLightweight::IsValidTransform(Reference) || !MakeWorldOffset(Meters, Data)) return false;
+ // Distances follow reference rotation only; object scale must not multiply the requested meters.
+ return MakeWorldOffset(Reference.GetRotation().RotateVector(Meters), Data);
+}
+
 bool UHyperManageTransform::MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data)
 {
 	if (Meters.ContainsNaN() || Meters.GetAbsMax() > 1000.0 || Meters.IsNearlyZero(0.000001)) return false;

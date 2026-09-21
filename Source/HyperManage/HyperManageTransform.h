@@ -122,6 +122,7 @@ public:
 	static bool MakeWorldOrientation(const FRotator& Degrees, const FTransform& Reference, FHyperManageTransformData& Data, uint8 AxisMask = 7);
 	static bool MakeWorldPositionOffset(const FVector& Meters, const FVector& ReferenceCm, FHyperManageTransformData& Data, uint8 AxisMask = 7);
 	static bool MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data);
+	static bool MakeObjectOffset(const FVector& Meters, const FTransform& Reference, FHyperManageTransformData& Data);
 	FTransform ComputeTransform(FTransform Transform, const FHyperManageTransformData& Data);
 
 	// Calculates remaining fields of an initialized TransformData for further processing

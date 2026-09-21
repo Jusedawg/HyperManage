@@ -477,16 +477,19 @@ void UHyperManageAction::AlignToWorld(EActionNameIdx Action)
 }
 
 
-bool UHyperManageAction::ApplyWorldOffset(const FVector& Meters)
+bool UHyperManageAction::ApplyWorldOffset(const FVector& Meters, bool ObjectAxes)
 {
 	if (!System || !System->Selection || !System->Undo || !System->GetMMRCO() || System->Selection->HasPendingOperations()) return false;
 	FHyperManageTransformData Data;
-	if (!UHyperManageTransform::MakeWorldOffset(Meters, Data)) return false;
+ FTransform Reference;
+ if (ObjectAxes) {
+  if (!GetWorldOrientationReference(Reference) || !UHyperManageTransform::MakeObjectOffset(Meters, Reference, Data)) return false;
+ } else if (!UHyperManageTransform::MakeWorldOffset(Meters, Data)) return false;
 	TArray<AActor*> Actors;
 	System->Selection->SelectedActorsNoTarget(Actors);
 	Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });
 	if (Actors.IsEmpty()) return false;
-	System->Undo->PushNamedTransforms(Actors, TEXT("World offset"));
+	System->Undo->PushNamedTransforms(Actors, ObjectAxes ? TEXT("Object-axis offset") : TEXT("World offset"));
 	System->GetMMRCO()->RequestTransform(Actors, Data);
 	return true;
 }

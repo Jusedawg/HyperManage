@@ -63,6 +63,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> HistoryDetails;
 	uint64 HistoryRevision = MAX_uint64;
+	UPROPERTY(Transient) TObjectPtr<UComboBoxString> OffsetAxes;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetX;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetY;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> OffsetZ;

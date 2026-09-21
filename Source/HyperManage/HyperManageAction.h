@@ -16,7 +16,7 @@ public:
 	void PerformHistory(bool Redo);
 	bool ApplyWorldRotationOffset(const FRotator& Degrees);
 	bool ApplyScalePercent(const FVector& Percent);
-	bool ApplyWorldOffset(const FVector& Meters);
+	bool ApplyWorldOffset(const FVector& Meters, bool ObjectAxes = false);
 	bool GetWorldPositionReference(FVector& ReferenceCm);
 	bool ApplyWorldPosition(const FVector& Meters, uint8 AxisMask = 7);
 	bool GetWorldOrientationReference(FTransform& Reference);
