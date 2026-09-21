@@ -285,7 +285,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.47")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.48")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -695,6 +695,24 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Selection->ChangeAnchorTargetBoxSelection(true, true);
  TestFalse(TEXT("Edge subtraction includes reference extents"), Selection->Contains(EdgeOnly));
  TestTrue(TEXT("Deselecting never destroys objects"), IsValid(Inside) && IsValid(EdgeOnly));
+ Selection->ClearWithoutHistory(); Selection->SetSelectionSlot(2);
+ Selection->SelectActor(Inside); Selection->SetAnchor(Inside); Selection->SetTarget(EdgeOnly);
+ auto* RemovedObject = MakeBoxActor(FVector(900, 900, 900));
+ Selection->SaveSelection(); RemovedObject->Destroy();
+ Selection->ClearWithoutHistory(); Selection->SetAnchor(BoxAnchor); Selection->SetTarget(BoxTarget);
+ History->ClearUndoStack(); Selection->AddSavedSelection();
+ TestTrue(TEXT("Add slot merges live and saved objects"), Selection->Contains(Inside) && Selection->Contains(BoxAnchor));
+ TestFalse(TEXT("Add slot does not import saved target"), Selection->Contains(EdgeOnly));
+ TestFalse(TEXT("Add slot skips destroyed objects"), Selection->Contains(RemovedObject));
+ TestTrue(TEXT("Add slot preserves current markers"), Selection->AnchorActor == BoxAnchor && Selection->TargetActor == BoxTarget);
+ TestEqual(TEXT("Add slot records one edit"), History->GetUndoCount(), 1);
+ Selection->AddSavedSelection(); TestEqual(TEXT("Repeated add slot is a no-op"), History->GetUndoCount(), 1);
+ Replay(false); TestFalse(TEXT("Undo removes the added group"), Selection->Contains(Inside));
+ TestTrue(TEXT("Undo preserves original markers"), Selection->AnchorActor == BoxAnchor && Selection->TargetActor == BoxTarget);
+ Replay(true); TestTrue(TEXT("Redo restores the merged group"), Selection->Contains(Inside));
+ Selection->SetSelectionSlot(9); Selection->AddSavedSelection();
+ TestEqual(TEXT("Unused slot merge makes no edit"), History->GetUndoCount(), 1);
+
 	World->DestroyWorld(false);
 	return true;
 }

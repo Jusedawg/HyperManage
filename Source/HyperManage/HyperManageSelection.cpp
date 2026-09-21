@@ -463,6 +463,19 @@ void UHyperManageSelection::SaveSelection()
  Slot.Occupied = true;
 }
 
+void UHyperManageSelection::AddSavedSelection()
+{
+ if (HasPendingOperations() || !HasSavedSelection()) return;
+ const auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ TArray<AActor*> Added;
+ for (const auto& Actor : Slot.Actors) {
+  if (Actor != Slot.Target && IsValidActor(Actor) && !Contains(Actor)) Added.AddUnique(Actor);
+ }
+ if (Added.IsEmpty()) return;
+ if (System->Undo) System->Undo->PushUndoSelection(Added);
+ for (auto* Actor : Added) SelectActor(Actor);
+}
+
 void UHyperManageSelection::LoadSelection()
 {
 	if (HasPendingOperations() || !HasSavedSelection()) return;

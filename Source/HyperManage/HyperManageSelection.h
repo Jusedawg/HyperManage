@@ -128,6 +128,7 @@ public:
 	int32 GetSavedSelectionCount();
 
 	void LoadSelection();
+	void AddSavedSelection();
 
 	bool HasPendingOperations() const;
 	AActor* LineTraceFromPlayer();

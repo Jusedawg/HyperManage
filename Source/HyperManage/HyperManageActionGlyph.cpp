@@ -67,6 +67,9 @@ int32 UHyperManageActionGlyph::NativePaint(const FPaintArgs& Args, const FGeomet
    else if (Kind == 8 || Kind == 28) { Box(-29,-27,14,14); Box(15,13,14,14); if (Kind == 28) Line(FVector2D(-10,0),FVector2D(10,0),Accent); }
    else if (Kind == 29) { Line(FVector2D(-11,0),FVector2D(11,0),Accent); }
    else { Line(FVector2D(-11,0),FVector2D(11,0),Accent); Line(FVector2D(0,-11),FVector2D(0,11),Accent); }
+  } else if (Kind == 30) {
+   Box(-23,-22,46,44); Box(-12,-28,24,12);
+   Line(FVector2D(-11,3),FVector2D(11,3),Accent); Line(FVector2D(0,-8),FVector2D(0,14),Accent);
   } else if (Kind == 10 || Kind == 11) {
    Box(-23,-22,46,44); Box(-12,4,24,18);
    Arrow(FVector2D(0,Kind == 10 ? -30 : 0),FVector2D(0,Kind == 10 ? 0 : -30));
