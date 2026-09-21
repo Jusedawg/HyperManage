@@ -454,11 +454,15 @@ bool UHyperManageTransform::MakeWorldPositionOffset(const FVector& Meters, const
  return MakeWorldOffset(Offset, Data);
 }
 
-bool UHyperManageTransform::MakeWorldOrientation(const FRotator& Degrees, const FTransform& Reference, FHyperManageTransformData& Data)
+bool UHyperManageTransform::MakeWorldOrientation(const FRotator& Degrees, const FTransform& Reference, FHyperManageTransformData& Data, uint8 AxisMask)
 {
- if (Degrees.ContainsNaN() || FMath::Abs(Degrees.Pitch) > 180.0 || FMath::Abs(Degrees.Yaw) > 180.0 || FMath::Abs(Degrees.Roll) > 180.0 ||
-  !HyperManageLightweight::IsValidTransform(Reference)) return false;
- const FQuat Desired = Degrees.Quaternion();
+ if (Degrees.ContainsNaN() || AxisMask == 0 || AxisMask > 7 || !HyperManageLightweight::IsValidTransform(Reference)) return false;
+ // Bits follow the visible Yaw/Pitch/Roll order. Preserve unchecked canonical Euler components of the reference.
+ FRotator Angles = Reference.Rotator();
+ if (AxisMask & 1) { if (FMath::Abs(Degrees.Yaw) > 180.0) return false; Angles.Yaw = Degrees.Yaw; }
+ if (AxisMask & 2) { if (FMath::Abs(Degrees.Pitch) > 180.0) return false; Angles.Pitch = Degrees.Pitch; }
+ if (AxisMask & 4) { if (FMath::Abs(Degrees.Roll) > 180.0) return false; Angles.Roll = Degrees.Roll; }
+ const FQuat Desired = Angles.Quaternion();
  if (Desired.Equals(Reference.GetRotation(), 0.000001)) return false;
  const FQuat Delta = (Desired * Reference.GetRotation().Inverse()).GetNormalized();
  return MakeWorldRotationOffset(Delta.Rotator(), true, Reference.GetLocation(), Data);

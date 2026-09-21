@@ -87,6 +87,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> RotationStatus;
 	UFUNCTION() void ApplyWorldRotationOffset();
 	UFUNCTION() void ClearRotationOffset();
+ UPROPERTY(Transient) TArray<TObjectPtr<class UCheckBox>> OrientationAxes;
+ uint8 GetOrientationAxisMask() const;
  UPROPERTY(Transient) TObjectPtr<USpinBox> OrientationYaw;
  UPROPERTY(Transient) TObjectPtr<USpinBox> OrientationPitch;
  UPROPERTY(Transient) TObjectPtr<USpinBox> OrientationRoll;

@@ -587,12 +587,12 @@ bool UHyperManageAction::GetWorldOrientationReference(FTransform& Reference)
  return HyperManageLightweight::IsValidTransform(Reference);
 }
 
-bool UHyperManageAction::ApplyWorldOrientation(const FRotator& Degrees)
+bool UHyperManageAction::ApplyWorldOrientation(const FRotator& Degrees, uint8 AxisMask)
 {
  FTransform Reference;
  if (!System || !System->Undo || !System->GetMMRCO() || !GetWorldOrientationReference(Reference)) return false;
  FHyperManageTransformData Data;
- if (!UHyperManageTransform::MakeWorldOrientation(Degrees, Reference, Data)) return false;
+ if (!UHyperManageTransform::MakeWorldOrientation(Degrees, Reference, Data, AxisMask)) return false;
  TArray<AActor*> Actors;
  System->Selection->SelectedActorsNoTarget(Actors);
  Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor); });

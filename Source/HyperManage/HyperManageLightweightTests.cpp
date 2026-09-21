@@ -226,6 +226,10 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Position apply requires a selection"), Tools->ApplyPositionButton->GetIsEnabled());
 	TestFalse(TEXT("Read position requires a selection"), Tools->ReadPositionButton->GetIsEnabled());
 	TestNotNull(TEXT("Absolute orientation input created"), Tools->OrientationYaw.Get());
+ TestEqual(TEXT("All orientation axes start enabled"), Tools->GetOrientationAxisMask(), uint8(7));
+ Tools->OrientationAxes[1]->SetIsChecked(false); Tools->OrientationAxes[2]->SetIsChecked(false);
+ TestEqual(TEXT("Orientation switches can isolate heading"), Tools->GetOrientationAxisMask(), uint8(1));
+ Tools->OrientationAxes[1]->SetIsChecked(true); Tools->OrientationAxes[2]->SetIsChecked(true);
 	TestFalse(TEXT("Absolute orientation apply starts disabled"), Tools->ApplyOrientationButton->GetIsEnabled());
 	TestNotNull(TEXT("Yaw input created"), Tools->OffsetYaw.Get());
 	TestNotNull(TEXT("Pitch input created"), Tools->OffsetPitch.Get());
@@ -281,7 +285,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.43")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.44")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -798,6 +802,25 @@ bool FHyperManageWorldOrientationTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("NaN angle is rejected"), UHyperManageTransform::MakeWorldOrientation(FRotator(0, std::numeric_limits<double>::quiet_NaN(), 0), Reference, Data));
  FTransform Invalid = Reference; Invalid.SetRotation(FQuat(0, 0, 0, 0));
  TestFalse(TEXT("Invalid reference rotation is rejected"), UHyperManageTransform::MakeWorldOrientation(FRotator::ZeroRotator, Invalid, Data));
+ const FTransform Tilted(FRotator(25, 170, -35), FVector(120, -320, 450), FVector(2, 1, 0.5));
+ const FRotator Requested(-40, -175, 60);
+ for (uint8 Mask = 1; Mask <= 7; ++Mask) {
+  const FRotator Original = Tilted.Rotator();
+  const FRotator Expected(Mask & 2 ? Requested.Pitch : Original.Pitch, Mask & 1 ? Requested.Yaw : Original.Yaw, Mask & 4 ? Requested.Roll : Original.Roll);
+  TestTrue(TEXT("Any nonempty angle combination can rotate"), UHyperManageTransform::MakeWorldOrientation(Requested, Tilted, Data, Mask));
+  const auto Result = Transform->ComputeTransform(Tilted, Data), Other = Transform->ComputeTransform(Neighbor, Data);
+  TestTrue(TEXT("Unchecked reference Euler components are retained"), Result.GetRotation().Equals(Expected.Quaternion(), 0.000001));
+  TestTrue(TEXT("Constrained orientation keeps the pivot and scale"), Result.GetLocation().Equals(Tilted.GetLocation()) && Result.GetScale3D().Equals(Tilted.GetScale3D()));
+  TestTrue(TEXT("Group relative rotation survives constrained orientation"), (Result.GetRotation().Inverse() * Other.GetRotation()).Equals(Tilted.GetRotation().Inverse() * Neighbor.GetRotation(), 0.000001));
+  TestFalse(TEXT("Repeated checked angles make no edit"), UHyperManageTransform::MakeWorldOrientation(Requested, Result, Data, Mask));
+ }
+ TestFalse(TEXT("No checked angles makes no edit"), UHyperManageTransform::MakeWorldOrientation(Requested, Tilted, Data, 0));
+ TestFalse(TEXT("Unknown orientation axis bits rejected"), UHyperManageTransform::MakeWorldOrientation(Requested, Tilted, Data, 8));
+ TestTrue(TEXT("Unused angle values are ignored"), UHyperManageTransform::MakeWorldOrientation(FRotator(999, 90, -999), Tilted, Data, 1));
+ const FTransform Vertical(FRotator(90, 40, 20));
+ const FRotator VerticalEuler = Vertical.Rotator();
+ TestTrue(TEXT("Partial vertical orientation is supported"), UHyperManageTransform::MakeWorldOrientation(FRotator(0, -70, 0), Vertical, Data, 1));
+ TestTrue(TEXT("Vertical orientation uses the reference canonical Euler angles"), Transform->ComputeTransform(Vertical, Data).GetRotation().Equals(FRotator(VerticalEuler.Pitch, -70, VerticalEuler.Roll).Quaternion(), 0.000001));
  return true;
 }
 

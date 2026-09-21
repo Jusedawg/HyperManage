@@ -20,7 +20,7 @@ public:
 	bool GetWorldPositionReference(FVector& ReferenceCm);
 	bool ApplyWorldPosition(const FVector& Meters, uint8 AxisMask = 7);
 	bool GetWorldOrientationReference(FTransform& Reference);
-	bool ApplyWorldOrientation(const FRotator& Degrees);
+	bool ApplyWorldOrientation(const FRotator& Degrees, uint8 AxisMask = 7);
 	void MatchAnchorOrigin(EAxis::Type Axis);
 	void AlignToWorld(EActionNameIdx Action);
 

@@ -84,6 +84,8 @@ In **Together** mode, objects rotate around the selected anchor, or the center o
 
 Expand **World orientation (deg)** and click **Read orientation** to fill yaw (Y), pitch (P) and roll (R). Enter the desired angles from -180 to 180 degrees, then Apply. These are absolute angles: zero means a zero angle, unlike an offset. Applying the same orientation again does nothing.
 
+Checkboxes beside Y/P/R choose which reference angles to set. For heading only, leave Y checked and uncheck P and R. Unchecked fields are dimmed and retain the reference's current Euler angles; they do not lock each member of a group independently. All angles start checked when the panel opens, and Read orientation preserves your choices. These controls affect only World orientation. Near vertical pitch, yaw and roll are coupled; retained values use the same canonical Euler representation shown by Read orientation.
+
 One selected object rotates in place. For multiple objects, select an anchor with **Shift + left click** first. The anchor reaches the requested orientation while the group rotates around its origin, preserving spacing, relative orientations and scale. This operates on the group regardless of Together/Individual mode; the target remains excluded. Each Apply creates one **World orientation** history step. Read orientation changes only the fields. Equivalent Euler angles can look different after reading them back, especially near vertical pitch, while describing the same orientation.
 
 ## Exact scale
