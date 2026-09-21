@@ -94,6 +94,8 @@ One selected object rotates in place. For multiple objects, select an anchor wit
 
 Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **100%** is original size, **50%** is half size, and **200%** is double size. Values are absolute rather than repeated multipliers, so applying 125% twice still leaves an object at 125%. Each axis accepts 1-1,000%.
 
+**Read scale** fills the fields from your selected anchor, or the only selected object. Select an anchor first when working with a group. Reading does not resize anything or add history. It is unavailable while edits are pending or the reference scale is outside 1-1,000%. Applying the resulting values sets every selected object to those percentages; it does not preserve differences in scale between group members.
+
 A **Uniform preset** fills all three fields. **100%** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
 
 ## Remove an area from a selection

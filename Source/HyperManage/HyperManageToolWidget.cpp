@@ -225,7 +225,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.45")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.46")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -539,6 +539,12 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	ResetScale->SetToolTipText(FText::FromString(TEXT("Fill X/Y/Z with 100%. Click Apply scale to restore original size.")));
 	ResetScale->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ResetScaleFields);
 	ScaleActions->AddChildToHorizontalBox(ResetScale)->SetPadding(FMargin(4));
+ ReadScaleButton = WidgetTree->ConstructWidget<UButton>();
+ auto* ReadScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ReadScaleText->SetText(FText::FromString(TEXT("Read scale")));
+ AddFieldIcon(WidgetTree, ReadScaleButton, ReadScaleText, 11); CompactApplyButton(ReadScaleButton); ReadScaleButton->SetIsEnabled(false);
+ ReadScaleButton->SetToolTipText(FText::FromString(TEXT("Read scale: fill X/Y/Z from the selected anchor, or the only selected object. Nothing is resized until Apply. Requires values within 1-1000% and no pending edits. For a group, Apply sets every member to the entered scales.")));
+ ReadScaleButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReadScale);
+ ScaleActions->AddChildToHorizontalBox(ReadScaleButton)->SetPadding(FMargin(4));
 	ScaleBody->AddChildToVerticalBox(ScaleActions);
 	ScaleStatus = WidgetTree->ConstructWidget<UTextBlock>(); ScaleStatus->SetFont(OffsetFont); ScaleStatus->SetAutoWrapText(true);
 	ScaleStatus->SetText(FText::FromString(TEXT("Select objects to resize. 100% is original size.")));
@@ -757,6 +763,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   if (OrientationStatus) OrientationStatus->SetText(FText::FromString(!Available ? TEXT("Select one object, or select an anchor for a group. Wait for pending edits.") :
    AxisMask == 0 ? TEXT("Check at least one angle to apply an orientation.") : TEXT("Reference stays in place | group rotates around it")));
  }
+ if (ReadScaleButton) {
+  FTransform Reference;
+  const bool Available = System->Action && System->Action->GetWorldOrientationReference(Reference);
+  ReadScaleButton->SetIsEnabled(Available && UHyperManageTransform::IsValidScalePercent(Reference.GetScale3D() * 100.0));
+ }
 	if (ApplyScaleButton && ScaleX && ScaleY && ScaleZ && System->Selection) {
 		const FVector Percent(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue());
 		const int32 Count = System->Selection->SelectCount();
@@ -927,6 +938,18 @@ void UHyperManageToolWidget::ApplyScalePercent()
 	if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
 		System->Action->ApplyScalePercent(FVector(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue()));
 	}
+}
+
+void UHyperManageToolWidget::ReadScale()
+{
+ if (!ScaleX || !ScaleY || !ScaleZ) return;
+ FTransform Reference;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Action && System->Action->GetWorldOrientationReference(Reference)) {
+  const FVector Percent = Reference.GetScale3D() * 100.0;
+  if (!UHyperManageTransform::IsValidScalePercent(Percent)) return;
+  if (ScalePreset) ScalePreset->ClearSelection();
+  ScaleX->SetValue(Percent.X); ScaleY->SetValue(Percent.Y); ScaleZ->SetValue(Percent.Z);
+ }
 }
 
 void UHyperManageToolWidget::ResetScaleFields()

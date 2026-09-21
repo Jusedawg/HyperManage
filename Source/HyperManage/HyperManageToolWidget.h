@@ -104,6 +104,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> ScalePreset;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> ScaleStatus;
 	UFUNCTION() void ApplyScalePercent();
+	UPROPERTY(Transient) TObjectPtr<UButton> ReadScaleButton;
+	UFUNCTION() void ReadScale();
 	UFUNCTION() void ResetScaleFields();
 	UFUNCTION() void ClearScalePreset(float Value);
 	UFUNCTION() void ChangeScalePreset(FString Value, ESelectInfo::Type SelectionType);
