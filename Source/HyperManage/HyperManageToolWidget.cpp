@@ -225,7 +225,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.44")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.45")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -337,11 +337,18 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  HistoryArea->SetHeaderPadding(FMargin(4)); HistoryArea->SetAreaPadding(FMargin(8, 4)); HistoryArea->SetIsExpanded(false);
  HistoryArea->SetToolTipText(FText::FromString(TEXT("Most recent records first. Undo/Redo replay one step at a time. Unavailable objects are skipped; history lasts for this session only.")));
  Rows->AddChildToVerticalBox(HistoryArea)->SetPadding(FMargin(3, 2, 3, 6));
+ auto AddCollapsedSection = [&](UTextBlock* Heading, UVerticalBox* ContentBody) {
+  auto* Area = WidgetTree->ConstructWidget<UExpandableArea>();
+  StyleExpansionArrow(Area);
+  Area->SetContentForSlot(TEXT("Header"), Heading); Area->SetContentForSlot(TEXT("Body"), ContentBody);
+  Area->SetBorderBrush(FSlateColorBrush(FLinearColor::Transparent)); Area->SetIsExpanded(false);
+  Area->SetHeaderPadding(FMargin(0, 4)); Area->SetAreaPadding(FMargin(0, 2)); Rows->AddChildToVerticalBox(Area);
+ };
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	OffsetHeading->SetText(FText::FromString(TEXT("WORLD OFFSET (m)")));
 	auto OffsetFont = OffsetHeading->GetFont(); OffsetFont.Size = 14; OffsetHeading->SetFont(OffsetFont);
 	OffsetHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
-	Rows->AddChildToVerticalBox(OffsetHeading);
+	auto* OffsetBody = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* OffsetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddOffset = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
@@ -354,7 +361,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		OffsetRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(2));
 	};
 	AddOffset(TEXT("X"), OffsetX); AddOffset(TEXT("Y"), OffsetY); AddOffset(TEXT("Z"), OffsetZ);
-	Rows->AddChildToVerticalBox(OffsetRow);
+	OffsetBody->AddChildToVerticalBox(OffsetRow);
 	auto* OffsetActions = OffsetRow;
 	ApplyOffsetButton = WidgetTree->ConstructWidget<UButton>();
 	auto* ApplyText = WidgetTree->ConstructWidget<UTextBlock>(); ApplyText->SetText(FText::FromString(TEXT("Apply")));
@@ -372,7 +379,8 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 
 	OffsetStatus = WidgetTree->ConstructWidget<UTextBlock>(); OffsetStatus->SetFont(OffsetFont);
 	OffsetStatus->SetText(FText::FromString(TEXT("Select objects, then enter an offset. Z changes height.")));
-	OffsetStatus->SetAutoWrapText(true); Rows->AddChildToVerticalBox(OffsetStatus);
+	OffsetStatus->SetAutoWrapText(true); OffsetBody->AddChildToVerticalBox(OffsetStatus);
+ AddCollapsedSection(OffsetHeading, OffsetBody);
  auto* PositionArea = WidgetTree->ConstructWidget<UExpandableArea>();
  StyleExpansionArrow(PositionArea);
  auto* PositionHeading = WidgetTree->ConstructWidget<UTextBlock>();
@@ -415,7 +423,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* RotationHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	RotationHeading->SetText(FText::FromString(TEXT("WORLD ROTATION OFFSET (deg)")));
 	RotationHeading->SetFont(OffsetFont); RotationHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
-	Rows->AddChildToVerticalBox(RotationHeading);
+	auto* RotationBody = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* RotationFields = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddRotation = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
 		auto* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
@@ -432,7 +440,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddRotation(TEXT("Y"), OffsetYaw);
 	AddRotation(TEXT("P"), OffsetPitch);
 	AddRotation(TEXT("R"), OffsetRoll);
-	Rows->AddChildToVerticalBox(RotationFields);
+	RotationBody->AddChildToVerticalBox(RotationFields);
 	auto* RotationActions = RotationFields;
 	ApplyRotationButton = WidgetTree->ConstructWidget<UButton>();
 	auto* RotateText = WidgetTree->ConstructWidget<UTextBlock>(); RotateText->SetText(FText::FromString(TEXT("Apply")));
@@ -450,7 +458,8 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 
 	RotationStatus = WidgetTree->ConstructWidget<UTextBlock>(); RotationStatus->SetFont(OffsetFont); RotationStatus->SetAutoWrapText(true);
 	RotationStatus->SetText(FText::FromString(TEXT("Select objects, then enter rotation offsets.")));
-	Rows->AddChildToVerticalBox(RotationStatus);
+	RotationBody->AddChildToVerticalBox(RotationStatus);
+ AddCollapsedSection(RotationHeading, RotationBody);
  auto* OrientationArea = WidgetTree->ConstructWidget<UExpandableArea>();
  StyleExpansionArrow(OrientationArea);
  auto* OrientationHeading = WidgetTree->ConstructWidget<UTextBlock>();
@@ -493,7 +502,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* ScaleHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	ScaleHeading->SetText(FText::FromString(TEXT("EXACT LOCAL SCALE (%)")));
 	ScaleHeading->SetFont(OffsetFont); ScaleHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
-	Rows->AddChildToVerticalBox(ScaleHeading);
+	auto* ScaleBody = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* ScaleRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto AddScale = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Input) {
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Axis));
@@ -507,7 +516,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		ScaleRow->AddChildToHorizontalBox(Input)->SetPadding(FMargin(4));
 	};
 	AddScale(TEXT("X"), ScaleX); AddScale(TEXT("Y"), ScaleY); AddScale(TEXT("Z"), ScaleZ);
-	Rows->AddChildToVerticalBox(ScaleRow);
+	ScaleBody->AddChildToVerticalBox(ScaleRow);
 	auto* ScalePresetRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* PresetLabel = WidgetTree->ConstructWidget<UTextBlock>(); PresetLabel->SetText(FText::FromString(TEXT("Uniform preset")));
 	ScalePresetRow->AddChildToHorizontalBox(PresetLabel)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
@@ -516,7 +525,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	ScalePreset->SetToolTipText(FText::FromString(TEXT("Fill all three fields with a percentage, then click Apply scale. Choosing a preset alone does not change objects.")));
 	ScalePreset->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeScalePreset);
 	ScalePresetRow->AddChildToHorizontalBox(ScalePreset)->SetPadding(FMargin(4));
-	Rows->AddChildToVerticalBox(ScalePresetRow);
+	ScaleBody->AddChildToVerticalBox(ScalePresetRow);
 	auto* ScaleActions = WidgetTree->ConstructWidget<UHorizontalBox>();
 	ApplyScaleButton = WidgetTree->ConstructWidget<UButton>();
 	auto* ScaleText = WidgetTree->ConstructWidget<UTextBlock>(); ScaleText->SetText(FText::FromString(TEXT("Apply")));
@@ -530,10 +539,11 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	ResetScale->SetToolTipText(FText::FromString(TEXT("Fill X/Y/Z with 100%. Click Apply scale to restore original size.")));
 	ResetScale->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ResetScaleFields);
 	ScaleActions->AddChildToHorizontalBox(ResetScale)->SetPadding(FMargin(4));
-	Rows->AddChildToVerticalBox(ScaleActions);
+	ScaleBody->AddChildToVerticalBox(ScaleActions);
 	ScaleStatus = WidgetTree->ConstructWidget<UTextBlock>(); ScaleStatus->SetFont(OffsetFont); ScaleStatus->SetAutoWrapText(true);
 	ScaleStatus->SetText(FText::FromString(TEXT("Select objects to resize. 100% is original size.")));
-	Rows->AddChildToVerticalBox(ScaleStatus);
+	ScaleBody->AddChildToVerticalBox(ScaleStatus);
+ AddCollapsedSection(ScaleHeading, ScaleBody);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();

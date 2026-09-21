@@ -60,6 +60,8 @@ Select your reference object and press **Shift + left click** to make it the anc
 
 The anchor and target stay stationary; other coordinates, rotation and scale are preserved. Each Apply is undoable. These commands align object origins, not mesh edges or visible surfaces, and move objects independently regardless of group mode.
 
+The five exact-edit sections start collapsed to keep the panel compact. Click a section heading to reveal its fields and action buttons. Collapsing a section keeps the entered values while the panel remains open.
+
 ## Exact world offsets
 
 Under **World offset (m)**, enter X, Y and Z distances, then click **Apply**. For example, X **0.375**, Y **-1.25**, Z **2** moves the selection diagonally and raises it two meters. Zero leaves an axis unchanged. Each axis accepts up to 1,000 meters in either direction.
