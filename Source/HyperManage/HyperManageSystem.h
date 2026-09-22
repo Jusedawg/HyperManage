@@ -93,7 +93,8 @@ enum EActionNameIdx
 	MatchAnchorX UMETA(DisplayName = "Match Anchor X"),
 	MatchAnchorY UMETA(DisplayName = "Match Anchor Y"),
 	MatchAnchorZ UMETA(DisplayName = "Match Anchor Z"),
-	SnapWorldZ UMETA(DisplayName = "Snap To Height Grid")
+	SnapWorldZ UMETA(DisplayName = "Snap To Height Grid"),
+	SelectPlacedBlueprint UMETA(DisplayName = "Select Placed Blueprint")
 };
 
 class AHyperManageEquip;

@@ -168,6 +168,7 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 		MMKeyConfigs.ActionKeys.Add(KeyConfig);
 	};
 
+	CheckKeyConfigSettings(FHyperManageKeyConfig(SelectPlacedBlueprint, EKeys::LeftMouseButton, Ctrl, NoAlt, Shift, NoRepeat));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(SelectTarget, EKeys::LeftMouseButton, Ctrl, NoAlt, NoShift, Repeats));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(DeselectTarget, EKeys::RightMouseButton, Ctrl, NoAlt, NoShift, Repeats));
 	CheckKeyConfigSettings(FHyperManageKeyConfig(Undo, EKeys::Z, Ctrl, NoAlt, NoShift, Repeats));

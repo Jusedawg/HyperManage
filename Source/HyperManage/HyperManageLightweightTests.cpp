@@ -290,7 +290,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.57")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.58")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -856,6 +856,33 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 
 
 
+ Selection->ClearWithoutHistory(); History->ClearUndoStack();
+ auto* BlueprintOne = World->SpawnActor<AFGBlueprintProxy>();
+ auto* BlueprintTwo = World->SpawnActor<AFGBlueprintProxy>();
+ auto MakeBlueprintMember = [&](AFGBlueprintProxy* Blueprint) {
+  auto* Member = World->SpawnActor<AFGBuildableBeam>();
+  auto* MemberRoot = NewObject<USceneComponent>(Member); Member->SetRootComponent(MemberRoot);
+  Member->AddInstanceComponent(MemberRoot); MemberRoot->RegisterComponent(); Member->SetBlueprintProxy(Blueprint);
+  return Member;
+ };
+ auto* FirstMember = MakeBlueprintMember(BlueprintOne);
+ auto* SecondMember = MakeBlueprintMember(BlueprintOne);
+ auto* NeighborMember = MakeBlueprintMember(BlueprintTwo);
+ TestFalse(TEXT("Non-blueprint actor adds nothing"), Selection->SelectPlacedBlueprint(C));
+ TestTrue(TEXT("Placed blueprint selection succeeds"), Selection->SelectPlacedBlueprint(FirstMember));
+ TestTrue(TEXT("Membership selects both buildings without nearby blueprint"), Selection->Contains(FirstMember) && Selection->Contains(SecondMember) && !Selection->Contains(NeighborMember));
+ TestTrue(TEXT("Blueprint selection anchors pointed member"), Selection->AnchorActor == FirstMember);
+ TestEqual(TEXT("Blueprint members share one history step"), History->GetUndoCount(), 1);
+ TestFalse(TEXT("Repeated blueprint selection adds no edit"), Selection->SelectPlacedBlueprint(SecondMember));
+ Replay(false); TestTrue(TEXT("Undo removes blueprint selection and marker"), !Selection->Contains(FirstMember) && !Selection->Contains(SecondMember) && !Selection->AnchorActor);
+ Replay(true); TestTrue(TEXT("Redo restores blueprint selection"), Selection->Contains(FirstMember) && Selection->Contains(SecondMember) && Selection->AnchorActor == FirstMember);
+ Selection->SetTarget(NeighborMember);
+ TestFalse(TEXT("Already selected target blueprint is a no-op"), Selection->SelectPlacedBlueprint(NeighborMember));
+ TestTrue(TEXT("Blueprint selection preserves target"), Selection->TargetActor == NeighborMember);
+ Selection->ClearWithoutHistory(); Selection->SetAnchor(C); Selection->SetTarget(SecondMember); History->ClearUndoStack();
+ Selection->SelectPlacedBlueprint(FirstMember);
+ TestTrue(TEXT("Additive blueprint selection preserves existing references"), Selection->AnchorActor == C && Selection->TargetActor == SecondMember && Selection->Contains(FirstMember));
+ Replay(false); TestTrue(TEXT("Undo additive blueprint preserves previous selection"), Selection->Contains(C) && Selection->Contains(SecondMember) && !Selection->Contains(FirstMember));
 	World->DestroyWorld(false);
 	return true;
 }

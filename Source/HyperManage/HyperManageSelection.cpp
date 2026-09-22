@@ -239,6 +239,38 @@ void UHyperManageSelection::SelectedActorsNoTarget(TArray<AActor*>& Actors)
 	}
 }
 
+bool UHyperManageSelection::SelectPlacedBlueprint(AActor* Actor)
+{
+ if (HasPendingOperations() || !IsValidActor(Actor)) return false;
+ auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
+ AFGBlueprintProxy* Blueprint = nullptr;
+ if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
+  const auto* Data = Subsystem ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Proxy->Ref.BuildableClass, Proxy->Ref.Index) : nullptr;
+  if (Proxy->Ref.Matches(Data)) Blueprint = Data->BlueprintProxy;
+ } else if (auto* Buildable = Cast<AFGBuildable>(Actor)) Blueprint = Buildable->GetBlueprintProxy();
+ if (!IsValid(Blueprint) || Blueprint->GetWorld() != System->GetWorld()) return false;
+ TArray<AActor*> Added;
+ for (TObjectIterator<AFGBuildable> It; It; ++It) {
+  if (IsValidActor(*It) && It->GetBlueprintProxy() == Blueprint && !Contains(*It)) Added.Add(*It);
+ }
+ if (Subsystem) {
+  for (const auto& Entry : Subsystem->GetAllLightweightBuildableInstances()) {
+   for (int32 Index = 0; Index < Entry.Value.Num(); ++Index) {
+    const auto& Data = Entry.Value[Index];
+    if (!Data.IsValid() || Data.BlueprintProxy != Blueprint) continue;
+    if (auto* Member = GetLightweightProxy(Entry.Key, Index, Data); Member && !Contains(Member)) Added.AddUnique(Member);
+   }
+  }
+ }
+ if (Added.IsEmpty()) return false;
+ const bool AssignAnchor = !IsValidActor(AnchorActor) && SelectCount() == 0 && Actor != TargetActor && System->Config->MMConfig.AutoAnchor;
+ System->Undo->PushUndoSelection(Added);
+ for (auto* Member : Added) SelectActor(Member);
+ if (AssignAnchor) SetAnchor(Actor);
+ System->Action->MakeActorsMovable(Added);
+ return true;
+}
+
 bool UHyperManageSelection::SelectPointedActorForTransform(AActor* Actor)
 {
 	if (HasPendingOperations() || SelectCount() != 0 || !IsValidActor(Actor) || Actor == TargetActor) return false;

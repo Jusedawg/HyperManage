@@ -198,6 +198,9 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 		case EActionNameIdx::DeselectTarget:
 			Action->SelectActor(Selection->LineTraceFromPlayer(), ActionIndex == EActionNameIdx::SelectTarget);
 			break;
+		case EActionNameIdx::SelectPlacedBlueprint:
+			Selection->SelectPlacedBlueprint(Selection->LineTraceFromPlayer());
+			break;
 		case EActionNameIdx::Undo:
 			Action->PerformUndo();
 			break;

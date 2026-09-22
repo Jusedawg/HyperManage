@@ -167,3 +167,9 @@ Undo reverses the transform while keeping the object selected; a second Undo rem
 ### Beam scaling
 
 Beams store length separately from object scale. Incremental scaling, exact scale and matching scale are blocked when the editable selection includes a beam. A message explains how to proceed: deselect the beams before resizing other objects. Mixed selections are not partially resized. Movement, rotation and history remain available. A beam used only as the target does not block resizing other selected objects.
+
+### Select a placed blueprint
+
+Point at a member of a placed blueprint and press **Ctrl + Shift + left-click** to add its currently loaded members to the selection. Membership comes from the placed blueprint instance, so an adjacent copy is not included. Normal buildings and lightweight pieces are supported. Existing anchor and target markers stay assigned; Auto anchor can assign the pointed member when starting with an empty editable selection. The target remains excluded from transforms.
+
+The selection change is one undo step. Repeating it adds no history when nothing changes. This does not create a persistent group, export a blueprint or save selection slots. Streaming and multiplayer membership coverage still require gameplay validation.
