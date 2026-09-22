@@ -104,6 +104,12 @@ Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **
 
 A **Uniform preset** fills all three fields. **100%** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
 
+## Measure between references
+
+Set an anchor and target, then expand **Reference measurements**. The panel shows signed world X/Y/Z offsets from the anchor to the target, horizontal **XY** distance, and straight-line **Total** distance, in meters. Positive Z means the target is higher. Measurements use object origins rather than visible surfaces, so they are not necessarily the gap between buildings.
+
+The readout updates as the references move, pauses while an edit is pending, and never changes objects or history. It starts collapsed.
+
 ## Even spacing
 
 Expand **Even origin spacing** and choose X, Y or Z to distribute 3-1,024 selected objects along that world axis. The two outermost origins stay fixed; the others move to equal intervals between them. Other coordinates, rotation and scale stay unchanged. The target is excluded. The anchor participates and can move if it is between the endpoints; Together/Individual mode does not affect this command.

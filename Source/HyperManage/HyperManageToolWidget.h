@@ -117,6 +117,7 @@ protected:
 	UFUNCTION() void ReadScale();
 	UFUNCTION() void ResetScaleFields();
  UPROPERTY(Transient) TArray<TObjectPtr<UButton>> DistributionButtons;
+ UPROPERTY(Transient) TObjectPtr<class UTextBlock> ReferenceMeasurements;
  UFUNCTION() void DistributeX();
  UFUNCTION() void DistributeY();
  UFUNCTION() void DistributeZ();

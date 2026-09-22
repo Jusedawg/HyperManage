@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.51")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.52")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -574,6 +574,16 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  auto* DistributionHelp = WidgetTree->ConstructWidget<UTextBlock>(); DistributionHelp->SetFont(OffsetFont); DistributionHelp->SetAutoWrapText(true);
  DistributionHelp->SetText(FText::FromString(TEXT("3-1024 objects | outer origins fixed | target excluded | anchor may move")));
  DistributionBody->AddChildToVerticalBox(DistributionHelp); AddCollapsedSection(DistributionHeading, DistributionBody);
+ auto* MeasurementHeading = WidgetTree->ConstructWidget<UTextBlock>();
+ MeasurementHeading->SetText(FText::FromString(TEXT("REFERENCE MEASUREMENTS"))); MeasurementHeading->SetFont(OffsetFont);
+ MeasurementHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+ auto* MeasurementBody = WidgetTree->ConstructWidget<UVerticalBox>();
+ ReferenceMeasurements = WidgetTree->ConstructWidget<UTextBlock>(); ReferenceMeasurements->SetFont(OffsetFont);
+ ReferenceMeasurements->SetAutoWrapText(true);
+ ReferenceMeasurements->SetText(FText::FromString(TEXT("Set an anchor and target to measure between their origins.")));
+ ReferenceMeasurements->SetToolTipText(FText::FromString(TEXT("Read-only measurements from anchor origin to target origin, in meters. X/Y/Z are signed world-axis offsets; XY is horizontal distance and Total is straight-line distance. These are origin distances, not gaps between mesh surfaces. Updates after edits; nothing is moved.")));
+ MeasurementBody->AddChildToVerticalBox(ReferenceMeasurements);
+ AddCollapsedSection(MeasurementHeading, MeasurementBody);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -831,6 +841,18 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const int32 Count = System->Selection->SelectCount();
   const bool Ready = Count >= 3 && Count <= 1024 && !System->Selection->HasPendingOperations();
   for (const auto& Button : DistributionButtons) if (Button) Button->SetIsEnabled(Ready);
+ }
+ if (ReferenceMeasurements && System->Selection) {
+  auto* Selection = System->Selection;
+  FString Text = TEXT("Set an anchor and target to measure between their origins.");
+  if (Selection->HasPendingOperations()) Text = TEXT("Waiting for the previous building edit...");
+  else if (Selection->IsValidActor(Selection->AnchorActor) && Selection->IsValidActor(Selection->TargetActor)) {
+   const FVector Delta = (Selection->TargetActor->GetActorLocation() - Selection->AnchorActor->GetActorLocation()) / 100.0;
+   if (!Delta.ContainsNaN() && FMath::IsFinite(Delta.Size())) {
+    Text = FString::Printf(TEXT("Anchor to target (m)\nX: %.3f   Y: %.3f   Z: %.3f\nXY: %.3f   Total: %.3f\nOrigin distances; not surface gaps."), Delta.X, Delta.Y, Delta.Z, Delta.Size2D(), Delta.Size());
+   } else Text = TEXT("Reference position is unavailable.");
+  }
+  if (ReferenceMeasurements->GetText().ToString() != Text) ReferenceMeasurements->SetText(FText::FromString(Text));
  }
 	if (ApplyScaleButton && ScaleX && ScaleY && ScaleZ && System->Selection) {
 		const FVector Percent(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue());
