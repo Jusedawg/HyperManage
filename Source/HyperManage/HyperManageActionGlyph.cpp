@@ -56,6 +56,15 @@ int32 UHyperManageActionGlyph::NativePaint(const FPaintArgs& Args, const FGeomet
   if (Kind == 23) { Line(FVector2D(-5, -2), FVector2D(5, -2), Accent); Line(FVector2D(5, -2), FVector2D(5, 10), Accent); Line(FVector2D(5, 10), FVector2D(-5, 10), Accent); Line(FVector2D(-5, 10), FVector2D(-5, -2), Accent); }
   return Layer;
  }
+ if (Kind == 32 || Kind == 33) {
+  Line(FVector2D(-27,-23),FVector2D(27,-23),Ink);
+  Line(FVector2D(-27,-23),FVector2D(-7,0),Ink); Line(FVector2D(27,-23),FVector2D(7,0),Ink);
+  Line(FVector2D(-7,0),FVector2D(-7,23),Ink); Line(FVector2D(7,0),FVector2D(7,23),Ink);
+  Line(FVector2D(-7,23),FVector2D(7,23),Ink);
+  Line(FVector2D(-9,-12),FVector2D(9,-12),Accent);
+  if (Kind == 32) Line(FVector2D(0,-21),FVector2D(0,-3),Accent);
+  return Layer;
+ }
  if (Kind >= 7) {
   auto Box = [&](float X, float Y, float W, float H) {
    Line(FVector2D(X,Y),FVector2D(X+W,Y),Ink); Line(FVector2D(X+W,Y),FVector2D(X+W,Y+H),Ink);

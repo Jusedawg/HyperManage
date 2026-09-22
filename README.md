@@ -116,6 +116,12 @@ Expand **Even origin spacing** and choose X, Y or Z to distribute 3-1,024 select
 
 Spacing uses object origins, not visible edges, so objects of different sizes may still have unequal gaps. Already-even or coincident origins do nothing. A move larger than 1,000 meters rejects the operation. Each operation is one undoable edit, including supported lightweight objects. The section starts collapsed.
 
+## Filter a mixed selection by type
+
+Set an anchor to choose a reference type, then expand **Selection type filter**. **Keep type** deselects other types; **Remove type** deselects matching types. Both retain the current anchor and target, even when those references would otherwise be filtered out. Nothing is dismantled, and each change supports Undo/Redo.
+
+Matching uses the exact object or building class, including the real building type of lightweight foundations and walls. Different building variants may be distinct types; this is not a broad category or paint filter. The commands operate only on your current selection, pause while edits are pending, and do nothing without an anchor. Repeating a filter with no changes adds no history. The section starts collapsed.
+
 ## Remove an area from a selection
 
 Set an anchor and target at the region boundaries, then use **Remove edges** or **Remove centers** in the Selection controls. These subtract objects from the current selection without moving or dismantling anything. The anchor and target stay selected so you can reuse the same region.

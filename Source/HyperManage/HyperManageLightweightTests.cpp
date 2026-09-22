@@ -16,6 +16,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/CheckBox.h"
 #include "WheeledVehicles/FGTargetPoint.h"
+#include "FGVehicle.h"
 #include "JsonObjectConverter.h"
 #include <limits>
 #include "HyperManageClipboardWidget.h"
@@ -285,7 +286,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.52")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.53")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -743,6 +744,30 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Selection->RemoveSavedSelection(); TestEqual(TEXT("Repeated slot subtraction is a no-op"), History->GetUndoCount(), 1);
  Replay(false); TestTrue(TEXT("Undo restores slot subtraction"), Selection->Contains(Inside));
  Replay(true); TestFalse(TEXT("Redo repeats slot subtraction"), Selection->Contains(Inside));
+ Selection->ClearWithoutHistory();
+ auto* DifferentType = World->SpawnActor<AFGVehicle>();
+ if (!DifferentType) { AddError(TEXT("Type filter fixture failed to spawn")); World->DestroyWorld(false); return false; }
+ Selection->SetAnchor(BoxAnchor); Selection->SetTarget(BoxTarget); Selection->SelectActor(Inside); Selection->SelectActor(DifferentType);
+ History->ClearUndoStack(); Selection->FilterAnchorType(true);
+ TestTrue(TEXT("Keep type retains matching selection"), Selection->Contains(Inside));
+ TestFalse(TEXT("Keep type removes different selection"), Selection->Contains(DifferentType));
+ TestTrue(TEXT("Type filter keeps reference markers"), Selection->AnchorActor == BoxAnchor && Selection->TargetActor == BoxTarget);
+ TestEqual(TEXT("Type filter records one edit"), History->GetUndoCount(), 1);
+ Selection->FilterAnchorType(true); TestEqual(TEXT("Repeated type filter adds no history"), History->GetUndoCount(), 1);
+ Replay(false); TestTrue(TEXT("Undo restores filtered types"), Selection->Contains(DifferentType));
+ Replay(true); TestFalse(TEXT("Redo filters the same types"), Selection->Contains(DifferentType));
+ Selection->SelectActor(DifferentType); History->ClearUndoStack(); Selection->FilterAnchorType(false);
+ TestFalse(TEXT("Remove type removes matching object"), Selection->Contains(Inside));
+ TestTrue(TEXT("Remove type preserves other types and anchor"), Selection->Contains(DifferentType) && Selection->Contains(BoxAnchor));
+ TestTrue(TEXT("Filtering never destroys objects"), IsValid(Inside) && IsValid(DifferentType));
+ auto* TypeProxy = World->SpawnActor<AHyperManageLightweightProxy>(); TypeProxy->Ref.BuildableClass = AFGBuildable::StaticClass();
+ TestTrue(TEXT("Lightweight and native exact types match"), UHyperManageSelection::GetSelectionType(TypeProxy) == UHyperManageSelection::GetSelectionType(GetDefault<AFGBuildable>()));
+ TypeProxy->Ref.BuildableClass = nullptr;
+ TestNull(TEXT("Missing lightweight type is not the proxy class"), UHyperManageSelection::GetSelectionType(TypeProxy));
+ TestNull(TEXT("Null actor has no selection type"), UHyperManageSelection::GetSelectionType(nullptr));
+ Selection->SetAnchor(nullptr); History->ClearUndoStack(); Selection->FilterAnchorType(true);
+ TestEqual(TEXT("Missing anchor makes no edit"), History->GetUndoCount(), 0);
+
 
 
 	World->DestroyWorld(false);

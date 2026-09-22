@@ -118,6 +118,9 @@ protected:
 	UFUNCTION() void ResetScaleFields();
  UPROPERTY(Transient) TArray<TObjectPtr<UButton>> DistributionButtons;
  UPROPERTY(Transient) TObjectPtr<class UTextBlock> ReferenceMeasurements;
+ UPROPERTY(Transient) TArray<TObjectPtr<UButton>> TypeFilterButtons;
+ UFUNCTION() void KeepAnchorType();
+ UFUNCTION() void RemoveAnchorType();
  UFUNCTION() void DistributeX();
  UFUNCTION() void DistributeY();
  UFUNCTION() void DistributeZ();

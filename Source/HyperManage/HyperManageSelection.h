@@ -134,6 +134,8 @@ public:
 	void LoadSelection();
 	void AddSavedSelection();
 	void RemoveSavedSelection();
+	static UClass* GetSelectionType(const AActor* Actor);
+	void FilterAnchorType(bool KeepMatching);
 
 	bool HasPendingOperations() const;
 	AActor* LineTraceFromPlayer();

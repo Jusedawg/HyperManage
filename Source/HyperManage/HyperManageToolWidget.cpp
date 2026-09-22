@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.52")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.53")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -584,6 +584,23 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  ReferenceMeasurements->SetToolTipText(FText::FromString(TEXT("Read-only measurements from anchor origin to target origin, in meters. X/Y/Z are signed world-axis offsets; XY is horizontal distance and Total is straight-line distance. These are origin distances, not gaps between mesh surfaces. Updates after edits; nothing is moved.")));
  MeasurementBody->AddChildToVerticalBox(ReferenceMeasurements);
  AddCollapsedSection(MeasurementHeading, MeasurementBody);
+ auto* FilterHeading = WidgetTree->ConstructWidget<UTextBlock>(); FilterHeading->SetFont(OffsetFont);
+ FilterHeading->SetText(FText::FromString(TEXT("SELECTION TYPE FILTER"))); FilterHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+ auto* FilterBody = WidgetTree->ConstructWidget<UVerticalBox>(); auto* FilterRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+ TypeFilterButtons.Reset();
+ for (int32 Index = 0; Index < 2; ++Index) {
+  auto* Button = WidgetTree->ConstructWidget<UButton>(); auto* Label = WidgetTree->ConstructWidget<UTextBlock>();
+  Label->SetText(FText::FromString(Index == 0 ? TEXT("Keep type") : TEXT("Remove type")));
+  AddFieldIcon(WidgetTree, Button, Label, 32 + Index); CompactApplyButton(Button, true);
+  Button->SetToolTipText(FText::FromString(Index == 0 ? TEXT("Keep anchor type: deselect objects of other exact types. Current anchor and target remain selected. Supports lightweight building types. Undoable; nothing is dismantled.") : TEXT("Remove anchor type: deselect objects matching the anchor's exact type, except the current anchor and target. Undoable; nothing is dismantled.")));
+  if (Index == 0) Button->OnClicked.AddDynamic(this, &UHyperManageToolWidget::KeepAnchorType);
+  else Button->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RemoveAnchorType);
+  Button->SetIsEnabled(false); TypeFilterButtons.Add(Button); FilterRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(3));
+ }
+ FilterBody->AddChildToVerticalBox(FilterRow);
+ auto* FilterHelp = WidgetTree->ConstructWidget<UTextBlock>(); FilterHelp->SetFont(OffsetFont); FilterHelp->SetAutoWrapText(true);
+ FilterHelp->SetText(FText::FromString(TEXT("Set an anchor as the type reference. Anchor and target stay selected; exact types only.")));
+ FilterBody->AddChildToVerticalBox(FilterHelp); AddCollapsedSection(FilterHeading, FilterBody);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -842,6 +859,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool Ready = Count >= 3 && Count <= 1024 && !System->Selection->HasPendingOperations();
   for (const auto& Button : DistributionButtons) if (Button) Button->SetIsEnabled(Ready);
  }
+ if (System->Selection) {
+  const bool Ready = !System->Selection->HasPendingOperations() && System->Selection->IsValidActor(System->Selection->AnchorActor) &&
+   UHyperManageSelection::GetSelectionType(System->Selection->AnchorActor) && System->Selection->SelectCount() > 1;
+  for (const auto& Button : TypeFilterButtons) if (Button) Button->SetIsEnabled(Ready);
+ }
  if (ReferenceMeasurements && System->Selection) {
   auto* Selection = System->Selection;
   FString Text = TEXT("Set an anchor and target to measure between their origins.");
@@ -1029,6 +1051,9 @@ void UHyperManageToolWidget::ApplyScalePercent()
 void UHyperManageToolWidget::DistributeX() { if (auto* System = UHyperManageSystem::Get(); System && System->Action) System->Action->DistributeOrigins(EAxis::X); }
 void UHyperManageToolWidget::DistributeY() { if (auto* System = UHyperManageSystem::Get(); System && System->Action) System->Action->DistributeOrigins(EAxis::Y); }
 void UHyperManageToolWidget::DistributeZ() { if (auto* System = UHyperManageSystem::Get(); System && System->Action) System->Action->DistributeOrigins(EAxis::Z); }
+
+void UHyperManageToolWidget::KeepAnchorType() { if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->FilterAnchorType(true); }
+void UHyperManageToolWidget::RemoveAnchorType() { if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->FilterAnchorType(false); }
 
 void UHyperManageToolWidget::ReadScale()
 {

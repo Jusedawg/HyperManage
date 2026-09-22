@@ -485,6 +485,29 @@ void UHyperManageSelection::SaveSelection()
  Slot.Occupied = true;
 }
 
+UClass* UHyperManageSelection::GetSelectionType(const AActor* Actor)
+{
+ if (!IsValid(Actor)) return nullptr;
+ if (const auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) return Proxy->Ref.BuildableClass.Get();
+ return Actor->GetClass();
+}
+
+void UHyperManageSelection::FilterAnchorType(bool KeepMatching)
+{
+ if (HasPendingOperations() || !IsValidActor(AnchorActor)) return;
+ UClass* Type = GetSelectionType(AnchorActor);
+ if (!Type) return;
+ TArray<AActor*> Actors, Removed; SelectedActors(Actors);
+ for (auto* Actor : Actors) {
+  if (Actor == AnchorActor || Actor == TargetActor) continue;
+  UClass* CandidateType = GetSelectionType(Actor);
+  if (CandidateType && ((CandidateType == Type) != KeepMatching)) Removed.Add(Actor);
+ }
+ if (Removed.IsEmpty()) return;
+ if (System->Undo) System->Undo->PushUndoSelection(Removed);
+ for (auto* Actor : Removed) SelectActor(Actor, false);
+}
+
 void UHyperManageSelection::RemoveSavedSelection()
 {
  if (HasPendingOperations() || !HasSavedSelection()) return;
