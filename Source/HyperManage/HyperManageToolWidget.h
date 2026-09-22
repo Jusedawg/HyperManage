@@ -56,6 +56,10 @@ protected:
 	UFUNCTION() void RemoveBoxEdges();
 	UFUNCTION() void RemoveBoxCenters();
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> SelectionSlotPicker;
+	UPROPERTY(Transient) TObjectPtr<class UEditableTextBox> SlotNameField;
+	int32 EditingSlotName = 0;
+	void RefreshSlotNames();
+	UFUNCTION() void CommitSlotName(const FText& Value, ETextCommit::Type CommitMethod);
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> SelectionSlotStatus;
 	UFUNCTION() void ChangeSelectionSlot(FString Value, ESelectInfo::Type SelectionType);
 	UPROPERTY(Transient) TObjectPtr<UButton> AddSlotButton;

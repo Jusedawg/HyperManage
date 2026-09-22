@@ -28,6 +28,7 @@
 #include "Components/ScrollBox.h"
 #include "Components/ExpandableArea.h"
 #include "Components/CheckBox.h"
+#include "Components/EditableTextBox.h"
 
 namespace {
 void StyleExpansionArrow(UExpandableArea* Area)
@@ -225,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.49")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.50")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -558,7 +559,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
 	Body->SetWidthOverride(360);
-	Body->SetHeightOverride(430);
+	Body->SetHeightOverride(458);
 	// Replace the overflowing legacy icon strips, retaining the existing buttons and their action bindings.
 	if (auto* Canvas = Cast<UCanvasPanel>(Content)) {
 		Canvas->ClearChildren();
@@ -615,12 +616,25 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   SelectionSlotPicker->SetSelectedIndex(ActiveSlot);
   SelectionSlotPicker->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeSelectionSlot);
   SelectionSlotPicker->SetToolTipText(FText::FromString(TEXT("Choose one of ten session-only selection slots. Changing slots does not change your current selection; use Remember or Recall.")));
-  SlotRow->AddChildToHorizontalBox(SelectionSlotPicker)->SetPadding(FMargin(2));
+  auto* SlotPickerBox = WidgetTree->ConstructWidget<USizeBox>(); SlotPickerBox->SetWidthOverride(190);
+  SlotPickerBox->SetContent(SelectionSlotPicker); SelectionSlotPicker->SetClipping(EWidgetClipping::ClipToBounds);
+  SlotRow->AddChildToHorizontalBox(SlotPickerBox)->SetPadding(FMargin(2));
   SelectionSlotStatus = WidgetTree->ConstructWidget<UTextBlock>();
   auto SlotFont = SelectionSlotStatus->GetFont(); SlotFont.Size = 11; SelectionSlotStatus->SetFont(SlotFont);
   SelectionSlotStatus->SetText(FText::FromString(TEXT("Empty | this session")));
   SlotRow->AddChildToHorizontalBox(SelectionSlotStatus)->SetVerticalAlignment(VAlign_Center);
   Groups->AddChildToVerticalBox(SlotRow);
+  SlotNameField = WidgetTree->ConstructWidget<UEditableTextBox>();
+  SlotNameField->WidgetStyle.TextStyle.Font.Size = 11;
+  SlotNameField->WidgetStyle.BackgroundImageNormal = FSlateColorBrush(FLinearColor(0.10f, 0.115f, 0.13f));
+  SlotNameField->WidgetStyle.BackgroundImageHovered = FSlateColorBrush(FLinearColor(0.14f, 0.16f, 0.18f));
+  SlotNameField->WidgetStyle.BackgroundImageFocused = SlotNameField->WidgetStyle.BackgroundImageHovered;
+  SlotNameField->WidgetStyle.ForegroundColor = FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f));
+  SlotNameField->SetHintText(FText::FromString(TEXT("Slot name (optional)")));
+  SlotNameField->SetToolTipText(FText::FromString(TEXT("Name this slot using up to 24 characters. Enter or leave the field to save. Clear the name to restore its numbered label. Session-only; does not change selection or history.")));
+  SlotNameField->OnTextCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitSlotName);
+  Groups->AddChildToVerticalBox(SlotNameField)->SetPadding(FMargin(2, 0, 2, 3));
+  RefreshSlotNames();
   RemoveBoxEdgesButton = WidgetTree->ConstructWidget<UButton>();
   RemoveBoxEdgesButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RemoveBoxEdges);
   RemoveBoxEdgesButton->SetToolTipText(FText::FromString(TEXT("Deselect objects inside the anchor/target edge-bounded region. Keeps anchor and target selected. Does not dismantle or move anything. Undo restores the removed selection.")));
@@ -1075,11 +1089,35 @@ void UHyperManageToolWidget::AddSelectionSlot()
  if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->AddSavedSelection();
 }
 
+void UHyperManageToolWidget::RefreshSlotNames()
+{
+ auto* System = UHyperManageSystem::Get();
+ if (!SelectionSlotPicker || !SlotNameField || !System || !System->Selection) return;
+ EditingSlotName = System->Selection->GetSelectionSlot();
+ SelectionSlotPicker->ClearOptions();
+ for (int32 Index = 0; Index < 10; ++Index) SelectionSlotPicker->AddOption(System->Selection->GetSelectionSlotLabel(Index));
+ SelectionSlotPicker->SetSelectedIndex(EditingSlotName);
+ SlotNameField->SetText(FText::FromString(System->Selection->GetSelectionSlotName(EditingSlotName)));
+}
+
+void UHyperManageToolWidget::CommitSlotName(const FText& Value, ETextCommit::Type CommitMethod)
+{
+ if (CommitMethod == ETextCommit::OnCleared) return;
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection && SlotNameField) {
+  if (!System->Selection->SetSelectionSlotName(EditingSlotName, Value.ToString())) {
+   SlotNameField->SetError(FText::FromString(TEXT("Use up to 24 characters, without line breaks or control characters."))); return;
+  }
+  SlotNameField->ClearError(); RefreshSlotNames();
+ }
+}
+
 void UHyperManageToolWidget::ChangeSelectionSlot(FString Value, ESelectInfo::Type SelectionType)
 {
- if (!SelectionSlotPicker) return;
+ if (!SelectionSlotPicker || SelectionType == ESelectInfo::Direct) return;
  if (auto* System = UHyperManageSystem::Get(); System && System->Selection) {
   System->Selection->SetSelectionSlot(SelectionSlotPicker->FindOptionIndex(Value));
+  EditingSlotName = System->Selection->GetSelectionSlot();
+  if (SlotNameField) { SlotNameField->ClearError(); SlotNameField->SetText(FText::FromString(System->Selection->GetSelectionSlotName(EditingSlotName))); }
  }
 }
 

@@ -428,6 +428,28 @@ void UHyperManageSelection::RestoreHistory(const FUndoInfo& Info)
 	if (IsValidActor(Info.SelectItems[1].Actor)) SetTarget(Info.SelectItems[1].Actor);
 }
 
+bool UHyperManageSelection::SetSelectionSlotName(int32 Index, const FString& Name)
+{
+ if (Index < 0 || Index >= 10) return false;
+ FString Clean = Name.TrimStartAndEnd();
+ if (Clean.Len() > 24) return false;
+ for (TCHAR Character : Clean) if (FChar::IsControl(Character)) return false;
+ if (SelectionSlots.Num() != 10) SelectionSlots.SetNum(10);
+ SelectionSlots[Index].Name = Clean;
+ return true;
+}
+
+FString UHyperManageSelection::GetSelectionSlotName(int32 Index) const
+{
+ return SelectionSlots.IsValidIndex(Index) ? SelectionSlots[Index].Name : FString();
+}
+
+FString UHyperManageSelection::GetSelectionSlotLabel(int32 Index) const
+{
+ const FString Name = GetSelectionSlotName(Index);
+ return Name.IsEmpty() ? FString::Printf(TEXT("Slot %d"), Index + 1) : FString::Printf(TEXT("%d: %s"), Index + 1, *Name);
+}
+
 bool UHyperManageSelection::SetSelectionSlot(int32 Index)
 {
  if (Index < 0 || Index >= 10) return false;

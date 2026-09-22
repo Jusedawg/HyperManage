@@ -114,6 +114,8 @@ Set an anchor and target at the region boundaries, then use **Remove edges** or 
 
 Choose **Slot 1-10** above the selection controls, then click **Remember** to store the current selection, anchor and target. Remember replaces only the chosen slot. Switch slots and click **Recall** to return to a group; switching the dropdown alone leaves the current selection unchanged.
 
+Give each slot an optional name in the field beneath its picker, such as **Roof supports**. Enter or leave the field to save; names appear beside slot numbers. Names accept up to 24 characters, remain when Remember replaces a group, and last for the current session. Clear a name to return to its numbered label. Naming a slot does not store a selection or add undo history.
+
 **Add slot** merges the chosen slot into your current selection. It preserves your current anchor and target, skips the saved target and unavailable objects, and avoids duplicates. The saved anchor joins as an ordinary selected object unless it is already your current reference. Undo removes only the newly added objects; adding the same slot again creates no extra history. Use Recall when you want to replace the selection and restore the saved references instead.
 
 **Remove slot** deselects the remembered objects from your current selection. It protects your current anchor and target, excludes the saved target, and leaves the remembered slot intact. Nothing is dismantled. Undo restores the removed selection; repeated clicks with nothing left to remove add no history.

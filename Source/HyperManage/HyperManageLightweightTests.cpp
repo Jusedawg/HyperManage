@@ -285,7 +285,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.49")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.50")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -644,6 +644,21 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 	Selection->SelectClear();
 	TestEqual(TEXT("Clearing empty selection adds no history"), History->GetUndoCount(), 0);
  TestTrue(TEXT("Default slot remains occupied after clearing current selection"), Selection->HasSavedSelection());
+ TestTrue(TEXT("Names trim outer whitespace"), Selection->SetSelectionSlotName(0, TEXT("  Roof supports  ")));
+ TestEqual(TEXT("Slot exposes saved name"), Selection->GetSelectionSlotName(0), FString(TEXT("Roof supports")));
+ TestEqual(TEXT("Picker label includes slot identity"), Selection->GetSelectionSlotLabel(0), FString(TEXT("1: Roof supports")));
+ TestTrue(TEXT("Empty slots can be named"), Selection->SetSelectionSlotName(8, TEXT("Future walls")));
+ TestFalse(TEXT("Naming does not create a saved group"), Selection->SetSelectionSlot(8) && Selection->HasSavedSelection());
+ Selection->SetSelectionSlot(8); Selection->SaveSelection(); Selection->SetSelectionSlot(0);
+ TestEqual(TEXT("Remember preserves slot name"), Selection->GetSelectionSlotName(8), FString(TEXT("Future walls")));
+ TestFalse(TEXT("Overlong names rejected"), Selection->SetSelectionSlotName(0, FString::ChrN(25, TEXT('x'))));
+ TestFalse(TEXT("Multiline names rejected"), Selection->SetSelectionSlotName(0, TEXT("Roof\nWalls")));
+ TestFalse(TEXT("Invalid name slot rejected"), Selection->SetSelectionSlotName(10, TEXT("Invalid")));
+ TestEqual(TEXT("Rejected names preserve old value"), Selection->GetSelectionSlotName(0), FString(TEXT("Roof supports")));
+ TestTrue(TEXT("Clear name restores numbered label"), Selection->SetSelectionSlotName(0, TEXT("")));
+ TestEqual(TEXT("Unnamed picker label"), Selection->GetSelectionSlotLabel(0), FString(TEXT("Slot 1")));
+ TestEqual(TEXT("Renaming adds no history"), History->GetUndoCount(), 0);
+
  TestEqual(TEXT("Saved count excludes destroyed target"), Selection->GetSavedSelectionCount(), 1);
  TestTrue(TEXT("Select tenth slot"), Selection->SetSelectionSlot(9));
  TestFalse(TEXT("New slot is empty"), Selection->HasSavedSelection());

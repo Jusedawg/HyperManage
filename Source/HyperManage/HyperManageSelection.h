@@ -24,6 +24,7 @@ struct FHyperManageSelectionSlot
  UPROPERTY(Transient) TArray<TObjectPtr<AActor>> Actors;
  UPROPERTY(Transient) TObjectPtr<AActor> Anchor;
  UPROPERTY(Transient) TObjectPtr<AActor> Target;
+ UPROPERTY(Transient) FString Name;
  bool Occupied = false;
 };
 
@@ -123,6 +124,9 @@ public:
 	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
 	bool SetSelectionSlot(int32 Index);
+	bool SetSelectionSlotName(int32 Index, const FString& Name);
+	FString GetSelectionSlotName(int32 Index) const;
+	FString GetSelectionSlotLabel(int32 Index) const;
 	int32 GetSelectionSlot() const { return ActiveSelectionSlot; }
 	bool HasSavedSelection() const;
 	int32 GetSavedSelectionCount();
