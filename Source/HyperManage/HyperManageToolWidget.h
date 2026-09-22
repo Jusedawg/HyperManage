@@ -116,6 +116,10 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UButton> ReadScaleButton;
 	UFUNCTION() void ReadScale();
 	UFUNCTION() void ResetScaleFields();
+ UPROPERTY(Transient) TArray<TObjectPtr<UButton>> DistributionButtons;
+ UFUNCTION() void DistributeX();
+ UFUNCTION() void DistributeY();
+ UFUNCTION() void DistributeZ();
 	UFUNCTION() void ClearScalePreset(float Value);
 	UFUNCTION() void ChangeScalePreset(FString Value, ESelectInfo::Type SelectionType);
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> AnchorAlignmentButtons;

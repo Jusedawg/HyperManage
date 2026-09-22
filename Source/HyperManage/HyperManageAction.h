@@ -23,6 +23,7 @@ public:
 	bool ApplyWorldOrientation(const FRotator& Degrees, uint8 AxisMask = 7);
 	void MatchAnchorOrigin(EAxis::Type Axis);
 	void AlignToWorld(EActionNameIdx Action);
+	void DistributeOrigins(EAxis::Type Axis);
 
 	void PrepareTransform(const FVector& Loc, const FRotator& Rot, const FVector& Scale);
 

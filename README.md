@@ -60,7 +60,7 @@ Select your reference object and press **Shift + left click** to make it the anc
 
 The anchor and target stay stationary; other coordinates, rotation and scale are preserved. Each Apply is undoable. These commands align object origins, not mesh edges or visible surfaces, and move objects independently regardless of group mode.
 
-The five exact-edit sections start collapsed to keep the panel compact. Click a section heading to reveal its fields and action buttons. Collapsing a section keeps the entered values while the panel remains open.
+The exact-edit sections start collapsed to keep the panel compact. Click a section heading to reveal its fields and action buttons. Collapsing a section keeps the entered values while the panel remains open.
 
 ## Exact world offsets
 
@@ -103,6 +103,12 @@ Under **Exact local scale (%)**, enter X/Y/Z percentages and click **Apply**. **
 **Read scale** fills the fields from your selected anchor, or the only selected object. Select an anchor first when working with a group. Reading does not resize anything or add history. It is unavailable while edits are pending or the reference scale is outside 1-1,000%. Applying the resulting values sets every selected object to those percentages; it does not preserve differences in scale between group members.
 
 A **Uniform preset** fills all three fields. **100%** prepares a return to original size; click Apply to make the change. Editing fields or choosing a preset alone does not alter objects. Scaling uses each object's local axes and preserves its origin and rotation regardless of group mode. The target is excluded, and the edit supports undo/redo.
+
+## Even spacing
+
+Expand **Even origin spacing** and choose X, Y or Z to distribute 3-1,024 selected objects along that world axis. The two outermost origins stay fixed; the others move to equal intervals between them. Other coordinates, rotation and scale stay unchanged. The target is excluded. The anchor participates and can move if it is between the endpoints; Together/Individual mode does not affect this command.
+
+Spacing uses object origins, not visible edges, so objects of different sizes may still have unequal gaps. Already-even or coincident origins do nothing. A move larger than 1,000 meters rejects the operation. Each operation is one undoable edit, including supported lightweight objects. The section starts collapsed.
 
 ## Remove an area from a selection
 

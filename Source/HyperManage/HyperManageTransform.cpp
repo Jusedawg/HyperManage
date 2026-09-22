@@ -376,6 +376,30 @@ bool UHyperManageTransform::MakeObjectOffset(const FVector& Meters, const FTrans
  return MakeWorldOffset(Reference.GetRotation().RotateVector(Meters), Data);
 }
 
+bool UHyperManageTransform::MakeDistributionOffsets(const TArray<FVector>& Origins, EAxis::Type Axis, TArray<FVector>& Offsets)
+{
+ Offsets.Reset();
+ if (Origins.Num() < 3 || Origins.Num() > 1024 || (Axis != EAxis::X && Axis != EAxis::Y && Axis != EAxis::Z)) return false;
+ const int32 Component = static_cast<int32>(Axis) - 1;
+ TArray<int32> Order;
+ for (int32 Index = 0; Index < Origins.Num(); ++Index) {
+  if (Origins[Index].ContainsNaN()) return false;
+  Order.Add(Index);
+ }
+ Order.StableSort([&](int32 A, int32 B) { return Origins[A][Component] < Origins[B][Component]; });
+ const double Start = Origins[Order[0]][Component], End = Origins[Order.Last()][Component];
+ TArray<FVector> Result; Result.Init(FVector::ZeroVector, Origins.Num());
+ bool Changed = false;
+ for (int32 Rank = 1; Rank < Order.Num() - 1; ++Rank) {
+  const double Delta = FMath::Lerp(Start, End, double(Rank) / (Order.Num() - 1)) - Origins[Order[Rank]][Component];
+  if (!FMath::IsFinite(Delta) || FMath::Abs(Delta) > 100000.0) return false;
+  if (FMath::Abs(Delta) <= 0.0001) continue;
+  Result[Order[Rank]][Component] = Delta; Changed = true;
+ }
+ if (Changed) Offsets = MoveTemp(Result);
+ return Changed;
+}
+
 bool UHyperManageTransform::MakeWorldOffset(const FVector& Meters, FHyperManageTransformData& Data)
 {
 	if (Meters.ContainsNaN() || Meters.GetAbsMax() > 1000.0 || Meters.IsNearlyZero(0.000001)) return false;

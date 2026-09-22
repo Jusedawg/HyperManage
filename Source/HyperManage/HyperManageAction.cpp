@@ -453,6 +453,37 @@ void UHyperManageAction::SetSamePaint()
 	System->GetMMRCO()->RequestPaint(Actors, TargetPaint);
 }
 
+void UHyperManageAction::DistributeOrigins(EAxis::Type Axis)
+{
+ if (!System || !System->Selection || !System->Undo || !System->GetMMRCO() || System->Selection->HasPendingOperations()) return;
+ TArray<AActor*> Actors; System->Selection->SelectedActorsNoTarget(Actors);
+ Actors.RemoveAll([&](AActor* Actor) { return !System->Selection->IsValidActor(Actor) || !Actor->GetRootComponent(); });
+ TArray<FVector> Origins, Offsets;
+ for (auto* Actor : Actors) Origins.Add(Actor->GetActorLocation());
+ if (!UHyperManageTransform::MakeDistributionOffsets(Origins, Axis, Offsets)) return;
+ FUndoInfo Desired;
+ TArray<AActor*> Changed;
+ for (int32 Index = 0; Index < Actors.Num(); ++Index) {
+  if (Offsets[Index].IsZero()) continue;
+  AActor* Actor = Actors[Index]; Changed.Add(Actor);
+  if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
+   FUndoLightweight Item; Item.Proxy = Proxy; Item.Transform = Proxy->GetActorTransform(); Item.Transform.AddToTranslation(Offsets[Index]);
+   Desired.Lightweights.Add(Item); continue;
+  }
+  for (auto* Component : TInlineComponentArray<USceneComponent*>(Actor)) {
+   if (!IsValid(Component) || Component->GetAttachParent()) continue;
+   FTransform Transform = Component->GetComponentTransform(); Transform.AddToTranslation(Offsets[Index]);
+   if (Component == Actor->GetRootComponent()) {
+    FUndoTransformActor Item; Item.Actor = Actor; Item.Transform = Transform; Desired.TransformActors.Add(Item);
+   } else {
+    FUndoTransformComponent Item; Item.Component = Component; Item.Transform = Transform; Desired.TransformComponents.Add(Item);
+   }
+  }
+ }
+ System->Undo->PushNamedTransforms(Changed, Axis == EAxis::X ? TEXT("Distribute X") : Axis == EAxis::Y ? TEXT("Distribute Y") : TEXT("Distribute Z"));
+ System->GetMMRCO()->RequestUndo(Desired);
+}
+
 void UHyperManageAction::AlignToWorld(EActionNameIdx Action)
 {
 	if (System->Selection->HasPendingOperations()) return;

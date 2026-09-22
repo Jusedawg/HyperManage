@@ -285,7 +285,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.50")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.51")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -770,6 +770,25 @@ bool FHyperManageOriginAlignmentTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("No axis is rejected"), UHyperManageTransform::MakeWorldOriginAlignment(Reference, EAxis::None, Invalid));
 	TestFalse(TEXT("Nonfinite reference is rejected"), UHyperManageTransform::MakeWorldOriginAlignment(FVector(std::numeric_limits<double>::infinity(), 0, 0), EAxis::X, Invalid));
 	TestTrue(TEXT("Invalid replay axis cannot move an object"), UHyperManageTransform::OriginAlignmentDelta(Original.GetLocation(), Reference, EAxis::None).IsZero());
+ for (const EAxis::Type Axis : {EAxis::X, EAxis::Y, EAxis::Z}) {
+  const int32 Component = static_cast<int32>(Axis) - 1;
+  TArray<FVector> Points = {FVector(11, 22, 33), FVector(44, 55, 66), FVector(77, 88, 99), FVector(-11, -22, -33)};
+  Points[0][Component] = 900; Points[1][Component] = -300; Points[2][Component] = -200; Points[3][Component] = 50;
+  TArray<FVector> Offsets;
+  TestTrue(TEXT("Uneven negative-coordinate origins can be distributed"), UHyperManageTransform::MakeDistributionOffsets(Points, Axis, Offsets));
+  if (Offsets.Num() != Points.Num()) continue;
+  TestTrue(TEXT("Both outer origins stay fixed"), Offsets[0].IsZero() && Offsets[1].IsZero());
+  TestTrue(TEXT("Middle origins reach equal intervals"), FMath::IsNearlyEqual((Points[2] + Offsets[2])[Component], 100.0) && FMath::IsNearlyEqual((Points[3] + Offsets[3])[Component], 500.0));
+  for (int32 Index = 0; Index < Points.Num(); ++Index) {
+   FVector OtherAxes = Offsets[Index]; OtherAxes[Component] = 0;
+   TestTrue(TEXT("Spacing changes only the chosen axis"), OtherAxes.IsZero()); Points[Index] += Offsets[Index];
+  }
+  TestFalse(TEXT("Already even origins make no edit"), UHyperManageTransform::MakeDistributionOffsets(Points, Axis, Offsets));
+ }
+ TArray<FVector> SpacingOffsets;
+ TestFalse(TEXT("Fewer than three origins rejected"), UHyperManageTransform::MakeDistributionOffsets({FVector::ZeroVector, FVector::OneVector}, EAxis::X, SpacingOffsets));
+ TestFalse(TEXT("Overlong spacing moves rejected"), UHyperManageTransform::MakeDistributionOffsets({FVector::ZeroVector, FVector(1,0,0), FVector(1000000,0,0)}, EAxis::X, SpacingOffsets));
+ TestFalse(TEXT("Coincident origins do not move"), UHyperManageTransform::MakeDistributionOffsets({FVector::ZeroVector, FVector::ZeroVector, FVector::ZeroVector}, EAxis::X, SpacingOffsets));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageHeightGridTest, "HyperManage.Transform.HeightGrid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

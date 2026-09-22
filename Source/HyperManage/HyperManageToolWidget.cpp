@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.50")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.51")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -555,6 +555,25 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	ScaleStatus->SetText(FText::FromString(TEXT("Select objects to resize. 100% is original size.")));
 	ScaleBody->AddChildToVerticalBox(ScaleStatus);
  AddCollapsedSection(ScaleHeading, ScaleBody);
+ auto* DistributionHeading = WidgetTree->ConstructWidget<UTextBlock>();
+ DistributionHeading->SetText(FText::FromString(TEXT("EVEN ORIGIN SPACING"))); DistributionHeading->SetFont(OffsetFont);
+ DistributionHeading->SetColorAndOpacity(OffsetHeading->GetColorAndOpacity());
+ auto* DistributionBody = WidgetTree->ConstructWidget<UVerticalBox>();
+ auto* DistributionRow = WidgetTree->ConstructWidget<UHorizontalBox>(); DistributionButtons.Reset();
+ for (int32 Axis = 0; Axis < 3; ++Axis) {
+  auto* Button = WidgetTree->ConstructWidget<UButton>(); auto* Label = WidgetTree->ConstructWidget<UTextBlock>();
+  Label->SetText(FText::FromString(Axis == 0 ? TEXT("Space X") : Axis == 1 ? TEXT("Space Y") : TEXT("Space Z")));
+  AddFieldIcon(WidgetTree, Button, Label, 25 + Axis); CompactApplyButton(Button, true);
+  Button->SetToolTipText(FText::FromString(FString::Printf(TEXT("Even spacing on world %s: keep outermost origins fixed and evenly space the others. Requires 3-1024 objects; target excluded. Anchor participates and may move. Other axes, rotation and scale stay unchanged. Maximum move 1000 m per object. Undoable; group mode ignored."), Axis == 0 ? TEXT("X") : Axis == 1 ? TEXT("Y") : TEXT("Z"))));
+  if (Axis == 0) Button->OnClicked.AddDynamic(this, &UHyperManageToolWidget::DistributeX);
+  else if (Axis == 1) Button->OnClicked.AddDynamic(this, &UHyperManageToolWidget::DistributeY);
+  else Button->OnClicked.AddDynamic(this, &UHyperManageToolWidget::DistributeZ);
+  Button->SetIsEnabled(false); DistributionButtons.Add(Button); DistributionRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(3));
+ }
+ DistributionBody->AddChildToVerticalBox(DistributionRow);
+ auto* DistributionHelp = WidgetTree->ConstructWidget<UTextBlock>(); DistributionHelp->SetFont(OffsetFont); DistributionHelp->SetAutoWrapText(true);
+ DistributionHelp->SetText(FText::FromString(TEXT("3-1024 objects | outer origins fixed | target excluded | anchor may move")));
+ DistributionBody->AddChildToVerticalBox(DistributionHelp); AddCollapsedSection(DistributionHeading, DistributionBody);
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -808,6 +827,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool Available = System->Action && System->Action->GetWorldOrientationReference(Reference);
   ReadScaleButton->SetIsEnabled(Available && UHyperManageTransform::IsValidScalePercent(Reference.GetScale3D() * 100.0));
  }
+ if (System->Selection) {
+  const int32 Count = System->Selection->SelectCount();
+  const bool Ready = Count >= 3 && Count <= 1024 && !System->Selection->HasPendingOperations();
+  for (const auto& Button : DistributionButtons) if (Button) Button->SetIsEnabled(Ready);
+ }
 	if (ApplyScaleButton && ScaleX && ScaleY && ScaleZ && System->Selection) {
 		const FVector Percent(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue());
 		const int32 Count = System->Selection->SelectCount();
@@ -979,6 +1003,10 @@ void UHyperManageToolWidget::ApplyScalePercent()
 		System->Action->ApplyScalePercent(FVector(ScaleX->GetValue(), ScaleY->GetValue(), ScaleZ->GetValue()));
 	}
 }
+
+void UHyperManageToolWidget::DistributeX() { if (auto* System = UHyperManageSystem::Get(); System && System->Action) System->Action->DistributeOrigins(EAxis::X); }
+void UHyperManageToolWidget::DistributeY() { if (auto* System = UHyperManageSystem::Get(); System && System->Action) System->Action->DistributeOrigins(EAxis::Y); }
+void UHyperManageToolWidget::DistributeZ() { if (auto* System = UHyperManageSystem::Get(); System && System->Action) System->Action->DistributeOrigins(EAxis::Z); }
 
 void UHyperManageToolWidget::ReadScale()
 {
