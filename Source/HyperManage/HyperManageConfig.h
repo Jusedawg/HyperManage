@@ -131,6 +131,9 @@ public:
 	bool IsGrouped = true;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
+	bool AutoAnchor = true;
+
+	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")
 	bool IsViewBased = true;
 
 	UPROPERTY(BlueprintReadWrite, Category = "HyperManage")

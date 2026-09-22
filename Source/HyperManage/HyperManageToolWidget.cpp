@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.54")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.55")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -658,6 +658,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   for (int32 Index = 1; Index <= 10; ++Index) SelectionSlotPicker->AddOption(FString::Printf(TEXT("Slot %d"), Index));
   StylePreset(SelectionSlotPicker);
   auto* CurrentSystem = UHyperManageSystem::Get();
+  auto* AutoAnchorToggle = WidgetTree->ConstructWidget<UCheckBox>();
+  AutoAnchorToggle->SetIsChecked(!CurrentSystem || !CurrentSystem->Config || CurrentSystem->Config->MMConfig.AutoAnchor);
+  auto* AutoAnchorLabel = WidgetTree->ConstructWidget<UTextBlock>();
+  AutoAnchorLabel->SetText(FText::FromString(TEXT("Auto anchor"))); AutoAnchorLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+  AutoAnchorToggle->SetContent(AutoAnchorLabel);
+  AutoAnchorToggle->SetToolTipText(FText::FromString(TEXT("Make the first Ctrl-clicked object the anchor when the editable selection is empty. Does not replace an existing anchor or change the current selection. Saved between sessions.")));
+  AutoAnchorToggle->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeAutoAnchor);
+  Groups->AddChildToVerticalBox(AutoAnchorToggle);
   const int32 ActiveSlot = CurrentSystem && CurrentSystem->Selection ? CurrentSystem->Selection->GetSelectionSlot() : 0;
   SelectionSlotPicker->SetSelectedIndex(ActiveSlot);
   SelectionSlotPicker->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeSelectionSlot);
@@ -1204,4 +1212,12 @@ void UHyperManageToolWidget::RemoveBoxEdges()
 void UHyperManageToolWidget::RemoveBoxCenters()
 {
  if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->ChangeAnchorTargetBoxSelection(false, true);
+}
+
+void UHyperManageToolWidget::ChangeAutoAnchor(bool Enabled)
+{
+ if (auto* System = UHyperManageSystem::Get(); System && System->Config && System->Config->MMConfig.AutoAnchor != Enabled) {
+  System->Config->MMConfig.AutoAnchor = Enabled;
+  System->Config->SaveHyperManageConfig();
+ }
 }

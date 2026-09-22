@@ -55,6 +55,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UButton> RemoveBoxCentersButton;
 	UFUNCTION() void RemoveBoxEdges();
 	UFUNCTION() void RemoveBoxCenters();
+ UFUNCTION() void ChangeAutoAnchor(bool Enabled);
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> SelectionSlotPicker;
 	UPROPERTY(Transient) TObjectPtr<class UEditableTextBox> SlotNameField;
 	int32 EditingSlotName = 0;

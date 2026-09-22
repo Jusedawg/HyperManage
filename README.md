@@ -153,3 +153,7 @@ History pauses while a lightweight building edit is awaiting acknowledgement. Hi
 ## Feedback
 
 Report problems and suggest features through [GitHub issues](https://github.com/Jusedawg/HyperManage/issues). Include your game and HyperManage versions, what you selected, and the steps that reproduce the problem. Screenshots help with selection and interface issues.
+
+### Automatic anchor
+
+With **Auto anchor** enabled in the selection controls, the first Ctrl-clicked object becomes the anchor when the editable selection is empty. Later clicks preserve that anchor. Selection and automatic anchoring share one undo/redo step. Disable the checkbox to choose anchors manually; the preference is saved, and changing it leaves the current selection untouched. A target by itself does not count as an editable selection.

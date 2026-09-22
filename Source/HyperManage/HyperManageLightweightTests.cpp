@@ -287,7 +287,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.54")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.55")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -685,6 +685,30 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Saved empty selection can be recalled"), Selection->SelectCount(), 0);
  System->Action = InitComponent<UHyperManageAction>(System);
  System->Config = InitComponent<UHyperManageConfiguration>(System);
+ TestTrue(TEXT("Auto anchor defaults on"), System->Config->MMConfig.AutoAnchor);
+ FHyperManageConfig LegacyAnchorConfig;
+ TestTrue(TEXT("Old config loads without auto anchor field"), FJsonObjectConverter::JsonObjectStringToUStruct(TEXT("{}"), &LegacyAnchorConfig));
+ TestTrue(TEXT("Old config keeps auto anchor default"), LegacyAnchorConfig.AutoAnchor);
+ TestTrue(TEXT("Auto anchor opt-out loads"), FJsonObjectConverter::JsonObjectStringToUStruct(TEXT("{\"autoAnchor\":false}"), &LegacyAnchorConfig));
+ TestFalse(TEXT("Auto anchor opt-out retained"), LegacyAnchorConfig.AutoAnchor);
+ Selection->ClearWithoutHistory(); History->ClearUndoStack();
+ Selection->SelectActorWithHistory(A, true);
+ TestTrue(TEXT("First click selects and anchors"), Selection->Contains(A) && Selection->AnchorActor == A);
+ TestEqual(TEXT("Automatic anchor shares click history"), History->GetUndoCount(), 1);
+ Replay(false); TestTrue(TEXT("Undo removes automatic anchor and selection"), !Selection->Contains(A) && !Selection->AnchorActor);
+ Replay(true); TestTrue(TEXT("Redo restores automatic anchor and selection"), Selection->Contains(A) && Selection->AnchorActor == A);
+ auto* AutoAnchorSecond = World->SpawnActor<AFGTargetPoint>();
+ TestTrue(TEXT("Second selection click succeeds"), Selection->SelectActorWithHistory(AutoAnchorSecond, true));
+ TestTrue(TEXT("Further clicks preserve anchor"), Selection->AnchorActor == A);
+ Selection->SetAnchor(nullptr); Selection->SelectActorWithHistory(C, true);
+ TestNull(TEXT("Nonempty selection does not gain a replacement anchor"), Selection->AnchorActor);
+ Selection->ClearWithoutHistory(); System->Config->MMConfig.AutoAnchor = false;
+ Selection->SelectActorWithHistory(A, true);
+ TestTrue(TEXT("Opt-out still selects without anchoring"), Selection->Contains(A) && !Selection->AnchorActor);
+ System->Config->MMConfig.AutoAnchor = true;
+ Selection->ClearWithoutHistory(); Selection->SetTarget(AutoAnchorSecond);
+ Selection->SelectActorWithHistory(A, true);
+ TestTrue(TEXT("Target-only selection allows first editable object to become anchor"), Selection->AnchorActor == A && Selection->TargetActor == AutoAnchorSecond);
  System->Config->MMConfig.SelectionTolerance = 1.f;
  Selection->ClearWithoutHistory();
  auto MakeBoxActor = [&](const FVector& Location) {

@@ -99,6 +99,7 @@ void UHyperManageConfiguration::LoadHyperManageConfig()
 	MMConfig.HeightGridCm = 100.f;
 	MMConfig.CurrentSelectedMaterial = 0;
 	MMConfig.IsGrouped = true;
+	MMConfig.AutoAnchor = true;
 	MMConfig.IsViewBased = true;
 	MMConfig.IsScaleLockedLR = false;
 	MMConfig.IsScaleLockedTB = false;

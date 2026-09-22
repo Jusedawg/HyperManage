@@ -379,8 +379,11 @@ bool UHyperManageSelection::SelectActorWithHistory(AActor* Actor, bool Select)
 {
 	if (HasPendingOperations() || !IsValidActor(Actor) || Contains(Actor) == Select) return false;
 	TArray<AActor*> Affected = {Actor};
+	const bool AssignAnchor = Select && !IsValidActor(AnchorActor) && SelectCount() == 0 && System->Config && System->Config->MMConfig.AutoAnchor;
 	if (System->Undo) System->Undo->PushUndoSelection(Affected);
-	return SelectActor(Actor, Select);
+	const bool Changed = SelectActor(Actor, Select);
+	if (Changed && AssignAnchor) SetAnchor(Actor);
+	return Changed;
 }
 
 bool UHyperManageSelection::SetMarkerWithHistory(AActor* Actor, bool Anchor)
