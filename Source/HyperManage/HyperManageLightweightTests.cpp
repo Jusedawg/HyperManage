@@ -1,3 +1,6 @@
+#include "FGPlayerController.h"
+#include "FGBuildableBeam.h"
+#include "HyperManageRCO.h"
 #include "HyperManageAction.h"
 #include "MaterialDomain.h"
 #include "HyperManageLightweight.h"
@@ -287,7 +290,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.56")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.57")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -536,6 +539,23 @@ bool FHyperManageWorldRotationOffsetTest::RunTest(const FString& Parameters)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageExactScaleTest, "HyperManage.Transform.ExactScale", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FHyperManageExactScaleTest::RunTest(const FString& Parameters)
 {
+ auto* World = UWorld::CreateWorld(EWorldType::Game, false);
+ auto* Proxy = World->SpawnActor<AHyperManageLightweightProxy>();
+ Proxy->Ref.BuildableClass = AFGBuildableBeam::StaticClass();
+ TestFalse(TEXT("Native beam class cannot scale"), UHyperManageAction::SupportsScaling({GetMutableDefault<AFGBuildableBeam>()}));
+ TestFalse(TEXT("Lightweight beam class cannot scale"), UHyperManageAction::SupportsScaling({Proxy}));
+ TestFalse(TEXT("Mixed selection cannot partially scale"), UHyperManageAction::SupportsScaling({GetMutableDefault<AFGTargetPoint>(), Proxy}));
+ TestTrue(TEXT("Ordinary selection can scale"), UHyperManageAction::SupportsScaling({GetMutableDefault<AFGTargetPoint>()}));
+ auto* Controller = World->SpawnActor<AFGPlayerController>();
+ auto* Transport = NewObject<UHyperManageRCO>(Controller);
+ FHyperManageTransformData BeamScale; BeamScale.IsScale = true; BeamScale.Scale = FVector(2);
+ Transport->RequestTransform({Proxy}, BeamScale);
+ TestFalse(TEXT("Rejected incremental beam scale never starts a request"), Proxy->IsPending());
+ Transport->RequestAbsoluteTransforms({Proxy}, FVector(2));
+ TestFalse(TEXT("Rejected absolute beam scale never starts a request"), Proxy->IsPending());
+ Proxy->Ref.BuildableClass = AFGBuildable::StaticClass();
+ TestTrue(TEXT("Non-beam lightweight selection can scale"), UHyperManageAction::SupportsScaling({Proxy}));
+ World->DestroyWorld(false);
 	const FTransform Original(FRotator(15, 70, -25), FVector(-100, 200, 500), FVector(2, 0.75, 3));
 	const FVector Percent(125, 50, 200);
 	TestTrue(TEXT("Accept independent axis percentages"), UHyperManageTransform::IsValidScalePercent(Percent));

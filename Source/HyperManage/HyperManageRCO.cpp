@@ -283,6 +283,7 @@ namespace
 
 void UHyperManageRCO::RequestTransform(const TArray<AActor*>& Actors, FHyperManageTransformData Data)
 {
+	if (Data.IsScale && !UHyperManageAction::SupportsScaling(Actors)) return;
 	TArray<AActor*> NativeActors;
 	TArray<FHyperManageLightweightRef> Refs;
 	for (auto* Actor : Actors) {
@@ -330,6 +331,7 @@ void UHyperManageRCO::RequestUndo(const FUndoInfo& Undo)
 
 void UHyperManageRCO::RequestAbsoluteTransforms(const TArray<AActor*>& Actors, const FVector& Scale)
 {
+	if (!UHyperManageAction::SupportsScaling(Actors)) return;
 	FUndoInfo NativeTransforms;
 	TArray<FHyperManageLightweightEdit> Edits;
 	for (auto* Actor : Actors) {

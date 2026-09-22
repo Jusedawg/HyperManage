@@ -163,3 +163,7 @@ With **Auto anchor** enabled in the selection controls, the first Ctrl-clicked o
 With no editable objects selected, using the movement, rotation, scaling or world-snap controls selects the supported object under your crosshair first. Its highlight and selected count stay visible, and later adjustments operate on that selection. Auto anchor applies if enabled. The target is protected and cannot be transformed this way. No object under the crosshair means no edit.
 
 Undo reverses the transform while keeping the object selected; a second Undo removes the automatic selection. Redo restores selection before the transform. Exact numeric fields continue to require an existing selection.
+
+### Beam scaling
+
+Beams store length separately from object scale. Incremental scaling, exact scale and matching scale are blocked when the editable selection includes a beam. A message explains how to proceed: deselect the beams before resizing other objects. Mixed selections are not partially resized. Movement, rotation and history remain available. A beam used only as the target does not block resizing other selected objects.

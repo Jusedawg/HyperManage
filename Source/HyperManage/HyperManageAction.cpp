@@ -1,3 +1,4 @@
+#include "FGBuildableBeam.h"
 #include "HyperManageAction.h"
 #include "HyperManageUndo.h"
 #include "HyperManageSelection.h"
@@ -17,6 +18,22 @@
 #include "Buildables/FGBuildablePipeline.h"
 #include "FGPipeNetwork.h"
 #include "FGPipeSubsystem.h"
+
+bool UHyperManageAction::SupportsScaling(const TArray<AActor*>& Actors)
+{
+ for (const auto* Actor : Actors) {
+  const UClass* Type = UHyperManageSelection::GetSelectionType(Actor);
+  if (Type && Type->IsChildOf(AFGBuildableBeam::StaticClass())) return false;
+ }
+ return true;
+}
+
+bool UHyperManageAction::CheckScalingSelection(const TArray<AActor*>& Actors)
+{
+ if (SupportsScaling(Actors)) return true;
+ if (System && System->UI) System->UI->ShowPopup(TEXT("Beam scaling unavailable"), TEXT("This selection contains a beam. Scaling is blocked to protect beam length. Deselect beams before resizing other objects. You can still move and rotate beams."));
+ return false;
+}
 
 void UHyperManageAction::PerformUndo() { PerformHistory(false); }
 void UHyperManageAction::PerformRedo() { PerformHistory(true); }
@@ -40,7 +57,7 @@ void UHyperManageAction::PrepareTransform(const FVector& Loc, const FRotator& Ro
 	if (Actors.Num() == 0) {
 		return;
 	}
-	System->Undo->PushNamedTransforms(Actors, !Scale.Equals(FVector::OneVector) ? TEXT("Scale") : !Rot.IsNearlyZero() ? TEXT("Rotate") : TEXT("Move"));
+
 
 	// Initialize TransformData with current settings
 	FHyperManageTransformData TransformData;
@@ -56,6 +73,10 @@ void UHyperManageAction::PrepareTransform(const FVector& Loc, const FRotator& Ro
 	if (System->Config->MMConfig.IsScaleLockedFB) {
 		TransformData.Scale.X = 1.0f;
 	}
+ const bool Scaling = !TransformData.Scale.Equals(FVector::OneVector, DELTA);
+ if (Scaling && !CheckScalingSelection(Actors)) return;
+ if (!Scaling && Loc.IsNearlyZero() && Rot.IsNearlyZero()) return;
+ System->Undo->PushNamedTransforms(Actors, Scaling ? TEXT("Scale") : !Rot.IsNearlyZero() ? TEXT("Rotate") : TEXT("Move"));
 	TransformData.Anchor = System->Selection->AnchorActor;
 	TransformData.Target = System->Selection->TargetActor;
 	TransformData.GroupMode = System->Config->MMConfig.IsGrouped;
@@ -419,6 +440,7 @@ void UHyperManageAction::SetSameScale()
 			return;
 		}
 
+		if (!CheckScalingSelection(Actors)) return;
 		// save undo information
 		System->Undo->PushNamedTransforms(Actors, TEXT("Match scale"));
 
@@ -551,6 +573,7 @@ bool UHyperManageAction::ApplyScalePercent(const FVector& Percent)
 	const FVector Scale = Percent / 100.0;
 	TArray<AActor*> Actors;
 	System->Selection->SelectedActorsNoTarget(Actors);
+	if (!CheckScalingSelection(Actors)) return false;
 	Actors.RemoveAll([&](AActor* Actor) {
 		if (!System->Selection->IsValidActor(Actor) || Actor->GetActorScale3D().Equals(Scale, 0.000001)) return true;
 		FTransform Result;

@@ -11,6 +11,8 @@ class HYPERMANAGE_API UHyperManageAction : public UHyperManageComponent
 
 public:
 
+	static bool SupportsScaling(const TArray<AActor*>& Actors);
+	bool CheckScalingSelection(const TArray<AActor*>& Actors);
 	void PerformUndo();
 	void PerformRedo();
 	void PerformHistory(bool Redo);
