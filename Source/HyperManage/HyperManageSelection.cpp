@@ -239,18 +239,20 @@ void UHyperManageSelection::SelectedActorsNoTarget(TArray<AActor*>& Actors)
 	}
 }
 
+bool UHyperManageSelection::SelectPointedActorForTransform(AActor* Actor)
+{
+	if (HasPendingOperations() || SelectCount() != 0 || !IsValidActor(Actor) || Actor == TargetActor) return false;
+	if (!SelectActorWithHistory(Actor, true)) return false;
+	System->Action->MakeActorMovable(Actor);
+	return true;
+}
+
 void UHyperManageSelection::GetSelectionOrLineTrace(TArray<AActor*>& Actors)
 {
 	Actors.Empty();
-	if (SelectCount() == 0) {
-		AActor* Actor = LineTraceFromPlayer();
-		if (IsValidActor(Actor)) {
-			Actors.Add(Actor);
-		}
-		System->Action->MakeActorsMovable(Actors);
-	} else {
-		SelectedActorsNoTarget(Actors);
-	}
+	if (HasPendingOperations()) return;
+	if (SelectCount() == 0 && !SelectPointedActorForTransform(LineTraceFromPlayer())) return;
+	SelectedActorsNoTarget(Actors);
 }
 
 // Selects buildables that are inside the cube formed by Anchor and Target. Calculates 6 planes

@@ -157,3 +157,9 @@ Report problems and suggest features through [GitHub issues](https://github.com/
 ### Automatic anchor
 
 With **Auto anchor** enabled in the selection controls, the first Ctrl-clicked object becomes the anchor when the editable selection is empty. Later clicks preserve that anchor. Selection and automatic anchoring share one undo/redo step. Disable the checkbox to choose anchors manually; the preference is saved, and changing it leaves the current selection untouched. A target by itself does not count as an editable selection.
+
+### Transform the object you are pointing at
+
+With no editable objects selected, using the movement, rotation, scaling or world-snap controls selects the supported object under your crosshair first. Its highlight and selected count stay visible, and later adjustments operate on that selection. Auto anchor applies if enabled. The target is protected and cannot be transformed this way. No object under the crosshair means no edit.
+
+Undo reverses the transform while keeping the object selected; a second Undo removes the automatic selection. Redo restores selection before the transform. Exact numeric fields continue to require an existing selection.

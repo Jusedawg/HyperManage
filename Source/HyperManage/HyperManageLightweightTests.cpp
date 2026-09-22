@@ -287,7 +287,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.55")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.56")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -709,6 +709,30 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Selection->ClearWithoutHistory(); Selection->SetTarget(AutoAnchorSecond);
  Selection->SelectActorWithHistory(A, true);
  TestTrue(TEXT("Target-only selection allows first editable object to become anchor"), Selection->AnchorActor == A && Selection->TargetActor == AutoAnchorSecond);
+ Selection->ClearWithoutHistory(); History->ClearUndoStack();
+ TestFalse(TEXT("Missing pointed object does not select"), Selection->SelectPointedActorForTransform(nullptr));
+ TestFalse(TEXT("Destroyed pointed object does not select"), Selection->SelectPointedActorForTransform(B));
+ TestEqual(TEXT("Invalid pointed objects create no history"), History->GetUndoCount(), 0);
+ TestTrue(TEXT("Pointed transform visibly selects object"), Selection->SelectPointedActorForTransform(C));
+ TestTrue(TEXT("Implicit selection honors auto anchor"), Selection->Contains(C) && Selection->AnchorActor == C && Selection->SelectCount() == 1);
+ TestFalse(TEXT("Existing selection prevents retargeting"), Selection->SelectPointedActorForTransform(A));
+ TArray<AActor*> TransformSelection;
+ Selection->GetSelectionOrLineTrace(TransformSelection);
+ TestTrue(TEXT("Following transforms use selected object"), TransformSelection.Num() == 1 && TransformSelection[0] == C);
+ TestEqual(TEXT("Following transforms do not repeat selection history"), History->GetUndoCount(), 1);
+ History->PushNamedTransforms(TransformSelection, TEXT("Move"));
+ FUndoInfo TransformFrame;
+ TestTrue(TEXT("Transform is undone before implicit selection"), History->PopUndo(TransformFrame) && TransformFrame.SelectItems.IsEmpty());
+ TestTrue(TEXT("Undoing transform keeps object selected"), Selection->Contains(C));
+ Replay(false); TestTrue(TEXT("Second undo clears implicit selection and anchor"), !Selection->Contains(C) && !Selection->AnchorActor);
+ Replay(true); TestTrue(TEXT("Redo restores implicit selection and anchor"), Selection->Contains(C) && Selection->AnchorActor == C);
+ Selection->ClearWithoutHistory(); Selection->SetTarget(AutoAnchorSecond); History->ClearUndoStack();
+ TestFalse(TEXT("Pointed target is never implicitly transformed"), Selection->SelectPointedActorForTransform(AutoAnchorSecond));
+ TestEqual(TEXT("Protected target adds no history"), History->GetUndoCount(), 0);
+ System->Config->MMConfig.AutoAnchor = false;
+ TestTrue(TEXT("Implicit selection works with auto anchor disabled"), Selection->SelectPointedActorForTransform(A));
+ TestTrue(TEXT("Implicit selection preserves target and opt-out"), Selection->Contains(A) && !Selection->AnchorActor && Selection->TargetActor == AutoAnchorSecond);
+ System->Config->MMConfig.AutoAnchor = true;
  System->Config->MMConfig.SelectionTolerance = 1.f;
  Selection->ClearWithoutHistory();
  auto MakeBoxActor = [&](const FVector& Location) {

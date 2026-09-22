@@ -119,6 +119,7 @@ public:
 	void SelectClear(bool ConfirmClicked = true);
 
 	bool SelectActorWithHistory(AActor* Actor, bool Select);
+	bool SelectPointedActorForTransform(AActor* Actor);
 	bool SetMarkerWithHistory(AActor* Actor, bool Anchor);
 	void ClearWithoutHistory();
 	void RestoreHistory(const struct FUndoInfo& Info);
