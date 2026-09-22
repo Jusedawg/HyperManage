@@ -129,6 +129,7 @@ public:
 
 	void LoadSelection();
 	void AddSavedSelection();
+	void RemoveSavedSelection();
 
 	bool HasPendingOperations() const;
 	AActor* LineTraceFromPlayer();

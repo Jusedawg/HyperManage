@@ -60,6 +60,8 @@ protected:
 	UFUNCTION() void ChangeSelectionSlot(FString Value, ESelectInfo::Type SelectionType);
 	UPROPERTY(Transient) TObjectPtr<UButton> AddSlotButton;
 	UFUNCTION() void AddSelectionSlot();
+	UPROPERTY(Transient) TObjectPtr<UButton> RemoveSlotButton;
+	UFUNCTION() void RemoveSelectionSlot();
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
 	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;

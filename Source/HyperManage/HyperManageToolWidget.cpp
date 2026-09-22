@@ -225,7 +225,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.48")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.49")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -591,6 +591,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
                 else if (Entry.Key == btnSaveSelection) Kind = 10;
                 else if (Entry.Key == btnLoadSelection) Kind = 11;
                 else if (Entry.Key == AddSlotButton) Kind = 30;
+                else if (Entry.Key == RemoveSlotButton) Kind = 31;
                 else if (Entry.Key == btnIsGrouped) Kind = 12;
                 else if (Entry.Key == btnIsViewBased) Kind = 13;
                 else if (Entry.Key == btnMoveSelection) Kind = 14;
@@ -630,7 +631,10 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   AddSlotButton = WidgetTree->ConstructWidget<UButton>();
   AddSlotButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::AddSelectionSlot); AddSlotButton->SetIsEnabled(false);
   AddSlotButton->SetToolTipText(FText::FromString(TEXT("Add remembered objects to this selection, excluding the saved target. Keep current anchor and target. Undoable; already-selected and unavailable objects are skipped.")));
-		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear")}, {btnSelectBoxSides, TEXT("Edges")}, {btnSelectBoxPivot, TEXT("Centers")}, {RemoveBoxEdgesButton, TEXT("Remove edges")}, {RemoveBoxCentersButton, TEXT("Remove centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}, {AddSlotButton, TEXT("Add slot")}});
+  RemoveSlotButton = WidgetTree->ConstructWidget<UButton>();
+  RemoveSlotButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RemoveSelectionSlot); RemoveSlotButton->SetIsEnabled(false);
+  RemoveSlotButton->SetToolTipText(FText::FromString(TEXT("Deselect this slot's objects, excluding its saved target. Keep current anchor and target. Does not dismantle objects or erase the slot. Undoable.")));
+		AddGroup(TEXT("SELECTION"), {{btnNewSelection, TEXT("Clear")}, {btnSelectBoxSides, TEXT("Edges")}, {btnSelectBoxPivot, TEXT("Centers")}, {RemoveBoxEdgesButton, TEXT("Remove edges")}, {RemoveBoxCentersButton, TEXT("Remove centers")}, {btnSaveSelection, TEXT("Remember")}, {btnLoadSelection, TEXT("Recall")}, {AddSlotButton, TEXT("Add slot")}, {RemoveSlotButton, TEXT("Remove slot")}});
 		AddGroup(TEXT("TRANSFORM"), {{btnIsGrouped, TEXT("Group mode")}, {btnIsViewBased, TEXT("View axes")}, {btnMoveSelection, TEXT("To target")}, {btnSameRotation, TEXT("Rotation")}, {btnSameScale, TEXT("Size")}, {btnSamePaint, TEXT("Paint")}});
 		AddGroup(TEXT("CONNECTIONS & HISTORY"), {{btnConnect, TEXT("Connect")}, {btnDisconnect, TEXT("Disconnect")}, {btnClearUndo, TEXT("Clear history")}});
 	}
@@ -689,6 +693,10 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   if (btnSaveSelection) {
    btnSaveSelection->SetIsEnabled(!Pending);
    btnSaveSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remember current selection, anchor and target in Slot %d. Replaces this slot only; not saved with the game."), SlotNumber)));
+  }
+  if (RemoveSlotButton) {
+   RemoveSlotButton->SetIsEnabled(Saved && !Pending && System->Selection->GetSavedSelectionCount() > 0 && System->Selection->SelectCount() > 0);
+   RemoveSlotButton->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remove Slot %d objects from the current selection. Keeps current anchor/target and excludes the saved target. Does not dismantle objects or erase the slot. Undo restores removed selection."), SlotNumber)));
   }
   if (AddSlotButton) {
    AddSlotButton->SetIsEnabled(Saved && !Pending && System->Selection->GetSavedSelectionCount() > 0);
@@ -1055,6 +1063,11 @@ void UHyperManageToolWidget::ApplyWorldOrientation()
  if (auto* System = UHyperManageSystem::Get(); System && System->Action) {
   System->Action->ApplyWorldOrientation(FRotator(OrientationPitch->GetValue(), OrientationYaw->GetValue(), OrientationRoll->GetValue()), GetOrientationAxisMask());
  }
+}
+
+void UHyperManageToolWidget::RemoveSelectionSlot()
+{
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->RemoveSavedSelection();
 }
 
 void UHyperManageToolWidget::AddSelectionSlot()

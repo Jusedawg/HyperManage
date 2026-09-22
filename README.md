@@ -116,6 +116,8 @@ Choose **Slot 1-10** above the selection controls, then click **Remember** to st
 
 **Add slot** merges the chosen slot into your current selection. It preserves your current anchor and target, skips the saved target and unavailable objects, and avoids duplicates. The saved anchor joins as an ordinary selected object unless it is already your current reference. Undo removes only the newly added objects; adding the same slot again creates no extra history. Use Recall when you want to replace the selection and restore the saved references instead.
 
+**Remove slot** deselects the remembered objects from your current selection. It protects your current anchor and target, excludes the saved target, and leaves the remembered slot intact. Nothing is dismantled. Undo restores the removed selection; repeated clicks with nothing left to remove add no history.
+
 The slot status shows the number of available editable objects. Unused slots cannot be recalled, and removed objects are skipped. Recall is one undoable selection change. Remembering an empty selection intentionally stores an empty group. Slots follow the objects as you edit them, but last only for the current session; they are not yet saved with your game.
 
 ## Undo and redo

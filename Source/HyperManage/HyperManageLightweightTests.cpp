@@ -285,7 +285,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.48")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.49")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -712,6 +712,23 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Replay(true); TestTrue(TEXT("Redo restores the merged group"), Selection->Contains(Inside));
  Selection->SetSelectionSlot(9); Selection->AddSavedSelection();
  TestEqual(TEXT("Unused slot merge makes no edit"), History->GetUndoCount(), 1);
+ Selection->SetSelectionSlot(2); History->ClearUndoStack();
+ Selection->SetAnchor(Inside); Selection->SelectActor(EdgeOnly);
+ Selection->RemoveSavedSelection();
+ TestTrue(TEXT("Slot subtraction protects current anchor and saved target"), Selection->Contains(Inside) && Selection->Contains(EdgeOnly));
+ TestEqual(TEXT("Protected-only subtraction adds no history"), History->GetUndoCount(), 0);
+ Selection->SetTarget(Inside); Selection->RemoveSavedSelection();
+ TestTrue(TEXT("Slot subtraction protects current target"), Selection->Contains(Inside) && Selection->TargetActor == Inside);
+ Selection->SetAnchor(BoxAnchor); Selection->SetTarget(BoxTarget);
+ Selection->RemoveSavedSelection();
+ TestFalse(TEXT("Slot subtraction removes remembered selection"), Selection->Contains(Inside));
+ TestTrue(TEXT("Slot subtraction keeps other objects and references"), Selection->Contains(EdgeOnly) && Selection->AnchorActor == BoxAnchor && Selection->TargetActor == BoxTarget);
+ TestTrue(TEXT("Slot subtraction never destroys objects or erases memory"), IsValid(Inside) && Selection->HasSavedSelection());
+ TestEqual(TEXT("Slot subtraction is one history edit"), History->GetUndoCount(), 1);
+ Selection->RemoveSavedSelection(); TestEqual(TEXT("Repeated slot subtraction is a no-op"), History->GetUndoCount(), 1);
+ Replay(false); TestTrue(TEXT("Undo restores slot subtraction"), Selection->Contains(Inside));
+ Replay(true); TestFalse(TEXT("Redo repeats slot subtraction"), Selection->Contains(Inside));
+
 
 	World->DestroyWorld(false);
 	return true;
