@@ -371,9 +371,8 @@ void UHyperManageSelection::ChangeAnchorTargetBoxSelection(bool UseSides, bool R
 	}
 	System->Action->MakeActorsMovable(AddedActors);
 
-	// toggle (deselect) AnchorActor and TargetActor
-	SetAnchor(AnchorActor);
-	SetTarget(TargetActor);
+	// Keep the anchor as the transform reference; the former target becomes an ordinary selected object.
+	SetTarget(nullptr);
 }
 
 bool UHyperManageSelection::SelectActorWithHistory(AActor* Actor, bool Select)

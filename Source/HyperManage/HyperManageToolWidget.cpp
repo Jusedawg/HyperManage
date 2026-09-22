@@ -180,8 +180,8 @@ void UHyperManageToolWidget::NativeConstruct()
 	HookWidget(EActionNameIdx::Connect, btnConnect, "Connect Anchor Output to Target Input");
 	HookWidget(EActionNameIdx::Disconnect, btnDisconnect, "Disconnect Anchor Outputs from Target Inputs");
 
-	HookWidget(EActionNameIdx::SelectBoxSides, btnSelectBoxSides, "Select items between Anchor and Target Sides");
-	HookWidget(EActionNameIdx::SelectBoxPivot, btnSelectBoxPivot, "Select items between Anchor and Target Centers");
+	HookWidget(EActionNameIdx::SelectBoxSides, btnSelectBoxSides, "Add items between anchor and target sides. Keeps the anchor; clears the target marker but keeps its object selected. Undo restores both markers.");
+	HookWidget(EActionNameIdx::SelectBoxPivot, btnSelectBoxPivot, "Add items between anchor and target centers. Keeps the anchor; clears the target marker but keeps its object selected. Undo restores both markers.");
 	HookWidget(EActionNameIdx::MoveSelection, btnMoveSelection, "Move Selection from Anchor to Target");
 	HookWidget(EActionNameIdx::CopySelection, btnCopySelection, "(Coming Soon) Copy Selection from Anchor to Target");
 	HookWidget(EActionNameIdx::NewSelection, btnNewSelection, "Clear Selection (Ctrl+Z restores it)");
@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.53")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.54")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();

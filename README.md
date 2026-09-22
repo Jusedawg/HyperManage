@@ -122,7 +122,9 @@ Set an anchor to choose a reference type, then expand **Selection type filter**.
 
 Matching uses the exact object or building class, including the real building type of lightweight foundations and walls. Different building variants may be distinct types; this is not a broad category or paint filter. The commands operate only on your current selection, pause while edits are pending, and do nothing without an anchor. Repeating a filter with no changes adds no history. The section starts collapsed.
 
-## Remove an area from a selection
+## Add or remove an area from a selection
+
+**Edges** and **Centers** add objects inside the anchor/target region to the current selection. The anchor stays assigned. The target marker clears, leaving that object selected and included in subsequent transforms. Undo restores the previous selection and both markers.
 
 Set an anchor and target at the region boundaries, then use **Remove edges** or **Remove centers** in the Selection controls. These subtract objects from the current selection without moving or dismantling anything. The anchor and target stay selected so you can reuse the same region.
 

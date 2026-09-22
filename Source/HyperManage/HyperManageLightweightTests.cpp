@@ -1,3 +1,4 @@
+#include "HyperManageAction.h"
 #include "MaterialDomain.h"
 #include "HyperManageLightweight.h"
 #include "HyperManageTransform.h"
@@ -286,7 +287,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.53")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.54")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -682,6 +683,7 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("An intentionally saved empty selection is occupied"), Selection->HasSavedSelection());
  Selection->SelectActor(A); Selection->LoadSelection();
  TestEqual(TEXT("Saved empty selection can be recalled"), Selection->SelectCount(), 0);
+ System->Action = InitComponent<UHyperManageAction>(System);
  System->Config = InitComponent<UHyperManageConfiguration>(System);
  System->Config->MMConfig.SelectionTolerance = 1.f;
  Selection->ClearWithoutHistory();
@@ -711,6 +713,22 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Selection->ChangeAnchorTargetBoxSelection(true, true);
  TestFalse(TEXT("Edge subtraction includes reference extents"), Selection->Contains(EdgeOnly));
  TestTrue(TEXT("Deselecting never destroys objects"), IsValid(Inside) && IsValid(EdgeOnly));
+ for (bool UseSides : {false, true}) {
+  History->ClearUndoStack();
+  const int32 CountBeforeBox = Selection->SelectCount();
+  Selection->ChangeAnchorTargetBoxSelection(UseSides, false);
+  TestTrue(TEXT("Additive box keeps anchor and clears only the target marker"), Selection->AnchorActor == BoxAnchor && !Selection->TargetActor);
+  TestTrue(TEXT("Former target stays selected alongside existing outside selection"), Selection->Contains(BoxTarget) && Selection->Contains(Outside));
+  TestEqual(TEXT("Former target is now included in transform selection count"), Selection->SelectCount(), CountBeforeBox + 1);
+  TestEqual(TEXT("Marker-only box edit still records one history step"), History->GetUndoCount(), 1);
+  Replay(false);
+  TestTrue(TEXT("Undo box restores both reference markers"), Selection->AnchorActor == BoxAnchor && Selection->TargetActor == BoxTarget);
+  TestEqual(TEXT("Undo box restores transform selection count"), Selection->SelectCount(), CountBeforeBox);
+  Replay(true);
+  TestTrue(TEXT("Redo box retains anchor and selected former target"), Selection->AnchorActor == BoxAnchor && !Selection->TargetActor && Selection->Contains(BoxTarget));
+  Selection->SetTarget(BoxTarget);
+ }
+
  Selection->ClearWithoutHistory(); Selection->SetSelectionSlot(2);
  Selection->SelectActor(Inside); Selection->SetAnchor(Inside); Selection->SetTarget(EdgeOnly);
  auto* RemovedObject = MakeBoxActor(FVector(900, 900, 900));
