@@ -73,3 +73,68 @@ FHyperManageRefundPreview FHyperManageDismantleRefunds::BuildWithReader(
  Result.Status = EHyperManageRefundStatus::Ready;
  return Result;
 }
+
+FHyperManageRefundPreview FHyperManageDismantleRefunds::BuildLightweights(
+ UWorld* World, const TArray<FHyperManageLightweightRef>& Refs, const AFGPlayerState* Player)
+{
+ if (!IsValid(Player) || Player->GetWorld() != World)
+ {
+  FHyperManageRefundPreview Result;
+  Result.Status = EHyperManageRefundStatus::InvalidPlayer;
+  return Result;
+ }
+ auto* Subsystem = IsValid(World) ? AFGLightweightBuildableSubsystem::Get(World) : nullptr;
+ return BuildLightweightsWithReader(World, Refs, Player->GetPlayerRules().NoBuildCost,
+  [Subsystem](const FHyperManageLightweightRef& Ref) -> const FRuntimeBuildableInstanceData*
+  {
+   return IsValid(Subsystem) ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Ref.BuildableClass, Ref.Index) : nullptr;
+  }, [World](const FHyperManageLightweightRef& Ref, const FRuntimeBuildableInstanceData& Data, TArray<FInventoryStack>& Stacks)
+  {
+   Ref.BuildableClass.GetDefaultObject()->GetLightweightBuildableDismantleRefundReturns(World, Data.BuiltWithRecipe, Data.TypeSpecificData, Stacks);
+  });
+}
+
+FHyperManageRefundPreview FHyperManageDismantleRefunds::BuildLightweightsWithReader(UWorld* World,
+ const TArray<FHyperManageLightweightRef>& Refs, bool NoBuildCost, FResolveInstance Resolve, FReadInstanceRefund Read)
+{
+ FHyperManageRefundPreview Result;
+ Result.NoBuildCost = NoBuildCost;
+ auto Fail = [&Result](EHyperManageRefundStatus Status)
+ {
+  Result.Status = Status;
+  Result.Instances.Empty();
+  return Result;
+ };
+ if (!IsValid(World) || World->GetNetMode() == NM_Client) return Fail(EHyperManageRefundStatus::NotAuthority);
+ if (Refs.IsEmpty() || Refs.Num() > FHyperManageDismantlePlanner::MaxActors) return Fail(EHyperManageRefundStatus::InvalidPlan);
+ TMap<UClass*, TSet<int32>> Seen;
+ for (const auto& Ref : Refs)
+ {
+  if (!IsValid(Ref.BuildableClass.Get()) || Ref.Index < 0 || !Ref.Matches(Resolve(Ref))) return Fail(EHyperManageRefundStatus::InvalidInstance);
+  auto& Indices = Seen.FindOrAdd(Ref.BuildableClass.Get());
+  if (Indices.Contains(Ref.Index)) return Fail(EHyperManageRefundStatus::InvalidPlan);
+  Indices.Add(Ref.Index);
+ }
+ int32 StackCount = 0;
+ for (const auto& Ref : Refs)
+ {
+  const auto* Data = Resolve(Ref);
+  if (!Ref.Matches(Data)) return Fail(EHyperManageRefundStatus::InvalidInstance);
+  TArray<FInventoryStack> Stacks;
+  // Lightweight records have construction costs, not actor inventories. Do not grant
+  // construction materials under the initiating player's no-build-cost rule.
+  if (!NoBuildCost) Read(Ref, *Data, Stacks);
+  if (Stacks.Num() > MaxStacks - StackCount) return Fail(EHyperManageRefundStatus::TooManyStacks);
+  StackCount += Stacks.Num();
+  for (const auto& Stack : Stacks)
+   if (Stack.NumItems < 0 || (Stack.NumItems > 0 && !IsValid(Stack.Item.GetItemClass().Get()))) return Fail(EHyperManageRefundStatus::InvalidStack);
+  Stacks.RemoveAll([](const FInventoryStack& Stack) { return Stack.NumItems == 0; });
+  auto& Entry = Result.Instances.AddDefaulted_GetRef();
+  Entry.Ref = Ref;
+  Entry.Stacks = MoveTemp(Stacks);
+ }
+ // Recheck all records after refund callbacks; never expose a partial stale preview.
+ for (const auto& Ref : Refs) if (!Ref.Matches(Resolve(Ref))) return Fail(EHyperManageRefundStatus::InvalidInstance);
+ Result.Status = EHyperManageRefundStatus::Ready;
+ return Result;
+}

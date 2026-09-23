@@ -1,4 +1,6 @@
 #include "HyperManageDismantlePlan.h"
+#include "Buildables/FGBuildable.h"
+#include "FGRecipe.h"
 #include "HyperManageDismantleRefund.h"
 #include "FGPlayerState.h"
 #include "Resources/FGItemDescriptor.h"
@@ -195,6 +197,86 @@ bool FHyperManageDismantleRefundTest::RunTest(const FString& Parameters)
  Second->Destroy();
  CheckFailure(FHyperManageDismantleRefunds::BuildWithReader(World, Plan, false, Read), EHyperManageRefundStatus::InvalidActor);
  OtherWorld->DestroyWorld(false); World->DestroyWorld(false);
+ return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageLightweightRefundTest, "HyperManage.Dismantle.LightweightRefund", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageLightweightRefundTest::RunTest(const FString& Parameters)
+{
+ UWorld* World = UWorld::CreateWorld(EWorldType::Game, false);
+ FRuntimeBuildableInstanceData Data;
+ Data.Transform = FTransform::Identity;
+ Data.BuiltWithRecipe = UFGRecipe::StaticClass();
+ Data.Handles.AddDefaulted();
+ FHyperManageLightweightRef Ref;
+ Ref.BuildableClass = AFGBuildable::StaticClass(); Ref.Index = 0; Ref.Recipe = Data.BuiltWithRecipe;
+ auto Other = Ref; Other.Index = 1;
+ TArray<FHyperManageLightweightRef> Refs = {Ref, Other};
+ auto Resolve = [&](const FHyperManageLightweightRef&) { return &Data; };
+ int32 Reads = 0;
+ auto Read = [&](const FHyperManageLightweightRef&, const FRuntimeBuildableInstanceData& Actual, TArray<FInventoryStack>& Stacks)
+ {
+  ++Reads;
+  TestTrue(TEXT("Reader receives the original record, including type-specific data"), &Actual == &Data);
+  FInventoryStack Stack;
+  FInventoryStack::StaticStruct()->InitializeStruct(&Stack);
+  FindFProperty<FClassProperty>(FInventoryItem::StaticStruct(), TEXT("ItemClass"))->SetObjectPropertyValue_InContainer(&Stack.Item, UFGItemDescriptor::StaticClass());
+  Stack.NumItems = 7;
+  Stacks.Add(Stack);
+ };
+ auto Build = [&](bool NoCost = false) { return FHyperManageDismantleRefunds::BuildLightweightsWithReader(World, Refs, NoCost, Resolve, Read); };
+ auto Reject = [&](const FHyperManageRefundPreview& Preview, EHyperManageRefundStatus Status)
+ {
+  TestTrue(TEXT("Expected lightweight refund rejection"), Preview.Status == Status);
+  TestTrue(TEXT("Failure exposes no instance refunds"), Preview.Instances.IsEmpty());
+ };
+ auto Preview = Build();
+ TestTrue(TEXT("Live identity accepted"), Preview.Status == EHyperManageRefundStatus::Ready);
+ TestEqual(TEXT("Each instance read once"), Reads, 2);
+ TestEqual(TEXT("Separate instance attribution"), Preview.Instances.Num(), 2);
+ if (Preview.Instances.Num() == 2)
+ {
+  TestEqual(TEXT("Second instance index retained"), Preview.Instances[1].Ref.Index, 1);
+  if (Preview.Instances[0].Stacks.Num() == 1) TestEqual(TEXT("Refund amount retained"), Preview.Instances[0].Stacks[0].NumItems, 7);
+  else AddError(TEXT("Expected one refund stack"));
+ }
+ Reads = 0;
+ Preview = Build(true);
+ TestTrue(TEXT("No-cost preview succeeds"), Preview.Status == EHyperManageRefundStatus::Ready && Preview.NoBuildCost);
+ TestEqual(TEXT("No-cost does not call construction refund API"), Reads, 0);
+ for (const auto& Entry : Preview.Instances) TestTrue(TEXT("No free construction materials"), Entry.Stacks.IsEmpty());
+ Refs.Add(Ref);
+ Reject(Build(), EHyperManageRefundStatus::InvalidPlan);
+ TestEqual(TEXT("Duplicate instance rejected before refund queries"), Reads, 0);
+ Refs = {Ref, Other};
+ Data.Transform.SetLocation(FVector(100, 0, 0));
+ Reject(Build(), EHyperManageRefundStatus::InvalidInstance);
+ Reject(Build(true), EHyperManageRefundStatus::InvalidInstance);
+ Data.Transform = FTransform::Identity;
+ Data.BuiltWithRecipe = nullptr;
+ Reject(Build(), EHyperManageRefundStatus::InvalidInstance);
+ Data.BuiltWithRecipe = UFGRecipe::StaticClass();
+ Data.Handles.Empty();
+ Reject(Build(), EHyperManageRefundStatus::InvalidInstance);
+ Data.Handles.AddDefaulted();
+ Refs[1].Index = -1;
+ Reject(Build(), EHyperManageRefundStatus::InvalidInstance);
+ Refs[1] = Other; Refs[1].BuildableClass = nullptr;
+ Reject(Build(), EHyperManageRefundStatus::InvalidInstance);
+ Refs = {Ref, Other};
+ auto Missing = [](const FHyperManageLightweightRef&) -> const FRuntimeBuildableInstanceData* { return nullptr; };
+ Reject(FHyperManageDismantleRefunds::BuildLightweightsWithReader(World, Refs, false, Missing, Read), EHyperManageRefundStatus::InvalidInstance);
+ auto InvalidStack = [&](const FHyperManageLightweightRef& Item, const FRuntimeBuildableInstanceData& Actual, TArray<FInventoryStack>& Stacks)
+ { Read(Item, Actual, Stacks); Stacks[0].NumItems = -1; };
+ Reject(FHyperManageDismantleRefunds::BuildLightweightsWithReader(World, Refs, false, Resolve, InvalidStack), EHyperManageRefundStatus::InvalidStack);
+ auto Changed = [&](const FHyperManageLightweightRef& Item, const FRuntimeBuildableInstanceData& Actual, TArray<FInventoryStack>& Stacks)
+ { Read(Item, Actual, Stacks); if (Item.Index == 1) Data.Transform.SetLocation(FVector(100, 0, 0)); };
+ Reject(FHyperManageDismantleRefunds::BuildLightweightsWithReader(World, Refs, false, Resolve, Changed), EHyperManageRefundStatus::InvalidInstance);
+ Data.Transform = FTransform::Identity;
+ Refs.Init(Ref, FHyperManageDismantlePlanner::MaxActors + 1);
+ Reject(Build(), EHyperManageRefundStatus::InvalidPlan);
+ Refs.Empty(); Reject(Build(), EHyperManageRefundStatus::InvalidPlan);
+ Reject(FHyperManageDismantleRefunds::BuildLightweights(World, {Ref}, nullptr), EHyperManageRefundStatus::InvalidPlayer);
+ World->DestroyWorld(false);
  return true;
 }
 #endif
