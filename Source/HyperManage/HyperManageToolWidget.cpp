@@ -1,3 +1,4 @@
+#include "HyperManageRefundCapacity.h"
 #include "HyperManageDismantleReview.h"
 #include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
@@ -228,7 +229,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.68")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.69")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1289,6 +1290,8 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  const auto Review = FHyperManageDismantleReviewer::Build(System->GetWorld(), Actors, System->Selection->TargetActor,
   Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr);
  if (!Review.Error.IsEmpty()) { System->UI->ShowPopup(TEXT("Refund review unavailable"), Review.Error); return; }
+ const auto Capacity = FHyperManageRefundCapacity::Check(System->GetWorld(), Review.Refunds,
+  Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr);
  TMap<TSubclassOf<UFGItemDescriptor>, int64> Totals;
  auto AddStacks = [&Totals](const TArray<FInventoryStack>& Stacks) {
   for (const auto& Stack : Stacks) Totals.FindOrAdd(Stack.Item.GetItemClass()) += Stack.NumItems;
@@ -1301,6 +1304,13 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  FString Details = FString::Printf(TEXT("Estimate only - nothing will be dismantled.\n%d standard + %d lightweight buildings; %d additional children.\n%s\n\n"),
   Review.Refunds.Actors.Num(), Review.Refunds.Instances.Num(), Review.AddedChildren,
   Review.Refunds.NoBuildCost ? TEXT("No build cost: construction materials excluded.") : TEXT("Construction refunds and stored contents."));
+ switch (Capacity) {
+  case EHyperManageRefundCapacity::Fits: Details += TEXT("Inventory: the complete refund batch fits now.\n"); break;
+  case EHyperManageRefundCapacity::NeedsOverflow: Details += TEXT("Inventory: cannot accept the full batch; overflow handling would be needed.\n"); break;
+  case EHyperManageRefundCapacity::NoRefund: Details += TEXT("Inventory: no refund space needed.\n"); break;
+  case EHyperManageRefundCapacity::TooLarge: Details += TEXT("Inventory: capacity unchecked for this large batch. Review a smaller group.\n"); break;
+  default: Details += TEXT("Inventory: capacity unavailable.\n"); break;
+ }
  if (Review.NativeChecked > 0) {
   Details += FString::Printf(TEXT("Removal check: %d standard buildings checked; %d currently refuse dismantling; %d report warnings.\n"),
    Review.NativeChecked, Review.NativeBlocked, Review.NativeWarnings);

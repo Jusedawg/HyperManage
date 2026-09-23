@@ -1,3 +1,4 @@
+#include "HyperManageRefundCapacity.h"
 #include "HyperManageDismantlePlan.h"
 #include "HyperManageDismantleReview.h"
 #include "Buildables/FGBuildable.h"
@@ -378,6 +379,61 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  Proxy->BeginRequest(); Reject(Build({Actor, Proxy}));
  TestTrue(TEXT("Review leaves buildings intact"), IsValid(Actor) && IsValid(Child) && IsValid(Proxy));
  World->DestroyWorld(false);
+ return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageRefundCapacityTest, "HyperManage.Dismantle.RefundCapacity", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageRefundCapacityTest::RunTest(const FString& Parameters)
+{
+ FHyperManageRefundPreview Preview;
+ Preview.Status = EHyperManageRefundStatus::Ready;
+ Preview.Actors.AddDefaulted(); Preview.Instances.AddDefaulted();
+ auto MakeStack = [](int32 Count) {
+  FInventoryStack Stack; FInventoryStack::StaticStruct()->InitializeStruct(&Stack);
+  FindFProperty<FClassProperty>(FInventoryItem::StaticStruct(), TEXT("ItemClass"))->SetObjectPropertyValue_InContainer(&Stack.Item, UFGItemDescriptor::StaticClass());
+  Stack.NumItems = Count; Stack.Item.CachedStackSize = 42; return Stack;
+ };
+ Preview.Actors[0].Stacks.Add(MakeStack(3)); Preview.Instances[0].Stacks.Add(MakeStack(5));
+ int32 Calls = 0;
+ bool Fits = true;
+ auto Read = [&](const TArray<FInventoryStack>& Batch) {
+  ++Calls;
+  TestEqual(TEXT("One batch contains both refund sources"), Batch.Num(), 2);
+  if (Batch.Num() == 2) {
+   TestEqual(TEXT("Native amount retained"), Batch[0].NumItems, 3);
+   TestEqual(TEXT("Lightweight amount retained"), Batch[1].NumItems, 5);
+   TestEqual(TEXT("Same-class stacks remain separate with metadata"), Batch[1].Item.CachedStackSize, 42);
+  }
+  return Fits;
+ };
+ auto Check = [&] { return FHyperManageRefundCapacity::CheckWithReader(Preview, Read); };
+ TestTrue(TEXT("Whole batch fits"), Check() == EHyperManageRefundCapacity::Fits);
+ TestEqual(TEXT("Exactly one query, not independent per-stack queries"), Calls, 1);
+ Fits = false;
+ TestTrue(TEXT("Rejected whole batch needs overflow handling"), Check() == EHyperManageRefundCapacity::NeedsOverflow);
+ TestEqual(TEXT("Input amount unchanged"), Preview.Actors[0].Stacks[0].NumItems, 3);
+ Calls = 0; Preview.Status = EHyperManageRefundStatus::InvalidPlan;
+ TestTrue(TEXT("Failed review is not evaluated"), Check() == EHyperManageRefundCapacity::Unavailable);
+ Preview.Status = EHyperManageRefundStatus::Ready;
+ Preview.Actors[0].Stacks[0].NumItems = -1;
+ TestTrue(TEXT("Negative refund unavailable"), Check() == EHyperManageRefundCapacity::Unavailable);
+ Preview.Actors[0].Stacks[0].NumItems = MAX_int32;
+ TestTrue(TEXT("Huge quantity skipped without integer overflow"), Check() == EHyperManageRefundCapacity::TooLarge);
+ Preview.Actors[0].Stacks.Init(MakeStack(1), FHyperManageRefundCapacity::MaxCheckStacks);
+ TestTrue(TEXT("Combined stack limit enforced"), Check() == EHyperManageRefundCapacity::TooLarge);
+ TestEqual(TEXT("Invalid and large batches never reach game query"), Calls, 0);
+ Preview.Actors[0].Stacks.Empty(); Preview.Instances[0].Stacks.Empty();
+ TestTrue(TEXT("Empty refund needs no capacity"), Check() == EHyperManageRefundCapacity::NoRefund);
+ TestEqual(TEXT("No query for empty refunds"), Calls, 0);
+ Preview.Actors[0].Stacks.Add(MakeStack(0));
+ TestTrue(TEXT("Zero entries ignored"), Check() == EHyperManageRefundCapacity::NoRefund);
+ Preview.Actors[0].Stacks[0].NumItems = FHyperManageRefundCapacity::MaxCheckItems;
+ int32 BoundaryCalls = 0;
+ auto Boundary = [&](const TArray<FInventoryStack>&) { ++BoundaryCalls; return true; };
+ TestTrue(TEXT("Exact item limit checked"), FHyperManageRefundCapacity::CheckWithReader(Preview, Boundary) == EHyperManageRefundCapacity::Fits);
+ ++Preview.Actors[0].Stacks[0].NumItems;
+ TestTrue(TEXT("Over item limit skipped"), FHyperManageRefundCapacity::CheckWithReader(Preview, Boundary) == EHyperManageRefundCapacity::TooLarge);
+ TestEqual(TEXT("Limit rejection bypasses callback"), BoundaryCalls, 1);
+ TestTrue(TEXT("Missing player/world returns unavailable"), FHyperManageRefundCapacity::Check(nullptr, Preview, nullptr) == EHyperManageRefundCapacity::Unavailable);
  return true;
 }
 #endif
