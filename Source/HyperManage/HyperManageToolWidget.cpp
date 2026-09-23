@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.61")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.62")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -698,6 +698,15 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   ForgetSlotButton->SetContent(ForgetLabel); ForgetSlotButton->SetIsEnabled(false);
   ForgetSlotButton->SetToolTipText(FText::FromString(TEXT("Empty this remembered slot, keeping its name. Does not change buildings, current selection, markers or edit history. Not undoable. Save the game to retain removal of a persistent slot.")));
   ForgetSlotButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ForgetSelectionSlot);
+  BlueprintSlotButton = WidgetTree->ConstructWidget<UButton>();
+  auto* BlueprintSlotLabel = WidgetTree->ConstructWidget<UTextBlock>();
+  BlueprintSlotLabel->SetText(FText::FromString(TEXT("Blueprint slot"))); BlueprintSlotLabel->SetFont(ForgetFont);
+  BlueprintSlotLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+  BlueprintSlotButton->SetContent(BlueprintSlotLabel); BlueprintSlotButton->SetIsEnabled(false);
+  BlueprintSlotButton->SetBackgroundColor(FLinearColor(0.24f, 0.27f, 0.28f));
+  BlueprintSlotButton->SetToolTipText(FText::FromString(TEXT("Remember the placed blueprint containing your anchor in this slot. Recall resolves its current loaded members, including lightweight pieces. Single-player game-save support; no saved anchor/target markers. Replaces this slot only, keeping its name. Save the game to retain it.")));
+  BlueprintSlotButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RememberBlueprintSlot);
+  SlotNameRow->AddChildToHorizontalBox(BlueprintSlotButton)->SetPadding(FMargin(4, 0, 0, 0));
   SlotNameRow->AddChildToHorizontalBox(ForgetSlotButton)->SetPadding(FMargin(4, 0, 0, 0));
   Groups->AddChildToVerticalBox(SlotNameRow)->SetPadding(FMargin(2, 0, 2, 3));
   RefreshSlotNames();
@@ -770,17 +779,21 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool Pending = System->Selection->HasPendingOperations();
   const int32 SlotNumber = System->Selection->GetSelectionSlot() + 1;
   if (ForgetSlotButton) ForgetSlotButton->SetIsEnabled(Saved && !Pending);
-  SelectionSlotStatus->SetText(FText::FromString(Saved ? FString::Printf(TEXT("%d | %s"), System->Selection->GetSavedSelectionCount(), System->Selection->IsSlotPersistent() ? TEXT("game-save") : TEXT("this session")) : TEXT("Empty | this session")));
+  const bool BlueprintSlot = System->Selection->IsBlueprintSlot();
+  if (BlueprintSlotButton) BlueprintSlotButton->SetIsEnabled(!Pending && System->Selection->IsValidActor(System->Selection->AnchorActor));
+  const FString Storage = System->Selection->IsSlotPersistent() ? TEXT("game-save") : TEXT("this session");
+  const FString SlotStatus = BlueprintSlot ? FString::Printf(TEXT("Blueprint | %s"), *Storage) : Saved ? FString::Printf(TEXT("%d | %s"), System->Selection->GetSavedSelectionCount(), *Storage) : TEXT("Empty");
+  SelectionSlotStatus->SetText(FText::FromString(SlotStatus));
   if (btnSaveSelection) {
    btnSaveSelection->SetIsEnabled(!Pending);
    btnSaveSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remember current selection, anchor and target in Slot %d. Replaces this slot only. Single-player native-actor slots persist when you save the game; lightweight and multiplayer slots remain session-only."), SlotNumber)));
   }
   if (RemoveSlotButton) {
-   RemoveSlotButton->SetIsEnabled(Saved && !Pending && System->Selection->GetSavedSelectionCount() > 0 && System->Selection->SelectCount() > 0);
+   RemoveSlotButton->SetIsEnabled(Saved && !Pending && (BlueprintSlot || System->Selection->GetSavedSelectionCount() > 0) && System->Selection->SelectCount() > 0);
    RemoveSlotButton->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remove Slot %d objects from the current selection. Keeps current anchor/target and excludes the saved target. Does not dismantle objects or erase the slot. Undo restores removed selection."), SlotNumber)));
   }
   if (AddSlotButton) {
-   AddSlotButton->SetIsEnabled(Saved && !Pending && System->Selection->GetSavedSelectionCount() > 0);
+   AddSlotButton->SetIsEnabled(Saved && !Pending && (BlueprintSlot || System->Selection->GetSavedSelectionCount() > 0));
    AddSlotButton->SetToolTipText(FText::FromString(FString::Printf(TEXT("Add Slot %d to the current selection. Excludes the saved target; preserves current anchor and target. Already-selected or unavailable objects are skipped. Undo removes only newly added objects."), SlotNumber)));
   }
   if (btnLoadSelection) {
@@ -1238,4 +1251,13 @@ void UHyperManageToolWidget::ChangeAutoAnchor(bool Enabled)
 void UHyperManageToolWidget::ForgetSelectionSlot()
 {
  if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->ForgetSelectionSlot();
+}
+
+void UHyperManageToolWidget::RememberBlueprintSlot()
+{
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection && !System->Selection->HasPendingOperations()) {
+  if (!System->Selection->SaveBlueprintSlot(System->Selection->AnchorActor) && System->UI) {
+   System->UI->ShowPopup(TEXT("Blueprint anchor required"), TEXT("Set an anchor on a member of a placed blueprint, then choose Blueprint slot."));
+  }
+ }
 }

@@ -240,29 +240,44 @@ void UHyperManageSelection::SelectedActorsNoTarget(TArray<AActor*>& Actors)
 	}
 }
 
-bool UHyperManageSelection::SelectPlacedBlueprint(AActor* Actor)
+AFGBlueprintProxy* UHyperManageSelection::GetPlacedBlueprint(AActor* Actor)
 {
- if (HasPendingOperations() || !IsValidActor(Actor)) return false;
+ if (!IsValidActor(Actor)) return nullptr;
  auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
  AFGBlueprintProxy* Blueprint = nullptr;
  if (auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
   const auto* Data = Subsystem ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Proxy->Ref.BuildableClass, Proxy->Ref.Index) : nullptr;
   if (Proxy->Ref.Matches(Data)) Blueprint = Data->BlueprintProxy;
  } else if (auto* Buildable = Cast<AFGBuildable>(Actor)) Blueprint = Buildable->GetBlueprintProxy();
- if (!IsValid(Blueprint) || Blueprint->GetWorld() != System->GetWorld()) return false;
- TArray<AActor*> Added;
+ if (!IsValid(Blueprint) || Blueprint->GetWorld() != System->GetWorld()) return nullptr;
+ return Blueprint;
+}
+
+void UHyperManageSelection::GatherBlueprintMembers(AFGBlueprintProxy* Blueprint, TArray<AActor*>& Members)
+{
+ Members.Empty();
+ if (!IsValid(Blueprint) || Blueprint->GetWorld() != System->GetWorld()) return;
+ auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
  for (TObjectIterator<AFGBuildable> It; It; ++It) {
-  if (IsValidActor(*It) && It->GetBlueprintProxy() == Blueprint && !Contains(*It)) Added.Add(*It);
+  if (IsValidActor(*It) && It->GetBlueprintProxy() == Blueprint) Members.Add(*It);
  }
  if (Subsystem) {
   for (const auto& Entry : Subsystem->GetAllLightweightBuildableInstances()) {
    for (int32 Index = 0; Index < Entry.Value.Num(); ++Index) {
     const auto& Data = Entry.Value[Index];
     if (!Data.IsValid() || Data.BlueprintProxy != Blueprint) continue;
-    if (auto* Member = GetLightweightProxy(Entry.Key, Index, Data); Member && !Contains(Member)) Added.AddUnique(Member);
+    if (auto* Member = GetLightweightProxy(Entry.Key, Index, Data); Member) Members.AddUnique(Member);
    }
   }
  }
+}
+
+bool UHyperManageSelection::SelectPlacedBlueprint(AActor* Actor)
+{
+ if (HasPendingOperations()) return false;
+ TArray<AActor*> Added;
+ GatherBlueprintMembers(GetPlacedBlueprint(Actor), Added);
+ Added.RemoveAll([this](AActor* Member) { return Contains(Member); });
  if (Added.IsEmpty()) return false;
  const bool AssignAnchor = !IsValidActor(AnchorActor) && SelectCount() == 0 && Actor != TargetActor && System->Config->MMConfig.AutoAnchor;
  System->Undo->PushUndoSelection(Added);
@@ -475,6 +490,7 @@ void UHyperManageSelection::RestorePersistentSlots()
   const auto& Saved = Store->Slots[Index]; auto& Slot = SelectionSlots[Index];
   Slot.Name = Saved.Name.Left(24); Slot.Occupied = Saved.Occupied;
   Slot.Actors = Saved.Actors; Slot.Anchor = Saved.Anchor; Slot.Target = Saved.Target;
+  Slot.BlueprintSlot = Saved.BlueprintSlot; Slot.Blueprint = Saved.Blueprint;
  }
  PersistentSlotsLoaded = true;
 }
@@ -486,6 +502,7 @@ void UHyperManageSelection::PersistSlot(int32 Index)
  const auto& Slot = SelectionSlots[Index];
  FHyperManageStoredSlot Saved; Saved.Actors = Slot.Actors; Saved.Anchor = Slot.Anchor; Saved.Target = Slot.Target;
  Saved.Name = Slot.Name; Saved.Occupied = Slot.Occupied;
+ Saved.BlueprintSlot = Slot.BlueprintSlot; Saved.Blueprint = Slot.Blueprint;
  Store->Store(Index, Saved);
 }
 
@@ -494,6 +511,7 @@ bool UHyperManageSelection::IsSlotPersistent() const
  auto* Store = AHyperManageSlotStore::Get(System->GetWorld());
  if (!Store || !Store->Slots.IsValidIndex(ActiveSelectionSlot) || !Store->Slots[ActiveSelectionSlot].Occupied || !SelectionSlots.IsValidIndex(ActiveSelectionSlot)) return false;
  const auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ if (Slot.BlueprintSlot) return Slot.Occupied && IsValid(Slot.Blueprint);
  return Slot.Occupied && AHyperManageSlotStore::CanPersist(Slot.Actors) && AHyperManageSlotStore::CanPersist({Slot.Anchor, Slot.Target});
 }
 
@@ -542,6 +560,35 @@ int32 UHyperManageSelection::GetSavedSelectionCount()
  return Count;
 }
 
+bool UHyperManageSelection::IsBlueprintSlot() const
+{
+ return HasSavedSelection() && SelectionSlots[ActiveSelectionSlot].BlueprintSlot;
+}
+
+bool UHyperManageSelection::SaveBlueprintSlot(AActor* Actor)
+{
+ if (HasPendingOperations()) return false;
+ auto* Blueprint = GetPlacedBlueprint(Actor);
+ if (!Blueprint) return false;
+ RestorePersistentSlots();
+ if (SelectionSlots.Num() != 10) SelectionSlots.SetNum(10);
+ auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ const FString Name = Slot.Name;
+ Slot = FHyperManageSelectionSlot(); Slot.Name = Name;
+ Slot.BlueprintSlot = true; Slot.Blueprint = Blueprint; Slot.Occupied = true;
+ PersistSlot(ActiveSelectionSlot);
+ return true;
+}
+
+bool UHyperManageSelection::RefreshBlueprintSlot()
+{
+ if (!IsBlueprintSlot()) return true;
+ auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ TArray<AActor*> Members; GatherBlueprintMembers(Slot.Blueprint, Members);
+ Slot.Actors.Empty(); for (auto* Member : Members) Slot.Actors.Add(Member);
+ return !Members.IsEmpty();
+}
+
 bool UHyperManageSelection::ForgetSelectionSlot()
 {
  if (HasPendingOperations()) return false;
@@ -566,6 +613,7 @@ void UHyperManageSelection::SaveSelection()
  for (auto* Actor : Actors) if (IsValidActor(Actor)) Slot.Actors.Add(Actor);
  Slot.Anchor = AnchorActor;
  Slot.Target = TargetActor;
+ Slot.BlueprintSlot = false; Slot.Blueprint = nullptr;
  Slot.Occupied = true;
  PersistSlot(ActiveSelectionSlot);
 }
@@ -596,6 +644,7 @@ void UHyperManageSelection::FilterAnchorType(bool KeepMatching)
 void UHyperManageSelection::RemoveSavedSelection()
 {
  if (HasPendingOperations() || !HasSavedSelection()) return;
+ if (!RefreshBlueprintSlot()) return;
  const auto& Slot = SelectionSlots[ActiveSelectionSlot];
  TArray<AActor*> Removed;
  for (const auto& Actor : Slot.Actors) {
@@ -609,6 +658,7 @@ void UHyperManageSelection::RemoveSavedSelection()
 void UHyperManageSelection::AddSavedSelection()
 {
  if (HasPendingOperations() || !HasSavedSelection()) return;
+ if (!RefreshBlueprintSlot()) return;
  const auto& Slot = SelectionSlots[ActiveSelectionSlot];
  TArray<AActor*> Added;
  for (const auto& Actor : Slot.Actors) {
@@ -622,6 +672,7 @@ void UHyperManageSelection::AddSavedSelection()
 void UHyperManageSelection::LoadSelection()
 {
 	if (HasPendingOperations() || !HasSavedSelection()) return;
+ if (!RefreshBlueprintSlot()) return;
  const auto& Slot = SelectionSlots[ActiveSelectionSlot];
 	TArray<AActor*> Desired;
 	for (const auto& Actor : Slot.Actors) if (IsValidActor(Actor)) Desired.AddUnique(Actor);

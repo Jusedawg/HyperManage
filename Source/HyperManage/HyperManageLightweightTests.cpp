@@ -294,7 +294,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.61")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.62")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -942,6 +942,31 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Selection->LoadSelection(); TestTrue(TEXT("Recall forgotten slot leaves selection alone"), Selection->Contains(C));
  FHyperManageStoredSlot EmptyForgotten; EmptyForgotten.Name = TEXT("Reusable group");
  TestTrue(TEXT("Forgotten state clears persistent record"), SlotStore->Store(9, EmptyForgotten) && !SlotStore->Slots[9].Occupied && SlotStore->Slots[9].Actors.IsEmpty());
+ Selection->SetSelectionSlot(5); Selection->ClearWithoutHistory(); Selection->SelectActor(C); History->ClearUndoStack();
+ TestTrue(TEXT("Blueprint instance can be remembered"), Selection->SaveBlueprintSlot(FirstMember));
+ TestTrue(TEXT("Blueprint mode does not change active selection"), Selection->IsBlueprintSlot() && Selection->Contains(C) && !Selection->Contains(FirstMember));
+ TestFalse(TEXT("Ordinary actor cannot replace blueprint slot"), Selection->SaveBlueprintSlot(C));
+ Selection->LoadSelection();
+ TestTrue(TEXT("Blueprint recall resolves surviving members, not adjacent copy"), Selection->Contains(FirstMember) && !Selection->Contains(NeighborMember) && !Selection->Contains(C));
+ TestTrue(TEXT("Blueprint recall has no saved markers"), !Selection->AnchorActor && !Selection->TargetActor);
+ TestEqual(TEXT("Blueprint recall is one undo step"), History->GetUndoCount(), 1);
+ Replay(false); TestTrue(TEXT("Undo blueprint recall restores previous selection"), Selection->Contains(C) && !Selection->Contains(FirstMember));
+ Selection->AddSavedSelection(); TestTrue(TEXT("Blueprint add resolves membership"), Selection->Contains(C) && Selection->Contains(FirstMember));
+ Selection->RemoveSavedSelection(); TestTrue(TEXT("Blueprint remove leaves unrelated selection"), Selection->Contains(C) && !Selection->Contains(FirstMember));
+ FHyperManageStoredSlot BlueprintRecord; BlueprintRecord.Occupied = true; BlueprintRecord.BlueprintSlot = true; BlueprintRecord.Blueprint = BlueprintOne;
+ BlueprintRecord.Actors = {TypeProxy};
+ TestTrue(TEXT("Blueprint persistence uses proxy identity instead of lightweight members"), SlotStore->Store(5, BlueprintRecord));
+ TestTrue(TEXT("Blueprint storage discards transient member cache"), SlotStore->Slots[5].Actors.IsEmpty() && SlotStore->Slots[5].Blueprint == BlueprintOne);
+ TArray<uint8> BlueprintBytes; FMemoryWriter BlueprintWriter(BlueprintBytes);
+ FObjectAndNameAsStringProxyArchive BlueprintSave(BlueprintWriter, false); BlueprintSave.ArIsSaveGame = true; SlotStore->Serialize(BlueprintSave);
+ FMemoryReader BlueprintReader(BlueprintBytes); FObjectAndNameAsStringProxyArchive BlueprintLoad(BlueprintReader, false);
+ BlueprintLoad.ArIsSaveGame = true; RestoredStore->Serialize(BlueprintLoad);
+ TestTrue(TEXT("Blueprint identity and mode survive archive round-trip"), RestoredStore->Slots[5].BlueprintSlot && RestoredStore->Slots[5].Blueprint == BlueprintOne);
+ BlueprintOne->Destroy(); History->ClearUndoStack(); Selection->LoadSelection();
+ TestTrue(TEXT("Missing blueprint recall preserves current selection"), Selection->Contains(C));
+ TestEqual(TEXT("Missing blueprint adds no history"), History->GetUndoCount(), 0);
+ Selection->SaveSelection(); TestFalse(TEXT("Ordinary Remember replaces blueprint mode"), Selection->IsBlueprintSlot());
+
 
 
 	World->DestroyWorld(false);

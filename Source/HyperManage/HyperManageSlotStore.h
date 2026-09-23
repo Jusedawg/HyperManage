@@ -12,6 +12,8 @@ struct FHyperManageStoredSlot
  UPROPERTY(SaveGame) TObjectPtr<AActor> Target;
  UPROPERTY(SaveGame) FString Name;
  UPROPERTY(SaveGame) bool Occupied = false;
+ UPROPERTY(SaveGame) bool BlueprintSlot = false;
+ UPROPERTY(SaveGame) TObjectPtr<class AFGBlueprintProxy> Blueprint;
 };
 
 UCLASS()

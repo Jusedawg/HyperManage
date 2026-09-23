@@ -183,3 +183,9 @@ Slots containing lightweight pieces (such as many foundations and walls) remain 
 Stored slots are cleaned before saving and after loading: deleted members are removed, duplicate references are collapsed, and anchor/target markers are cleared if their objects are no longer members. References from another world are rejected. An intentionally empty slot stays occupied.
 
 Use **Forget slot** beside the slot-name field to clear that remembered group while keeping its name. It leaves buildings, current selection, anchor/target and undo/redo history untouched. Forgetting is not undoable; Remember can store the current selection again. Save the game to retain removal of a persistent slot. **Remove slot** instead deselects the remembered objects and keeps the slot.
+
+### Remember a whole blueprint
+
+Set an anchor on a member of a placed blueprint, choose a slot, then click **Blueprint slot** beside the name. This stores that placed instance, rather than the current selection snapshot. In single-player its identity is stored with your game save, including when its members are lightweight buildings. Save the game after remembering it. Multiplayer blueprint slots remain session-only.
+
+Recall selects the blueprint's current loaded members and clears anchor/target markers; Add slot and Remove slot operate on those members while preserving current markers. Membership is resolved afresh for each command. Adjacent copies are separate instances. Missing or unavailable blueprint membership leaves the current selection unchanged. The slot does not recreate dismantled pieces. Regular Remember replaces blueprint mode with a selection snapshot; Forget slot clears either mode. Live blueprint save/reload and lightweight membership validation are still pending.

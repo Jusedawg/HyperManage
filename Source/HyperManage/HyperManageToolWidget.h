@@ -69,6 +69,8 @@ protected:
 	UFUNCTION() void RemoveSelectionSlot();
  UPROPERTY(Transient) TObjectPtr<UButton> ForgetSlotButton;
  UFUNCTION() void ForgetSelectionSlot();
+ UPROPERTY(Transient) TObjectPtr<UButton> BlueprintSlotButton;
+ UFUNCTION() void RememberBlueprintSlot();
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
 	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;

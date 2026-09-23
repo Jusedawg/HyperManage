@@ -33,6 +33,7 @@ bool AHyperManageSlotStore::Store(int32 Index, const FHyperManageStoredSlot& Slo
  const auto InWorld = [this](AActor* Actor) { return !IsValid(Actor) || Actor->GetWorld() == GetWorld(); };
  bool Supported = CanPersist(Slot.Actors) && CanPersist({Slot.Anchor, Slot.Target}) && InWorld(Slot.Anchor) && InWorld(Slot.Target);
  for (const auto& Actor : Slot.Actors) Supported &= InWorld(Actor);
+ if (Slot.BlueprintSlot) Supported = IsValid(Slot.Blueprint) && InWorld(Slot.Blueprint) && !Slot.Blueprint->HasAnyFlags(RF_Transient);
  Slots[Index] = Supported ? Slot : FHyperManageStoredSlot();
  Slots[Index].Name = Slot.Name;
  SanitizeSlots();
@@ -45,7 +46,13 @@ void AHyperManageSlotStore::SanitizeSlots()
  for (auto& Slot : Slots) {
   Slot.Name = Slot.Name.TrimStartAndEnd().Left(24);
   for (TCHAR& Character : Slot.Name) if (FChar::IsControl(Character)) Character = TEXT(' ');
-  if (!Slot.Occupied) { Slot.Actors.Empty(); Slot.Anchor = nullptr; Slot.Target = nullptr; continue; }
+  if (!Slot.Occupied) { Slot.Actors.Empty(); Slot.Anchor = nullptr; Slot.Target = nullptr; Slot.Blueprint = nullptr; Slot.BlueprintSlot = false; continue; }
+  if (Slot.BlueprintSlot) {
+   Slot.Actors.Empty(); Slot.Anchor = nullptr; Slot.Target = nullptr;
+   if (!IsValid(Slot.Blueprint) || Slot.Blueprint->GetWorld() != GetWorld()) Slot.Blueprint = nullptr;
+   continue;
+  }
+  Slot.Blueprint = nullptr;
   TArray<TObjectPtr<AActor>> Members;
   for (const auto& Actor : Slot.Actors) {
    if (IsValid(Actor) && Actor->GetWorld() == GetWorld() && CanPersist({Actor})) Members.AddUnique(Actor);
