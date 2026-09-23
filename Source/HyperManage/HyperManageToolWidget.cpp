@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.62")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.63")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -704,7 +704,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   BlueprintSlotLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
   BlueprintSlotButton->SetContent(BlueprintSlotLabel); BlueprintSlotButton->SetIsEnabled(false);
   BlueprintSlotButton->SetBackgroundColor(FLinearColor(0.24f, 0.27f, 0.28f));
-  BlueprintSlotButton->SetToolTipText(FText::FromString(TEXT("Remember the placed blueprint containing your anchor in this slot. Recall resolves its current loaded members, including lightweight pieces. Single-player game-save support; no saved anchor/target markers. Replaces this slot only, keeping its name. Save the game to retain it.")));
+  BlueprintSlotButton->SetToolTipText(FText::FromString(TEXT("Remember the placed blueprint containing your anchor in this slot. Recall resolves all registered members, including lightweight pieces, and waits if any are unavailable. Single-player game-save support; no saved anchor/target markers. Replaces this slot only, keeping its name. Save the game to retain it.")));
   BlueprintSlotButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RememberBlueprintSlot);
   SlotNameRow->AddChildToHorizontalBox(BlueprintSlotButton)->SetPadding(FMargin(4, 0, 0, 0));
   SlotNameRow->AddChildToHorizontalBox(ForgetSlotButton)->SetPadding(FMargin(4, 0, 0, 0));
@@ -782,7 +782,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool BlueprintSlot = System->Selection->IsBlueprintSlot();
   if (BlueprintSlotButton) BlueprintSlotButton->SetIsEnabled(!Pending && System->Selection->IsValidActor(System->Selection->AnchorActor));
   const FString Storage = System->Selection->IsSlotPersistent() ? TEXT("game-save") : TEXT("this session");
-  const FString SlotStatus = BlueprintSlot ? FString::Printf(TEXT("Blueprint | %s"), *Storage) : Saved ? FString::Printf(TEXT("%d | %s"), System->Selection->GetSavedSelectionCount(), *Storage) : TEXT("Empty");
+  const FString SlotStatus = BlueprintSlot ? (System->Selection->IsBlueprintSlotUnavailable() ? FString(TEXT("Blueprint unavailable")) : FString::Printf(TEXT("Blueprint | %s"), *Storage)) : Saved ? FString::Printf(TEXT("%d | %s"), System->Selection->GetSavedSelectionCount(), *Storage) : TEXT("Empty");
   SelectionSlotStatus->SetText(FText::FromString(SlotStatus));
   if (btnSaveSelection) {
    btnSaveSelection->SetIsEnabled(!Pending);

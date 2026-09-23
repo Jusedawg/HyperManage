@@ -294,7 +294,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.62")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.63")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -867,6 +867,8 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
   auto* Member = World->SpawnActor<AFGBuildableBeam>();
   auto* MemberRoot = NewObject<USceneComponent>(Member); Member->SetRootComponent(MemberRoot);
   Member->AddInstanceComponent(MemberRoot); MemberRoot->RegisterComponent(); Member->SetBlueprintProxy(Blueprint);
+  // SDK registration functions are stubs; populate the registered member fixture directly.
+  const_cast<TArray<AFGBuildable*>&>(Blueprint->GetBuildables()).Add(Member);
   return Member;
  };
  auto* FirstMember = MakeBlueprintMember(BlueprintOne);
@@ -910,6 +912,7 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  PersistentSlot.Actors = {FirstMember, FirstMember, SecondMember}; PersistentSlot.Anchor = FirstMember; PersistentSlot.Target = SecondMember;
  TestTrue(TEXT("Duplicate native membership accepted safely"), SlotStore->Store(1, PersistentSlot));
  TestEqual(TEXT("Persistent membership deduplicates"), SlotStore->Slots[1].Actors.Num(), 2);
+ const_cast<TArray<AFGBuildable*>&>(BlueprintOne->GetBuildables()).Remove(SecondMember);
  SecondMember->Destroy(); SlotStore->PreSaveGame_Implementation(0, 0);
  TestTrue(TEXT("Pre-save drops deleted member and target"), SlotStore->Slots[1].Actors.Num() == 1 && !SlotStore->Slots[1].Target);
  TestTrue(TEXT("Pre-save preserves surviving anchor"), SlotStore->Slots[1].Anchor == FirstMember);
@@ -962,6 +965,22 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  FMemoryReader BlueprintReader(BlueprintBytes); FObjectAndNameAsStringProxyArchive BlueprintLoad(BlueprintReader, false);
  BlueprintLoad.ArIsSaveGame = true; RestoredStore->Serialize(BlueprintLoad);
  TestTrue(TEXT("Blueprint identity and mode survive archive round-trip"), RestoredStore->Slots[5].BlueprintSlot && RestoredStore->Slots[5].Blueprint == BlueprintOne);
+ auto& RegisteredMembers = const_cast<TArray<AFGBuildable*>&>(BlueprintOne->GetBuildables());
+ RegisteredMembers.Add(nullptr); History->ClearUndoStack();
+ Selection->LoadSelection();
+ TestTrue(TEXT("Incomplete blueprint does not replace current selection"), Selection->Contains(C) && !Selection->Contains(FirstMember));
+ TestTrue(TEXT("Unavailable blueprint status is exposed"), Selection->IsBlueprintSlotUnavailable());
+ Selection->AddSavedSelection(); Selection->RemoveSavedSelection();
+ TestEqual(TEXT("Incomplete blueprint operations add no history"), History->GetUndoCount(), 0);
+ TestFalse(TEXT("Direct blueprint selection rejects incomplete membership"), Selection->SelectPlacedBlueprint(FirstMember));
+ RegisteredMembers.Remove(nullptr);
+ auto& LightweightMembers = const_cast<TArray<FBuildableClassLightweightIndices>&>(BlueprintOne->GetLightweightClassAndIndices());
+ FBuildableClassLightweightIndices MissingLightweight(AFGBuildable::StaticClass()); MissingLightweight.Indices.Add(42);
+ LightweightMembers.Add(MissingLightweight);
+ Selection->LoadSelection(); TestTrue(TEXT("Unresolved lightweight member prevents partial native selection"), Selection->Contains(C) && !Selection->Contains(FirstMember));
+ LightweightMembers.Empty(); Selection->LoadSelection();
+ TestTrue(TEXT("Retry succeeds after all members are available"), Selection->Contains(FirstMember) && !Selection->IsBlueprintSlotUnavailable());
+ Replay(false); TestTrue(TEXT("Recovered recall remains undoable"), Selection->Contains(C));
  BlueprintOne->Destroy(); History->ClearUndoStack(); Selection->LoadSelection();
  TestTrue(TEXT("Missing blueprint recall preserves current selection"), Selection->Contains(C));
  TestEqual(TEXT("Missing blueprint adds no history"), History->GetUndoCount(), 0);

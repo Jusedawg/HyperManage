@@ -27,6 +27,7 @@ struct FHyperManageSelectionSlot
  UPROPERTY(Transient) FString Name;
  bool Occupied = false;
  bool BlueprintSlot = false;
+ bool BlueprintUnavailable = false;
  UPROPERTY(Transient) TObjectPtr<AFGBlueprintProxy> Blueprint;
 };
 
@@ -49,7 +50,7 @@ private:
  bool PersistentSlotsLoaded = false;
  void PersistSlot(int32 Index);
  AFGBlueprintProxy* GetPlacedBlueprint(AActor* Actor);
- void GatherBlueprintMembers(AFGBlueprintProxy* Blueprint, TArray<AActor*>& Members);
+ bool GatherBlueprintMembers(AFGBlueprintProxy* Blueprint, TArray<AActor*>& Members);
  bool RefreshBlueprintSlot();
 
 	bool SetMarker(AActor* Actor, AActor** Marker1, AActor** Marker2);
@@ -135,6 +136,7 @@ public:
  bool ForgetSelectionSlot();
  bool SaveBlueprintSlot(AActor* Actor);
  bool IsBlueprintSlot() const;
+ bool IsBlueprintSlotUnavailable() const;
  void RestorePersistentSlots();
  bool IsSlotPersistent() const;
 	bool SetSelectionSlot(int32 Index);

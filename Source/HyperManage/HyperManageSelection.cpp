@@ -253,30 +253,42 @@ AFGBlueprintProxy* UHyperManageSelection::GetPlacedBlueprint(AActor* Actor)
  return Blueprint;
 }
 
-void UHyperManageSelection::GatherBlueprintMembers(AFGBlueprintProxy* Blueprint, TArray<AActor*>& Members)
+bool UHyperManageSelection::GatherBlueprintMembers(AFGBlueprintProxy* Blueprint, TArray<AActor*>& Members)
 {
  Members.Empty();
- if (!IsValid(Blueprint) || Blueprint->GetWorld() != System->GetWorld()) return;
+ if (!IsValid(Blueprint) || Blueprint->GetWorld() != System->GetWorld()) return false;
  auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
- for (TObjectIterator<AFGBuildable> It; It; ++It) {
-  if (IsValidActor(*It) && It->GetBlueprintProxy() == Blueprint) Members.Add(*It);
+ // Validate every registered member before constructing any local selection handles.
+ for (auto* Buildable : Blueprint->GetBuildables()) {
+  if (!IsValidActor(Buildable) || Buildable->GetBlueprintProxy() != Blueprint) return false;
  }
- if (Subsystem) {
-  for (const auto& Entry : Subsystem->GetAllLightweightBuildableInstances()) {
-   for (int32 Index = 0; Index < Entry.Value.Num(); ++Index) {
-    const auto& Data = Entry.Value[Index];
-    if (!Data.IsValid() || Data.BlueprintProxy != Blueprint) continue;
-    if (auto* Member = GetLightweightProxy(Entry.Key, Index, Data); Member) Members.AddUnique(Member);
-   }
+ for (const auto& Entry : Blueprint->GetLightweightClassAndIndices()) {
+  for (int32 Index : Entry.Indices) {
+   const auto* Data = Subsystem ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Entry.BuildableClass, Index) : nullptr;
+   if (!Data || !Data->IsValid() || Data->BlueprintProxy != Blueprint) return false;
   }
  }
+ for (auto* Buildable : Blueprint->GetBuildables()) Members.AddUnique(Buildable);
+ for (const auto& Entry : Blueprint->GetLightweightClassAndIndices()) {
+  for (int32 Index : Entry.Indices) {
+   const auto* Data = Subsystem->GetRuntimeDataForBuildableClassAndIndex(Entry.BuildableClass, Index);
+   auto* Member = GetLightweightProxy(Entry.BuildableClass, Index, *Data);
+   if (!Member) { Members.Empty(); return false; }
+   Members.AddUnique(Member);
+  }
+ }
+ return !Members.IsEmpty();
 }
 
 bool UHyperManageSelection::SelectPlacedBlueprint(AActor* Actor)
 {
  if (HasPendingOperations()) return false;
  TArray<AActor*> Added;
- GatherBlueprintMembers(GetPlacedBlueprint(Actor), Added);
+ auto* Blueprint = GetPlacedBlueprint(Actor);
+ if (!GatherBlueprintMembers(Blueprint, Added)) {
+  if (IsValid(Blueprint) && System->UI) System->UI->ShowPopup(TEXT("Blueprint unavailable"), TEXT("Not all registered blueprint members are available. Move closer, allow loading to finish, then retry. Selection was not changed."));
+  return false;
+ }
  Added.RemoveAll([this](AActor* Member) { return Contains(Member); });
  if (Added.IsEmpty()) return false;
  const bool AssignAnchor = !IsValidActor(AnchorActor) && SelectCount() == 0 && Actor != TargetActor && System->Config->MMConfig.AutoAnchor;
@@ -565,6 +577,11 @@ bool UHyperManageSelection::IsBlueprintSlot() const
  return HasSavedSelection() && SelectionSlots[ActiveSelectionSlot].BlueprintSlot;
 }
 
+bool UHyperManageSelection::IsBlueprintSlotUnavailable() const
+{
+ return IsBlueprintSlot() && (SelectionSlots[ActiveSelectionSlot].BlueprintUnavailable || !IsValid(SelectionSlots[ActiveSelectionSlot].Blueprint));
+}
+
 bool UHyperManageSelection::SaveBlueprintSlot(AActor* Actor)
 {
  if (HasPendingOperations()) return false;
@@ -584,9 +601,15 @@ bool UHyperManageSelection::RefreshBlueprintSlot()
 {
  if (!IsBlueprintSlot()) return true;
  auto& Slot = SelectionSlots[ActiveSelectionSlot];
- TArray<AActor*> Members; GatherBlueprintMembers(Slot.Blueprint, Members);
- Slot.Actors.Empty(); for (auto* Member : Members) Slot.Actors.Add(Member);
- return !Members.IsEmpty();
+ TArray<AActor*> Members;
+ Slot.BlueprintUnavailable = !GatherBlueprintMembers(Slot.Blueprint, Members);
+ Slot.Actors.Empty();
+ if (Slot.BlueprintUnavailable) {
+  if (System->UI) System->UI->ShowPopup(TEXT("Blueprint slot unavailable"), TEXT("The blueprint is missing or some registered members are unavailable. Move closer and retry after loading. Selection and history were not changed."));
+  return false;
+ }
+ for (auto* Member : Members) Slot.Actors.Add(Member);
+ return true;
 }
 
 bool UHyperManageSelection::ForgetSelectionSlot()
