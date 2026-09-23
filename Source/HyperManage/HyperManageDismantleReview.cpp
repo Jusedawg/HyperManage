@@ -1,6 +1,8 @@
 #include "HyperManageDismantleReview.h"
 #include "Engine/World.h"
 #include "FGPlayerState.h"
+#include "FGDismantleInterface.h"
+#include "FGConstructDisqualifier.h"
 
 FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
  UWorld* World, const TArray<AActor*>& Selection, AActor* Target, const AFGPlayerState* Player)
@@ -14,11 +16,28 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
  return BuildWithSources(World, Selection, Target,
   [&](const TArray<AActor*>& Actors) { return FHyperManageDismantlePlanner::Build(World, Actors, Target); },
   [&](const FHyperManageDismantlePlan& Plan) { return FHyperManageDismantleRefunds::Build(World, Plan, Player); },
-  [&](const TArray<FHyperManageLightweightRef>& Refs) { return FHyperManageDismantleRefunds::BuildLightweights(World, Refs, Player); });
+  [&](const TArray<FHyperManageLightweightRef>& Refs) { return FHyperManageDismantleRefunds::BuildLightweights(World, Refs, Player); },
+  [](AActor* Actor, const TArray<AActor*>& Group, FHyperManageDismantleEligibility& Out)
+  {
+   if (!IsValid(Actor) || !Actor->Implements<UFGDismantleInterface>()) return false;
+   Out.CanDismantle = IFGDismantleInterface::Execute_CanDismantle(Actor);
+   if (!IsValid(Actor)) return false;
+   if (IFGDismantleInterface::Execute_SupportsDismantleDisqualifiers(Actor))
+   {
+    TArray<TSubclassOf<UFGConstructDisqualifier>> Disqualifiers;
+    IFGDismantleInterface::Execute_GetDismantleDisqualifiers(Actor, Disqualifiers, Group);
+    for (const auto& Type : Disqualifiers)
+    {
+     const FString Reason = IsValid(Type.Get()) ? UFGConstructDisqualifier::GetDisqualifyingText(Type).ToString() : FString();
+     Out.Reasons.AddUnique(Reason.IsEmpty() ? TEXT("The game reported an unspecified dismantle warning.") : Reason);
+    }
+   }
+   return IsValid(Actor);
+  });
 }
 
 FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWorld* World,
- const TArray<AActor*>& Selection, AActor* Target, FPlan PlanNative, FNative ReadNative, FLightweight ReadLightweight)
+ const TArray<AActor*>& Selection, AActor* Target, FPlan PlanNative, FNative ReadNative, FLightweight ReadLightweight, FEligibility ReadEligibility)
 {
  auto Fail = [](const TCHAR* Error)
  {
@@ -62,6 +81,23 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWor
  }
  if (Plan.OrderedActors.Num() + Refs.Num() > FHyperManageDismantlePlanner::MaxActors)
   return Fail(TEXT("Review supports at most 1024 buildings, including children."));
+ FHyperManageDismantleReview Result;
+ TArray<AActor*> NativeGroup;
+ for (const auto& Ref : Plan.OrderedActors)
+ {
+  if (!Ref.IsValid() || Ref->GetWorld() != World) return Fail(TEXT("A building changed before eligibility review. Please retry."));
+  NativeGroup.Add(Ref.Get());
+ }
+ for (AActor* Actor : NativeGroup)
+ {
+  if (!IsValid(Actor)) return Fail(TEXT("A building changed during eligibility review. Please retry."));
+  FHyperManageDismantleEligibility Eligibility;
+  if (!ReadEligibility(Actor, NativeGroup, Eligibility)) return Fail(TEXT("A building's dismantle eligibility could not be read. Please retry."));
+  ++Result.NativeChecked;
+  if (!Eligibility.CanDismantle) ++Result.NativeBlocked;
+  if (!Eligibility.Reasons.IsEmpty()) ++Result.NativeWarnings;
+  for (const auto& Reason : Eligibility.Reasons) Result.EligibilityReasons.AddUnique(Reason);
+ }
  FHyperManageRefundPreview Native, Lightweight;
  if (!Actors.IsEmpty())
  {
@@ -89,7 +125,6 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWor
    || Proxy->Ref.BuildableClass != Before.BuildableClass || Proxy->Ref.Recipe != Before.Recipe
    || !Proxy->Ref.ExpectedTransform.Equals(Before.ExpectedTransform, 0.01)) return Fail(TEXT("A selected instance changed during review. Please retry."));
  }
- FHyperManageDismantleReview Result;
  Result.AddedChildren = Plan.AddedChildren;
  Result.Refunds.Status = EHyperManageRefundStatus::Ready;
  Result.Refunds.NoBuildCost = !Actors.IsEmpty() ? Native.NoBuildCost : Lightweight.NoBuildCost;

@@ -228,7 +228,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.67")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.68")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1301,6 +1301,14 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  FString Details = FString::Printf(TEXT("Estimate only - nothing will be dismantled.\n%d standard + %d lightweight buildings; %d additional children.\n%s\n\n"),
   Review.Refunds.Actors.Num(), Review.Refunds.Instances.Num(), Review.AddedChildren,
   Review.Refunds.NoBuildCost ? TEXT("No build cost: construction materials excluded.") : TEXT("Construction refunds and stored contents."));
+ if (Review.NativeChecked > 0) {
+  Details += FString::Printf(TEXT("Removal check: %d standard buildings checked; %d currently refuse dismantling; %d report warnings.\n"),
+   Review.NativeChecked, Review.NativeBlocked, Review.NativeWarnings);
+  for (int32 Index = 0; Index < FMath::Min(Review.EligibilityReasons.Num(), 3); ++Index) Details += Review.EligibilityReasons[Index] + TEXT("\n");
+  if (Review.EligibilityReasons.Num() > 3) Details += FString::Printf(TEXT("...and %d more warning reasons.\n"), Review.EligibilityReasons.Num() - 3);
+ }
+ if (!Review.Refunds.Instances.IsEmpty()) Details += TEXT("Lightweight removal eligibility has not been checked.\n");
+ Details += TEXT("Checks describe current conditions, not permission to dismantle.\n\n");
  for (int32 Index = 0; Index < FMath::Min(Lines.Num(), 12); ++Index) Details += Lines[Index] + TEXT("\n");
  if (Lines.Num() > 12) Details += FString::Printf(TEXT("...and %d more item types.\n"), Lines.Num() - 12);
  if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");

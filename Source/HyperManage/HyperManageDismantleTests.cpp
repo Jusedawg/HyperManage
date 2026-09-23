@@ -305,8 +305,17 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  auto LightSource = [&](const TArray<FHyperManageLightweightRef>& Input) {
   ++LightReads; TestEqual(TEXT("One lightweight input"), Input.Num(), 1); return Lightweight;
  };
+ int32 EligibilityReads = 0;
+ bool BlockChild = false, WarnChild = false, EligibilityAvailable = true;
+ auto EligibilitySource = [&](AActor* Item, const TArray<AActor*>& Group, FHyperManageDismantleEligibility& Out) {
+  ++EligibilityReads;
+  TestTrue(TEXT("Eligibility sees the complete native group, including added children"), Group.Contains(Actor) && Group.Contains(Child));
+  Out.CanDismantle = !(BlockChild && Item == Child);
+  if (WarnChild && Item == Child) Out.Reasons = {TEXT("Example game warning"), TEXT("Example game warning")};
+  return EligibilityAvailable;
+ };
  auto Build = [&](const TArray<AActor*>& Input, AActor* Protected = nullptr) {
-  return FHyperManageDismantleReviewer::BuildWithSources(World, Input, Protected, PlanSource, NativeSource, LightSource);
+  return FHyperManageDismantleReviewer::BuildWithSources(World, Input, Protected, PlanSource, NativeSource, LightSource, EligibilitySource);
  };
  auto Reject = [&](const FHyperManageDismantleReview& Review) {
   TestFalse(TEXT("Failure explains why"), Review.Error.IsEmpty());
@@ -319,9 +328,30 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Lightweight included"), Review.Refunds.Instances.Num(), 1);
  TestEqual(TEXT("Added children disclosed"), Review.AddedChildren, 1);
  TestEqual(TEXT("One plan call"), Plans, 1);
+ TestEqual(TEXT("All native actors checked"), Review.NativeChecked, 2);
+ TestEqual(TEXT("No blocked actors by default"), Review.NativeBlocked, 0);
+ BlockChild = WarnChild = true;
+ Review = Build({Actor, Proxy});
+ TestTrue(TEXT("Blocked eligibility still allows read-only refund estimate"), Review.Error.IsEmpty());
+ TestEqual(TEXT("Blocked child counted"), Review.NativeBlocked, 1);
+ TestEqual(TEXT("Warning actor counted once"), Review.NativeWarnings, 1);
+ TestEqual(TEXT("Repeated reasons deduplicated"), Review.EligibilityReasons.Num(), 1);
+ TestEqual(TEXT("Refunds retained with eligibility diagnostics"), Review.Refunds.Actors.Num(), 2);
+ BlockChild = false;
+ Review = Build({Actor, Proxy});
+ TestEqual(TEXT("Advisory warning does not claim a hard block"), Review.NativeBlocked, 0);
+ TestEqual(TEXT("Advisory warning still shown"), Review.NativeWarnings, 1);
+ WarnChild = false; EligibilityAvailable = false;
+ NativeReads = LightReads = 0;
+ Reject(Build({Actor, Proxy}));
+ TestEqual(TEXT("Failed eligibility query prevents partial refunds"), NativeReads + LightReads, 0);
+ EligibilityAvailable = true;
+ EligibilityReads = 0;
  NativeReads = LightReads = Plans = 0;
  Review = Build({Proxy});
  TestTrue(TEXT("Lightweight-only review works"), Review.Error.IsEmpty());
+ TestEqual(TEXT("Lightweight eligibility is not claimed"), EligibilityReads, 0);
+ TestEqual(TEXT("No native eligibility count for lightweight-only selection"), Review.NativeChecked, 0);
  TestEqual(TEXT("No empty native plan query"), Plans, 0);
  TestEqual(TEXT("No empty native refund query"), NativeReads, 0);
  LightReads = 0; Review = Build({Actor});
