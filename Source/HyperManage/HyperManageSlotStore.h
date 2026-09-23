@@ -24,6 +24,9 @@ public:
  static AHyperManageSlotStore* Get(UWorld* World);
  static bool CanPersist(const TArray<TObjectPtr<AActor>>& Actors);
  bool Store(int32 Index, const FHyperManageStoredSlot& Slot);
+ void SanitizeSlots();
+ virtual void PreSaveGame_Implementation(int32 SaveVersion, int32 GameVersion) override { SanitizeSlots(); }
+ virtual void PostLoadGame_Implementation(int32 SaveVersion, int32 GameVersion) override { SanitizeSlots(); }
  virtual bool ShouldSave_Implementation() const override { return true; }
  virtual bool NeedTransform_Implementation() override { return false; }
 };

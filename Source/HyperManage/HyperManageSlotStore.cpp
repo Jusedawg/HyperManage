@@ -30,8 +30,28 @@ bool AHyperManageSlotStore::Store(int32 Index, const FHyperManageStoredSlot& Slo
 {
  if (Index < 0 || Index >= 10) return false;
  if (Slots.Num() != 10) Slots.SetNum(10);
- const bool Supported = CanPersist(Slot.Actors) && CanPersist({Slot.Anchor, Slot.Target});
+ const auto InWorld = [this](AActor* Actor) { return !IsValid(Actor) || Actor->GetWorld() == GetWorld(); };
+ bool Supported = CanPersist(Slot.Actors) && CanPersist({Slot.Anchor, Slot.Target}) && InWorld(Slot.Anchor) && InWorld(Slot.Target);
+ for (const auto& Actor : Slot.Actors) Supported &= InWorld(Actor);
  Slots[Index] = Supported ? Slot : FHyperManageStoredSlot();
  Slots[Index].Name = Slot.Name;
+ SanitizeSlots();
  return Supported;
+}
+
+void AHyperManageSlotStore::SanitizeSlots()
+{
+ Slots.SetNum(10);
+ for (auto& Slot : Slots) {
+  Slot.Name = Slot.Name.TrimStartAndEnd().Left(24);
+  for (TCHAR& Character : Slot.Name) if (FChar::IsControl(Character)) Character = TEXT(' ');
+  if (!Slot.Occupied) { Slot.Actors.Empty(); Slot.Anchor = nullptr; Slot.Target = nullptr; continue; }
+  TArray<TObjectPtr<AActor>> Members;
+  for (const auto& Actor : Slot.Actors) {
+   if (IsValid(Actor) && Actor->GetWorld() == GetWorld() && CanPersist({Actor})) Members.AddUnique(Actor);
+  }
+  Slot.Actors = MoveTemp(Members);
+  if (!IsValid(Slot.Anchor) || !Slot.Actors.Contains(Slot.Anchor)) Slot.Anchor = nullptr;
+  if (!IsValid(Slot.Target) || !Slot.Actors.Contains(Slot.Target) || Slot.Target == Slot.Anchor) Slot.Target = nullptr;
+ }
 }

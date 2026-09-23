@@ -179,3 +179,5 @@ The selection change is one undo step. Repeating it adds no history when nothing
 In single-player, slots containing only ordinary saved actors now store their members, anchor, target and name inside the game save. The slot status shows **game-save** when eligible. Save the game after Remember or renaming; changes made after the last game save are not retained. Deleted or unavailable members are skipped on recall.
 
 Slots containing lightweight pieces (such as many foundations and walls) remain **this session**, as do multiplayer slots. A mixed slot is never partially persisted. Replacing a previously persistent slot with a session-only selection clears its stored membership on the next game save; its name is retained. This first persistence pass still needs live save/reload validation.
+
+Stored slots are cleaned before saving and after loading: deleted members are removed, duplicate references are collapsed, and anchor/target markers are cleared if their objects are no longer members. References from another world are rejected. An intentionally empty slot stays occupied.

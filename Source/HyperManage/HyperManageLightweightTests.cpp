@@ -294,7 +294,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.59")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.60")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -907,6 +907,28 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  PersistentSlot.Actors.Empty(); PersistentSlot.Anchor = nullptr; PersistentSlot.Target = nullptr;
  TestTrue(TEXT("Explicit empty slot can persist"), SlotStore->Store(9, PersistentSlot) && SlotStore->Slots[9].Occupied);
  TestFalse(TEXT("Invalid persistent slot rejected"), SlotStore->Store(10, PersistentSlot));
+ PersistentSlot.Actors = {FirstMember, FirstMember, SecondMember}; PersistentSlot.Anchor = FirstMember; PersistentSlot.Target = SecondMember;
+ TestTrue(TEXT("Duplicate native membership accepted safely"), SlotStore->Store(1, PersistentSlot));
+ TestEqual(TEXT("Persistent membership deduplicates"), SlotStore->Slots[1].Actors.Num(), 2);
+ SecondMember->Destroy(); SlotStore->PreSaveGame_Implementation(0, 0);
+ TestTrue(TEXT("Pre-save drops deleted member and target"), SlotStore->Slots[1].Actors.Num() == 1 && !SlotStore->Slots[1].Target);
+ TestTrue(TEXT("Pre-save preserves surviving anchor"), SlotStore->Slots[1].Anchor == FirstMember);
+ SlotStore->Slots[1].Anchor = NeighborMember;
+ SlotStore->PostLoadGame_Implementation(0, 0);
+ TestNull(TEXT("Load clears marker outside stored membership"), SlotStore->Slots[1].Anchor.Get());
+ auto* OtherWorld = UWorld::CreateWorld(EWorldType::Game, false);
+ auto* ForeignMember = OtherWorld->SpawnActor<AFGBuildableBeam>();
+ PersistentSlot.Actors = {FirstMember, ForeignMember}; PersistentSlot.Target = nullptr;
+ TestFalse(TEXT("Cross-world slot rejected atomically"), SlotStore->Store(1, PersistentSlot));
+ TestTrue(TEXT("Rejected cross-world overwrite cannot revive old membership"), !SlotStore->Slots[1].Occupied && SlotStore->Slots[1].Actors.IsEmpty());
+ OtherWorld->DestroyWorld(false);
+ SlotStore->Slots.SetNum(12); SlotStore->Slots[0].Occupied = false; SlotStore->Slots[0].Actors = {FirstMember};
+ SlotStore->Slots[0].Name = TEXT("  Label\nwith controls and excessive length  ");
+ SlotStore->PostLoadGame_Implementation(0, 0);
+ TestEqual(TEXT("Load bounds slot count"), SlotStore->Slots.Num(), 10);
+ TestTrue(TEXT("Unused slot cannot retain hidden membership"), SlotStore->Slots[0].Actors.IsEmpty());
+ TestTrue(TEXT("Loaded names are bounded and single-line"), SlotStore->Slots[0].Name.Len() <= 24 && !SlotStore->Slots[0].Name.Contains(TEXT("\n")));
+
 	World->DestroyWorld(false);
 	return true;
 }
