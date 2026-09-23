@@ -294,7 +294,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.60")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.61")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -928,6 +928,21 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Load bounds slot count"), SlotStore->Slots.Num(), 10);
  TestTrue(TEXT("Unused slot cannot retain hidden membership"), SlotStore->Slots[0].Actors.IsEmpty());
  TestTrue(TEXT("Loaded names are bounded and single-line"), SlotStore->Slots[0].Name.Len() <= 24 && !SlotStore->Slots[0].Name.Contains(TEXT("\n")));
+ Selection->SetSelectionSlot(4); Selection->ClearWithoutHistory(); Selection->SetAnchor(C); Selection->SetTarget(NeighborMember);
+ Selection->SetSelectionSlotName(4, TEXT("Reusable group")); Selection->SaveSelection();
+ History->ClearUndoStack(); Selection->SelectActorWithHistory(A, true); Replay(false);
+ const int32 RedoBeforeForget = History->GetRedoCount();
+ TestTrue(TEXT("Occupied slot can be forgotten"), Selection->ForgetSelectionSlot());
+ TestFalse(TEXT("Forgotten slot is unused"), Selection->HasSavedSelection());
+ TestEqual(TEXT("Forget preserves slot name"), Selection->GetSelectionSlotName(4), FString(TEXT("Reusable group")));
+ TestTrue(TEXT("Forget preserves current selection and markers"), Selection->Contains(C) && Selection->Contains(NeighborMember) && Selection->AnchorActor == C && Selection->TargetActor == NeighborMember);
+ TestEqual(TEXT("Forget does not clear redo"), History->GetRedoCount(), RedoBeforeForget);
+ TestEqual(TEXT("Forget creates no transform history"), History->GetUndoCount(), 0);
+ TestFalse(TEXT("Forgetting unused slot is a no-op"), Selection->ForgetSelectionSlot());
+ Selection->LoadSelection(); TestTrue(TEXT("Recall forgotten slot leaves selection alone"), Selection->Contains(C));
+ FHyperManageStoredSlot EmptyForgotten; EmptyForgotten.Name = TEXT("Reusable group");
+ TestTrue(TEXT("Forgotten state clears persistent record"), SlotStore->Store(9, EmptyForgotten) && !SlotStore->Slots[9].Occupied && SlotStore->Slots[9].Actors.IsEmpty());
+
 
 	World->DestroyWorld(false);
 	return true;

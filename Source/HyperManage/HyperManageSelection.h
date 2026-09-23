@@ -127,6 +127,7 @@ public:
 	void ClearWithoutHistory();
 	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
+ bool ForgetSelectionSlot();
  void RestorePersistentSlots();
  bool IsSlotPersistent() const;
 	bool SetSelectionSlot(int32 Index);

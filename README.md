@@ -181,3 +181,5 @@ In single-player, slots containing only ordinary saved actors now store their me
 Slots containing lightweight pieces (such as many foundations and walls) remain **this session**, as do multiplayer slots. A mixed slot is never partially persisted. Replacing a previously persistent slot with a session-only selection clears its stored membership on the next game save; its name is retained. This first persistence pass still needs live save/reload validation.
 
 Stored slots are cleaned before saving and after loading: deleted members are removed, duplicate references are collapsed, and anchor/target markers are cleared if their objects are no longer members. References from another world are rejected. An intentionally empty slot stays occupied.
+
+Use **Forget slot** beside the slot-name field to clear that remembered group while keeping its name. It leaves buildings, current selection, anchor/target and undo/redo history untouched. Forgetting is not undoable; Remember can store the current selection again. Save the game to retain removal of a persistent slot. **Remove slot** instead deselects the remembered objects and keeps the slot.

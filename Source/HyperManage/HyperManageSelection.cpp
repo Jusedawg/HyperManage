@@ -542,6 +542,18 @@ int32 UHyperManageSelection::GetSavedSelectionCount()
  return Count;
 }
 
+bool UHyperManageSelection::ForgetSelectionSlot()
+{
+ if (HasPendingOperations()) return false;
+ RestorePersistentSlots();
+ if (!HasSavedSelection()) return false;
+ const FString Name = SelectionSlots[ActiveSelectionSlot].Name;
+ SelectionSlots[ActiveSelectionSlot] = FHyperManageSelectionSlot();
+ SelectionSlots[ActiveSelectionSlot].Name = Name;
+ PersistSlot(ActiveSelectionSlot);
+ return true;
+}
+
 void UHyperManageSelection::SaveSelection()
 {
  if (HasPendingOperations()) return;

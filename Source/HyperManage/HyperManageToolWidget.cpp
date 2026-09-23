@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.60")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.61")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -687,7 +687,19 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   SlotNameField->SetHintText(FText::FromString(TEXT("Slot name (optional)")));
   SlotNameField->SetToolTipText(FText::FromString(TEXT("Name this slot using up to 24 characters. Enter or leave the field to save. Clear the name to restore its numbered label. Names are saved with the single-player game save; naming does not change selection or history.")));
   SlotNameField->OnTextCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitSlotName);
-  Groups->AddChildToVerticalBox(SlotNameField)->SetPadding(FMargin(2, 0, 2, 3));
+  auto* SlotNameRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+  SlotNameRow->AddChildToHorizontalBox(SlotNameField)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+  ForgetSlotButton = WidgetTree->ConstructWidget<UButton>();
+  ForgetSlotButton->SetBackgroundColor(FLinearColor(0.24f, 0.27f, 0.28f));
+  auto* ForgetLabel = WidgetTree->ConstructWidget<UTextBlock>();
+  ForgetLabel->SetText(FText::FromString(TEXT("Forget slot")));
+  auto ForgetFont = ForgetLabel->GetFont(); ForgetFont.Size = 11; ForgetLabel->SetFont(ForgetFont);
+  ForgetLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+  ForgetSlotButton->SetContent(ForgetLabel); ForgetSlotButton->SetIsEnabled(false);
+  ForgetSlotButton->SetToolTipText(FText::FromString(TEXT("Empty this remembered slot, keeping its name. Does not change buildings, current selection, markers or edit history. Not undoable. Save the game to retain removal of a persistent slot.")));
+  ForgetSlotButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ForgetSelectionSlot);
+  SlotNameRow->AddChildToHorizontalBox(ForgetSlotButton)->SetPadding(FMargin(4, 0, 0, 0));
+  Groups->AddChildToVerticalBox(SlotNameRow)->SetPadding(FMargin(2, 0, 2, 3));
   RefreshSlotNames();
   RemoveBoxEdgesButton = WidgetTree->ConstructWidget<UButton>();
   RemoveBoxEdgesButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RemoveBoxEdges);
@@ -757,10 +769,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool Saved = System->Selection->HasSavedSelection();
   const bool Pending = System->Selection->HasPendingOperations();
   const int32 SlotNumber = System->Selection->GetSelectionSlot() + 1;
+  if (ForgetSlotButton) ForgetSlotButton->SetIsEnabled(Saved && !Pending);
   SelectionSlotStatus->SetText(FText::FromString(Saved ? FString::Printf(TEXT("%d | %s"), System->Selection->GetSavedSelectionCount(), System->Selection->IsSlotPersistent() ? TEXT("game-save") : TEXT("this session")) : TEXT("Empty | this session")));
   if (btnSaveSelection) {
    btnSaveSelection->SetIsEnabled(!Pending);
-   btnSaveSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remember current selection, anchor and target in Slot %d. Replaces this slot only; not saved with the game."), SlotNumber)));
+   btnSaveSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remember current selection, anchor and target in Slot %d. Replaces this slot only. Single-player native-actor slots persist when you save the game; lightweight and multiplayer slots remain session-only."), SlotNumber)));
   }
   if (RemoveSlotButton) {
    RemoveSlotButton->SetIsEnabled(Saved && !Pending && System->Selection->GetSavedSelectionCount() > 0 && System->Selection->SelectCount() > 0);
@@ -1220,4 +1233,9 @@ void UHyperManageToolWidget::ChangeAutoAnchor(bool Enabled)
   System->Config->MMConfig.AutoAnchor = Enabled;
   System->Config->SaveHyperManageConfig();
  }
+}
+
+void UHyperManageToolWidget::ForgetSelectionSlot()
+{
+ if (auto* System = UHyperManageSystem::Get(); System && System->Selection) System->Selection->ForgetSelectionSlot();
 }
