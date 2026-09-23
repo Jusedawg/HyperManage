@@ -229,7 +229,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.69")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.70")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -607,12 +607,33 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  auto* ReviewButton = WidgetTree->ConstructWidget<UButton>();
  ReviewButton->SetBackgroundColor(FLinearColor(0.24f, 0.27f, 0.28f));
  auto* ReviewLabel = WidgetTree->ConstructWidget<UTextBlock>();
- ReviewLabel->SetText(FText::FromString(TEXT("Review refunds"))); ReviewLabel->SetFont(OffsetFont);
+ ReviewLabel->SetText(FText::FromString(TEXT("Review / Refresh refunds"))); ReviewLabel->SetFont(OffsetFont);
  ReviewLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
  ReviewButton->SetContent(ReviewLabel);
  ReviewButton->SetToolTipText(FText::FromString(TEXT("Read-only single-player refund estimate for selected buildings, excluding the target. Includes native child buildings. Does not dismantle, change inventory or add history.")));
  ReviewButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReviewDismantleRefunds);
  Rows->AddChildToVerticalBox(ReviewButton)->SetPadding(FMargin(0, 4));
+ RefundReviewArea = WidgetTree->ConstructWidget<UExpandableArea>(); StyleExpansionArrow(RefundReviewArea);
+ auto* ReviewHeading = WidgetTree->ConstructWidget<UTextBlock>();
+ ReviewHeading->SetText(FText::FromString(TEXT("REFUND REVIEW (snapshot)"))); ReviewHeading->SetFont(OffsetFont);
+ ReviewHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
+ RefundReviewText = WidgetTree->ConstructWidget<UTextBlock>();
+ auto ReviewFont = OffsetFont; ReviewFont.Size = 13; RefundReviewText->SetFont(ReviewFont);
+ RefundReviewText->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+ RefundReviewText->SetAutoWrapText(true);
+ RefundReviewText->SetText(FText::FromString(TEXT("Choose Review / Refresh refunds to inspect the current selection.")));
+ RefundReviewScroll = WidgetTree->ConstructWidget<UScrollBox>();
+ RefundReviewScroll->SetAlwaysShowScrollbar(true); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);
+ RefundReviewScroll->AddChild(RefundReviewText);
+ auto* ReviewSize = WidgetTree->ConstructWidget<USizeBox>(); ReviewSize->SetHeightOverride(300); ReviewSize->SetContent(RefundReviewScroll);
+ auto* ReviewBackground = WidgetTree->ConstructWidget<UBorder>();
+ ReviewBackground->SetBrushColor(FLinearColor(0.045f, 0.05f, 0.055f, 0.95f));
+ ReviewBackground->SetPadding(FMargin(8)); ReviewBackground->SetContent(ReviewSize);
+ RefundReviewArea->SetContentForSlot(TEXT("Header"), ReviewHeading);
+ RefundReviewArea->SetContentForSlot(TEXT("Body"), ReviewBackground);
+ RefundReviewArea->SetIsExpanded(false); RefundReviewArea->SetHeaderPadding(FMargin(0, 4));
+ RefundReviewArea->SetToolTipText(FText::FromString(TEXT("Snapshot only. Refresh after changing selection, buildings or inventory. Scroll inside this report to read all items and warnings. No dismantling or inventory changes.")));
+ Rows->AddChildToVerticalBox(RefundReviewArea)->SetPadding(FMargin(0, 0, 0, 4));
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -1277,19 +1298,19 @@ void UHyperManageToolWidget::RememberBlueprintSlot()
 void UHyperManageToolWidget::ReviewDismantleRefunds()
 {
  auto* System = UHyperManageSystem::Get();
- if (!System || !System->Selection || !System->UI) return;
+ if (!System || !System->Selection || !System->GetWorld()) { SetRefundReviewReport(TEXT("Review unavailable. Re-equip the tool and retry.")); return; }
  if (System->GetWorld()->GetNetMode() != NM_Standalone) {
-  System->UI->ShowPopup(TEXT("Refund review"), TEXT("Refund review is currently available in single-player only.")); return;
+  SetRefundReviewReport(TEXT("Refund review is currently available in single-player only.")); return;
  }
  if (System->Selection->HasPendingOperations()) {
-  System->UI->ShowPopup(TEXT("Refund review"), TEXT("Wait for building edits to finish, then retry.")); return;
+  SetRefundReviewReport(TEXT("Wait for building edits to finish, then retry.")); return;
  }
  TArray<AActor*> Actors;
  System->Selection->SelectedActorsNoTarget(Actors);
  auto* Controller = System->GetLocalController();
  const auto Review = FHyperManageDismantleReviewer::Build(System->GetWorld(), Actors, System->Selection->TargetActor,
   Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr);
- if (!Review.Error.IsEmpty()) { System->UI->ShowPopup(TEXT("Refund review unavailable"), Review.Error); return; }
+ if (!Review.Error.IsEmpty()) { SetRefundReviewReport(TEXT("Review unavailable\n\n") + Review.Error); return; }
  const auto Capacity = FHyperManageRefundCapacity::Check(System->GetWorld(), Review.Refunds,
   Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr);
  TMap<TSubclassOf<UFGItemDescriptor>, int64> Totals;
@@ -1314,14 +1335,21 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  if (Review.NativeChecked > 0) {
   Details += FString::Printf(TEXT("Removal check: %d standard buildings checked; %d currently refuse dismantling; %d report warnings.\n"),
    Review.NativeChecked, Review.NativeBlocked, Review.NativeWarnings);
-  for (int32 Index = 0; Index < FMath::Min(Review.EligibilityReasons.Num(), 3); ++Index) Details += Review.EligibilityReasons[Index] + TEXT("\n");
-  if (Review.EligibilityReasons.Num() > 3) Details += FString::Printf(TEXT("...and %d more warning reasons.\n"), Review.EligibilityReasons.Num() - 3);
+  for (const auto& Reason : Review.EligibilityReasons) Details += Reason + TEXT("\n");
  }
  if (!Review.Refunds.Instances.IsEmpty()) Details += TEXT("Lightweight removal eligibility has not been checked.\n");
  Details += TEXT("Checks describe current conditions, not permission to dismantle.\n\n");
- for (int32 Index = 0; Index < FMath::Min(Lines.Num(), 12); ++Index) Details += Lines[Index] + TEXT("\n");
- if (Lines.Num() > 12) Details += FString::Printf(TEXT("...and %d more item types.\n"), Lines.Num() - 12);
+ for (const auto& Line : Lines) Details += Line + TEXT("\n");
  if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");
  Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle remains unavailable.");
- System->UI->ShowPopup(TEXT("Selection refund estimate"), Details);
+ SetRefundReviewReport(Details);
+}
+
+void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
+{
+ if (!RefundReviewText || !RefundReviewArea || !RefundReviewScroll) return;
+ const FString Header = FString::Printf(TEXT("Updated %s\nRefresh after selection or inventory changes.\n\n"), *FDateTime::Now().ToString(TEXT("%H:%M:%S")));
+ RefundReviewText->SetText(FText::FromString(Header + Report));
+ RefundReviewArea->SetIsExpanded(true);
+ RefundReviewScroll->ScrollToStart();
 }

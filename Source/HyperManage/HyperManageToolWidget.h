@@ -72,6 +72,10 @@ protected:
  UPROPERTY(Transient) TObjectPtr<UButton> BlueprintSlotButton;
  UFUNCTION() void RememberBlueprintSlot();
  UFUNCTION() void ReviewDismantleRefunds();
+ UPROPERTY(Transient) TObjectPtr<class UExpandableArea> RefundReviewArea;
+ UPROPERTY(Transient) TObjectPtr<class UScrollBox> RefundReviewScroll;
+ UPROPERTY(Transient) TObjectPtr<class UTextBlock> RefundReviewText;
+ void SetRefundReviewReport(const FString& Report);
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
 	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;

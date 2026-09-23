@@ -294,9 +294,18 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Review refunds")));
+ TestNotNull(TEXT("Refund review report exists"), Tools->RefundReviewText.Get());
+ TestFalse(TEXT("Refund report starts collapsed"), Tools->RefundReviewArea->GetIsExpanded());
+ FString LongReport;
+ for (int32 Index = 0; Index < 40; ++Index) LongReport += FString::Printf(TEXT("Refund row %d\n"), Index);
+ Tools->SetRefundReviewReport(LongReport);
+ TestTrue(TEXT("Review expands after refresh"), Tools->RefundReviewArea->GetIsExpanded());
+ TestTrue(TEXT("Long report retains its last row"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row 39")));
+ Tools->SetRefundReviewReport(TEXT("Review unavailable"));
+ TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
+	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Review / Refresh refunds")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.69")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.70")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
