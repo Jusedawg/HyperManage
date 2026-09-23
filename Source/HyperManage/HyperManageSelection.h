@@ -44,6 +44,8 @@ private:
 
 	UPROPERTY(Transient) TArray<FHyperManageSelectionSlot> SelectionSlots;
 	int32 ActiveSelectionSlot = 0;
+ bool PersistentSlotsLoaded = false;
+ void PersistSlot(int32 Index);
 
 	bool SetMarker(AActor* Actor, AActor** Marker1, AActor** Marker2);
 
@@ -125,6 +127,8 @@ public:
 	void ClearWithoutHistory();
 	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
+ void RestorePersistentSlots();
+ bool IsSlotPersistent() const;
 	bool SetSelectionSlot(int32 Index);
 	bool SetSelectionSlotName(int32 Index, const FString& Name);
 	FString GetSelectionSlotName(int32 Index) const;

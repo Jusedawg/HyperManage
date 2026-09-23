@@ -226,7 +226,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.58")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.59")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -669,7 +669,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   const int32 ActiveSlot = CurrentSystem && CurrentSystem->Selection ? CurrentSystem->Selection->GetSelectionSlot() : 0;
   SelectionSlotPicker->SetSelectedIndex(ActiveSlot);
   SelectionSlotPicker->OnSelectionChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeSelectionSlot);
-  SelectionSlotPicker->SetToolTipText(FText::FromString(TEXT("Choose one of ten session-only selection slots. Changing slots does not change your current selection; use Remember or Recall.")));
+  SelectionSlotPicker->SetToolTipText(FText::FromString(TEXT("Choose one of ten slots. In single-player, slots of ordinary saved actors are stored with the game save. Lightweight and multiplayer selections remain session-only. Changing slots does not change your current selection; use Remember or Recall.")));
   auto* SlotPickerBox = WidgetTree->ConstructWidget<USizeBox>(); SlotPickerBox->SetWidthOverride(190);
   SlotPickerBox->SetContent(SelectionSlotPicker); SelectionSlotPicker->SetClipping(EWidgetClipping::ClipToBounds);
   SlotRow->AddChildToHorizontalBox(SlotPickerBox)->SetPadding(FMargin(2));
@@ -685,7 +685,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   SlotNameField->WidgetStyle.BackgroundImageFocused = SlotNameField->WidgetStyle.BackgroundImageHovered;
   SlotNameField->WidgetStyle.ForegroundColor = FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f));
   SlotNameField->SetHintText(FText::FromString(TEXT("Slot name (optional)")));
-  SlotNameField->SetToolTipText(FText::FromString(TEXT("Name this slot using up to 24 characters. Enter or leave the field to save. Clear the name to restore its numbered label. Session-only; does not change selection or history.")));
+  SlotNameField->SetToolTipText(FText::FromString(TEXT("Name this slot using up to 24 characters. Enter or leave the field to save. Clear the name to restore its numbered label. Names are saved with the single-player game save; naming does not change selection or history.")));
   SlotNameField->OnTextCommitted.AddDynamic(this, &UHyperManageToolWidget::CommitSlotName);
   Groups->AddChildToVerticalBox(SlotNameField)->SetPadding(FMargin(2, 0, 2, 3));
   RefreshSlotNames();
@@ -757,7 +757,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const bool Saved = System->Selection->HasSavedSelection();
   const bool Pending = System->Selection->HasPendingOperations();
   const int32 SlotNumber = System->Selection->GetSelectionSlot() + 1;
-  SelectionSlotStatus->SetText(FText::FromString(Saved ? FString::Printf(TEXT("%d objects | this session"), System->Selection->GetSavedSelectionCount()) : TEXT("Empty | this session")));
+  SelectionSlotStatus->SetText(FText::FromString(Saved ? FString::Printf(TEXT("%d | %s"), System->Selection->GetSavedSelectionCount(), System->Selection->IsSlotPersistent() ? TEXT("game-save") : TEXT("this session")) : TEXT("Empty | this session")));
   if (btnSaveSelection) {
    btnSaveSelection->SetIsEnabled(!Pending);
    btnSaveSelection->SetToolTipText(FText::FromString(FString::Printf(TEXT("Remember current selection, anchor and target in Slot %d. Replaces this slot only; not saved with the game."), SlotNumber)));

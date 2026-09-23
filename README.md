@@ -134,13 +134,13 @@ Set an anchor and target at the region boundaries, then use **Remove edges** or 
 
 Choose **Slot 1-10** above the selection controls, then click **Remember** to store the current selection, anchor and target. Remember replaces only the chosen slot. Switch slots and click **Recall** to return to a group; switching the dropdown alone leaves the current selection unchanged.
 
-Give each slot an optional name in the field beneath its picker, such as **Roof supports**. Enter or leave the field to save; names appear beside slot numbers. Names accept up to 24 characters, remain when Remember replaces a group, and last for the current session. Clear a name to return to its numbered label. Naming a slot does not store a selection or add undo history.
+Give each slot an optional name in the field beneath its picker, such as **Roof supports**. Enter or leave the field to save; names appear beside slot numbers. Names accept up to 24 characters and remain when Remember replaces a group. In single-player they are stored with the game save. Clear a name to return to its numbered label. Naming a slot does not store a selection or add undo history.
 
 **Add slot** merges the chosen slot into your current selection. It preserves your current anchor and target, skips the saved target and unavailable objects, and avoids duplicates. The saved anchor joins as an ordinary selected object unless it is already your current reference. Undo removes only the newly added objects; adding the same slot again creates no extra history. Use Recall when you want to replace the selection and restore the saved references instead.
 
 **Remove slot** deselects the remembered objects from your current selection. It protects your current anchor and target, excludes the saved target, and leaves the remembered slot intact. Nothing is dismantled. Undo restores the removed selection; repeated clicks with nothing left to remove add no history.
 
-The slot status shows the number of available editable objects. Unused slots cannot be recalled, and removed objects are skipped. Recall is one undoable selection change. Remembering an empty selection intentionally stores an empty group. Slots follow the objects as you edit them, but last only for the current session; they are not yet saved with your game.
+The slot status shows the number of available editable objects. Unused slots cannot be recalled, and removed objects are skipped. Recall is one undoable selection change. Remembering an empty selection intentionally stores an empty group. Slots follow the objects as you edit them. Single-player slots containing ordinary saved actors can survive reloads; lightweight and multiplayer slots remain session-only. See Selection slots across reloads below.
 
 ## Undo and redo
 
@@ -173,3 +173,9 @@ Beams store length separately from object scale. Incremental scaling, exact scal
 Point at a member of a placed blueprint and press **Ctrl + Shift + left-click** to add its currently loaded members to the selection. Membership comes from the placed blueprint instance, so an adjacent copy is not included. Normal buildings and lightweight pieces are supported. Existing anchor and target markers stay assigned; Auto anchor can assign the pointed member when starting with an empty editable selection. The target remains excluded from transforms.
 
 The selection change is one undo step. Repeating it adds no history when nothing changes. This does not create a persistent group, export a blueprint or save selection slots. Streaming and multiplayer membership coverage still require gameplay validation.
+
+### Selection slots across reloads
+
+In single-player, slots containing only ordinary saved actors now store their members, anchor, target and name inside the game save. The slot status shows **game-save** when eligible. Save the game after Remember or renaming; changes made after the last game save are not retained. Deleted or unavailable members are skipped on recall.
+
+Slots containing lightweight pieces (such as many foundations and walls) remain **this session**, as do multiplayer slots. A mixed slot is never partially persisted. Replacing a previously persistent slot with a session-only selection clears its stored membership on the next game save; its name is retained. This first persistence pass still needs live save/reload validation.

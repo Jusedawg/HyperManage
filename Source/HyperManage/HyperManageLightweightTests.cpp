@@ -1,3 +1,7 @@
+#include "HyperManageSlotStore.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "Serialization/MemoryWriter.h"
+#include "Serialization/MemoryReader.h"
 #include "FGPlayerController.h"
 #include "FGBuildableBeam.h"
 #include "HyperManageRCO.h"
@@ -290,7 +294,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap rotation is in the visible hierarchy"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap angle\n")); }));
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.58")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.59")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -883,6 +887,26 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
  Selection->SelectPlacedBlueprint(FirstMember);
  TestTrue(TEXT("Additive blueprint selection preserves existing references"), Selection->AnchorActor == C && Selection->TargetActor == SecondMember && Selection->Contains(FirstMember));
  Replay(false); TestTrue(TEXT("Undo additive blueprint preserves previous selection"), Selection->Contains(C) && Selection->Contains(SecondMember) && !Selection->Contains(FirstMember));
+ auto* SlotStore = World->SpawnActor<AHyperManageSlotStore>();
+ FHyperManageStoredSlot PersistentSlot; PersistentSlot.Actors = {FirstMember, SecondMember};
+ PersistentSlot.Anchor = FirstMember; PersistentSlot.Target = SecondMember; PersistentSlot.Name = TEXT("Machines"); PersistentSlot.Occupied = true;
+ TestTrue(TEXT("Native save actors can persist"), SlotStore->Store(0, PersistentSlot));
+ TArray<uint8> SlotBytes;
+ FMemoryWriter SlotWriter(SlotBytes); FObjectAndNameAsStringProxyArchive SaveArchive(SlotWriter, false); SaveArchive.ArIsSaveGame = true;
+ SlotStore->Serialize(SaveArchive);
+ auto* RestoredStore = World->SpawnActor<AHyperManageSlotStore>();
+ FMemoryReader SlotReader(SlotBytes); FObjectAndNameAsStringProxyArchive LoadArchive(SlotReader, false); LoadArchive.ArIsSaveGame = true;
+ RestoredStore->Serialize(LoadArchive);
+ TestTrue(TEXT("Save archive retains occupied slot and members"), RestoredStore->Slots[0].Occupied && RestoredStore->Slots[0].Actors.Num() == 2);
+ TestTrue(TEXT("Save archive retains anchor and target"), RestoredStore->Slots[0].Anchor == FirstMember && RestoredStore->Slots[0].Target == SecondMember);
+ TestEqual(TEXT("Save archive retains name"), RestoredStore->Slots[0].Name, FString(TEXT("Machines")));
+ PersistentSlot.Actors.Add(TypeProxy);
+ TestFalse(TEXT("Mixed lightweight slot remains session-only"), SlotStore->Store(0, PersistentSlot));
+ TestTrue(TEXT("Unsupported overwrite clears previous persisted membership"), !SlotStore->Slots[0].Occupied && SlotStore->Slots[0].Actors.IsEmpty());
+ TestEqual(TEXT("Session-only slot still persists its name"), SlotStore->Slots[0].Name, FString(TEXT("Machines")));
+ PersistentSlot.Actors.Empty(); PersistentSlot.Anchor = nullptr; PersistentSlot.Target = nullptr;
+ TestTrue(TEXT("Explicit empty slot can persist"), SlotStore->Store(9, PersistentSlot) && SlotStore->Slots[9].Occupied);
+ TestFalse(TEXT("Invalid persistent slot rejected"), SlotStore->Store(10, PersistentSlot));
 	World->DestroyWorld(false);
 	return true;
 }

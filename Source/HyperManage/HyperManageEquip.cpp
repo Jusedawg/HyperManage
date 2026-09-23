@@ -62,6 +62,7 @@ void AHyperManageEquip::Equip(AFGCharacterPlayer* Character)
 	Super::Equip(Character);
 	IsLocal = Character->IsLocallyControlled();
 	SetupHyperManageSystem();
+	System->Selection->RestorePersistentSlots();
 	System->AddActiveEquipment(this);
 	if (IsLocal) {
 		ManagerEquipped = true;

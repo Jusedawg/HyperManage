@@ -1,3 +1,4 @@
+#include "HyperManageSlotStore.h"
 #include "HyperManageSelection.h"
 #include "HyperManageConfig.h"
 #include "HyperManageAction.h"
@@ -464,14 +465,48 @@ void UHyperManageSelection::RestoreHistory(const FUndoInfo& Info)
 	if (IsValidActor(Info.SelectItems[1].Actor)) SetTarget(Info.SelectItems[1].Actor);
 }
 
+void UHyperManageSelection::RestorePersistentSlots()
+{
+ if (PersistentSlotsLoaded) return;
+ auto* Store = AHyperManageSlotStore::Get(System->GetWorld());
+ if (!Store) return;
+ SelectionSlots.SetNum(10);
+ for (int32 Index = 0; Index < FMath::Min(10, Store->Slots.Num()); ++Index) {
+  const auto& Saved = Store->Slots[Index]; auto& Slot = SelectionSlots[Index];
+  Slot.Name = Saved.Name.Left(24); Slot.Occupied = Saved.Occupied;
+  Slot.Actors = Saved.Actors; Slot.Anchor = Saved.Anchor; Slot.Target = Saved.Target;
+ }
+ PersistentSlotsLoaded = true;
+}
+
+void UHyperManageSelection::PersistSlot(int32 Index)
+{
+ auto* Store = AHyperManageSlotStore::Get(System->GetWorld());
+ if (!Store || !SelectionSlots.IsValidIndex(Index)) return;
+ const auto& Slot = SelectionSlots[Index];
+ FHyperManageStoredSlot Saved; Saved.Actors = Slot.Actors; Saved.Anchor = Slot.Anchor; Saved.Target = Slot.Target;
+ Saved.Name = Slot.Name; Saved.Occupied = Slot.Occupied;
+ Store->Store(Index, Saved);
+}
+
+bool UHyperManageSelection::IsSlotPersistent() const
+{
+ auto* Store = AHyperManageSlotStore::Get(System->GetWorld());
+ if (!Store || !Store->Slots.IsValidIndex(ActiveSelectionSlot) || !Store->Slots[ActiveSelectionSlot].Occupied || !SelectionSlots.IsValidIndex(ActiveSelectionSlot)) return false;
+ const auto& Slot = SelectionSlots[ActiveSelectionSlot];
+ return Slot.Occupied && AHyperManageSlotStore::CanPersist(Slot.Actors) && AHyperManageSlotStore::CanPersist({Slot.Anchor, Slot.Target});
+}
+
 bool UHyperManageSelection::SetSelectionSlotName(int32 Index, const FString& Name)
 {
  if (Index < 0 || Index >= 10) return false;
+ RestorePersistentSlots();
  FString Clean = Name.TrimStartAndEnd();
  if (Clean.Len() > 24) return false;
  for (TCHAR Character : Clean) if (FChar::IsControl(Character)) return false;
  if (SelectionSlots.Num() != 10) SelectionSlots.SetNum(10);
  SelectionSlots[Index].Name = Clean;
+ PersistSlot(Index);
  return true;
 }
 
@@ -510,6 +545,7 @@ int32 UHyperManageSelection::GetSavedSelectionCount()
 void UHyperManageSelection::SaveSelection()
 {
  if (HasPendingOperations()) return;
+ RestorePersistentSlots();
  if (SelectionSlots.Num() != 10) SelectionSlots.SetNum(10);
  auto& Slot = SelectionSlots[ActiveSelectionSlot];
  TArray<AActor*> Actors;
@@ -519,6 +555,7 @@ void UHyperManageSelection::SaveSelection()
  Slot.Anchor = AnchorActor;
  Slot.Target = TargetActor;
  Slot.Occupied = true;
+ PersistSlot(ActiveSelectionSlot);
 }
 
 UClass* UHyperManageSelection::GetSelectionType(const AActor* Actor)
