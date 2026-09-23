@@ -1,3 +1,5 @@
+#include "HyperManageDismantleReview.h"
+#include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
@@ -226,7 +228,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.66")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.67")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -601,6 +603,15 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  auto* FilterHelp = WidgetTree->ConstructWidget<UTextBlock>(); FilterHelp->SetFont(OffsetFont); FilterHelp->SetAutoWrapText(true);
  FilterHelp->SetText(FText::FromString(TEXT("Set an anchor as the type reference. Anchor and target stay selected; exact types only.")));
  FilterBody->AddChildToVerticalBox(FilterHelp); AddCollapsedSection(FilterHeading, FilterBody);
+ auto* ReviewButton = WidgetTree->ConstructWidget<UButton>();
+ ReviewButton->SetBackgroundColor(FLinearColor(0.24f, 0.27f, 0.28f));
+ auto* ReviewLabel = WidgetTree->ConstructWidget<UTextBlock>();
+ ReviewLabel->SetText(FText::FromString(TEXT("Review refunds"))); ReviewLabel->SetFont(OffsetFont);
+ ReviewLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+ ReviewButton->SetContent(ReviewLabel);
+ ReviewButton->SetToolTipText(FText::FromString(TEXT("Read-only single-player refund estimate for selected buildings, excluding the target. Includes native child buildings. Does not dismantle, change inventory or add history.")));
+ ReviewButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReviewDismantleRefunds);
+ Rows->AddChildToVerticalBox(ReviewButton)->SetPadding(FMargin(0, 4));
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -1260,4 +1271,39 @@ void UHyperManageToolWidget::RememberBlueprintSlot()
    System->UI->ShowPopup(TEXT("Blueprint anchor required"), TEXT("Set an anchor on a member of a placed blueprint, then choose Blueprint slot."));
   }
  }
+}
+
+void UHyperManageToolWidget::ReviewDismantleRefunds()
+{
+ auto* System = UHyperManageSystem::Get();
+ if (!System || !System->Selection || !System->UI) return;
+ if (System->GetWorld()->GetNetMode() != NM_Standalone) {
+  System->UI->ShowPopup(TEXT("Refund review"), TEXT("Refund review is currently available in single-player only.")); return;
+ }
+ if (System->Selection->HasPendingOperations()) {
+  System->UI->ShowPopup(TEXT("Refund review"), TEXT("Wait for building edits to finish, then retry.")); return;
+ }
+ TArray<AActor*> Actors;
+ System->Selection->SelectedActorsNoTarget(Actors);
+ auto* Controller = System->GetLocalController();
+ const auto Review = FHyperManageDismantleReviewer::Build(System->GetWorld(), Actors, System->Selection->TargetActor,
+  Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr);
+ if (!Review.Error.IsEmpty()) { System->UI->ShowPopup(TEXT("Refund review unavailable"), Review.Error); return; }
+ TMap<TSubclassOf<UFGItemDescriptor>, int64> Totals;
+ auto AddStacks = [&Totals](const TArray<FInventoryStack>& Stacks) {
+  for (const auto& Stack : Stacks) Totals.FindOrAdd(Stack.Item.GetItemClass()) += Stack.NumItems;
+ };
+ for (const auto& Entry : Review.Refunds.Actors) AddStacks(Entry.Stacks);
+ for (const auto& Entry : Review.Refunds.Instances) AddStacks(Entry.Stacks);
+ TArray<FString> Lines;
+ for (const auto& Entry : Totals) Lines.Add(FString::Printf(TEXT("%s: %lld"), *UFGItemDescriptor::GetItemName(Entry.Key).ToString(), Entry.Value));
+ Lines.Sort();
+ FString Details = FString::Printf(TEXT("Estimate only - nothing will be dismantled.\n%d standard + %d lightweight buildings; %d additional children.\n%s\n\n"),
+  Review.Refunds.Actors.Num(), Review.Refunds.Instances.Num(), Review.AddedChildren,
+  Review.Refunds.NoBuildCost ? TEXT("No build cost: construction materials excluded.") : TEXT("Construction refunds and stored contents."));
+ for (int32 Index = 0; Index < FMath::Min(Lines.Num(), 12); ++Index) Details += Lines[Index] + TEXT("\n");
+ if (Lines.Num() > 12) Details += FString::Printf(TEXT("...and %d more item types.\n"), Lines.Num() - 12);
+ if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");
+ Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle remains unavailable.");
+ System->UI->ShowPopup(TEXT("Selection refund estimate"), Details);
 }

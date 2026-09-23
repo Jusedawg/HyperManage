@@ -1,4 +1,5 @@
 #include "HyperManageDismantlePlan.h"
+#include "HyperManageDismantleReview.h"
 #include "Buildables/FGBuildable.h"
 #include "FGRecipe.h"
 #include "HyperManageDismantleRefund.h"
@@ -276,6 +277,76 @@ bool FHyperManageLightweightRefundTest::RunTest(const FString& Parameters)
  Reject(Build(), EHyperManageRefundStatus::InvalidPlan);
  Refs.Empty(); Reject(Build(), EHyperManageRefundStatus::InvalidPlan);
  Reject(FHyperManageDismantleRefunds::BuildLightweights(World, {Ref}, nullptr), EHyperManageRefundStatus::InvalidPlayer);
+ World->DestroyWorld(false);
+ return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageDismantleReviewTest, "HyperManage.Dismantle.SelectionReview", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
+{
+ UWorld* World = UWorld::CreateWorld(EWorldType::Game, false);
+ AActor* Actor = World->SpawnActor<AActor>();
+ AActor* Child = World->SpawnActor<AActor>();
+ AActor* Target = World->SpawnActor<AActor>();
+ auto* Proxy = World->SpawnActor<AHyperManageLightweightProxy>();
+ auto* Alias = World->SpawnActor<AHyperManageLightweightProxy>();
+ Proxy->Ref.BuildableClass = AFGBuildable::StaticClass(); Proxy->Ref.Index = 3;
+ Alias->Ref = Proxy->Ref;
+ FHyperManageDismantlePlan Plan;
+ Plan.Status = EHyperManageDismantlePlanStatus::Ready; Plan.OrderedActors = {Child, Actor}; Plan.AddedChildren = 1;
+ FHyperManageRefundPreview Native, Lightweight;
+ Native.Status = Lightweight.Status = EHyperManageRefundStatus::Ready;
+ Native.Actors.AddDefaulted(2); Native.Actors[0].Actor = Child; Native.Actors[1].Actor = Actor;
+ Lightweight.Instances.AddDefaulted(); Lightweight.Instances[0].Ref = Proxy->Ref;
+ int32 Plans = 0, NativeReads = 0, LightReads = 0;
+ auto PlanSource = [&](const TArray<AActor*>& Input) {
+  ++Plans; TestEqual(TEXT("Native input deduplicated"), Input.Num(), 1); return Plan;
+ };
+ auto NativeSource = [&](const FHyperManageDismantlePlan&) { ++NativeReads; return Native; };
+ auto LightSource = [&](const TArray<FHyperManageLightweightRef>& Input) {
+  ++LightReads; TestEqual(TEXT("One lightweight input"), Input.Num(), 1); return Lightweight;
+ };
+ auto Build = [&](const TArray<AActor*>& Input, AActor* Protected = nullptr) {
+  return FHyperManageDismantleReviewer::BuildWithSources(World, Input, Protected, PlanSource, NativeSource, LightSource);
+ };
+ auto Reject = [&](const FHyperManageDismantleReview& Review) {
+  TestFalse(TEXT("Failure explains why"), Review.Error.IsEmpty());
+  TestTrue(TEXT("Failure exposes no partial refunds"), Review.Refunds.Actors.IsEmpty() && Review.Refunds.Instances.IsEmpty());
+  TestTrue(TEXT("Failure is not ready"), Review.Refunds.Status != EHyperManageRefundStatus::Ready);
+ };
+ auto Review = Build({Actor, Proxy, Actor}, Target);
+ TestTrue(TEXT("Mixed selection reviewed"), Review.Error.IsEmpty() && Review.Refunds.Status == EHyperManageRefundStatus::Ready);
+ TestEqual(TEXT("Native child included"), Review.Refunds.Actors.Num(), 2);
+ TestEqual(TEXT("Lightweight included"), Review.Refunds.Instances.Num(), 1);
+ TestEqual(TEXT("Added children disclosed"), Review.AddedChildren, 1);
+ TestEqual(TEXT("One plan call"), Plans, 1);
+ NativeReads = LightReads = Plans = 0;
+ Review = Build({Proxy});
+ TestTrue(TEXT("Lightweight-only review works"), Review.Error.IsEmpty());
+ TestEqual(TEXT("No empty native plan query"), Plans, 0);
+ TestEqual(TEXT("No empty native refund query"), NativeReads, 0);
+ LightReads = 0; Review = Build({Actor});
+ TestTrue(TEXT("Native-only review works"), Review.Error.IsEmpty());
+ TestEqual(TEXT("No empty lightweight query"), LightReads, 0);
+ Reject(Build({})); Reject(Build({nullptr})); Reject(Build({Actor}, Actor)); Reject(Build({Proxy}, Alias));
+ Plan.Status = EHyperManageDismantlePlanStatus::MissingDependency;
+ NativeReads = LightReads = 0; Reject(Build({Actor, Proxy}));
+ TestEqual(TEXT("Bad plan blocks all refund queries"), NativeReads + LightReads, 0);
+ Plan.Status = EHyperManageDismantlePlanStatus::Ready;
+ Lightweight.Status = EHyperManageRefundStatus::InvalidInstance; Reject(Build({Actor, Proxy}));
+ Lightweight.Status = EHyperManageRefundStatus::Ready;
+ Native.Status = EHyperManageRefundStatus::InvalidStack; Reject(Build({Actor, Proxy})); Native.Status = EHyperManageRefundStatus::Ready;
+ Lightweight.NoBuildCost = true; Reject(Build({Actor, Proxy})); Lightweight.NoBuildCost = false;
+ // Each individual preview is within its own stack limit, but their combined result is not.
+ Native.Actors[0].Stacks.SetNum(FHyperManageDismantleRefunds::MaxStacks / 2 + 1);
+ Lightweight.Instances[0].Stacks.SetNum(FHyperManageDismantleRefunds::MaxStacks / 2 + 1);
+ Reject(Build({Actor, Proxy}));
+ Native.Actors[0].Stacks.Empty(); Lightweight.Instances[0].Stacks.Empty();
+ Plan.OrderedActors.Init(Actor, FHyperManageDismantlePlanner::MaxActors);
+ NativeReads = LightReads = 0; Reject(Build({Actor, Proxy}));
+ TestEqual(TEXT("Combined actor limit checked before refunds"), NativeReads + LightReads, 0);
+ Plan.OrderedActors = {Child, Actor};
+ Proxy->BeginRequest(); Reject(Build({Actor, Proxy}));
+ TestTrue(TEXT("Review leaves buildings intact"), IsValid(Actor) && IsValid(Child) && IsValid(Proxy));
  World->DestroyWorld(false);
  return true;
 }
