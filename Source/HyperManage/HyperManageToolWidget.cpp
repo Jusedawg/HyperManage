@@ -231,7 +231,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.71")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.72")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1354,7 +1354,7 @@ void UHyperManageToolWidget::BuildRefundDrawer(UNamedSlot* Window)
  RefundDrawerHost->SetClipping(EWidgetClipping::ClipToBounds);
  auto* HostSlot = Canvas->AddChildToCanvas(RefundDrawerHost);
  HostSlot->SetAnchors(FAnchors(1.f, 0.06f, 1.f, 0.93f)); HostSlot->SetAlignment(FVector2D(1.f, 0.f));
- HostSlot->SetOffsets(FMargin(-430, 0, 420, 0));
+ HostSlot->SetOffsets(FMargin(-388, 24, 420, 24));
  if (auto* MainSlot = Cast<UCanvasPanelSlot>(Window->Slot)) HostSlot->SetZOrder(MainSlot->GetZOrder() - 1);
  auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
  auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
@@ -1379,7 +1379,7 @@ void UHyperManageToolWidget::BuildRefundDrawer(UNamedSlot* Window)
  Rows->AddChildToVerticalBox(RefundReviewScroll)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  RefundDrawerPanel = WidgetTree->ConstructWidget<UBorder>();
  RefundDrawerPanel->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.025f, 0.032f, 0.035f, 0.90f), FVector4(24, 0, 0, 24), FLinearColor(0.10f, 0.11f, 0.12f), 14.f));
- RefundDrawerPanel->SetPadding(FMargin(18, 18, 12, 14)); RefundDrawerPanel->SetContent(Rows);
+ RefundDrawerPanel->SetPadding(FMargin(18, 18, 32, 14)); RefundDrawerPanel->SetContent(Rows);
  auto* PanelSlot = RefundDrawerHost->AddChildToCanvas(RefundDrawerPanel);
  PanelSlot->SetAnchors(FAnchors(0, 0, 1, 1)); PanelSlot->SetOffsets(FMargin(0));
  UpdateRefundDrawer(0.f, 1920.f);
@@ -1395,8 +1395,9 @@ void UHyperManageToolWidget::CloseRefundDrawer()
 void UHyperManageToolWidget::UpdateRefundDrawer(float DeltaTime, float ViewportWidth)
 {
  if (!RefundDrawerHost || !RefundDrawerPanel) return;
+ // Bridge the tray grip and tuck the drawer edge beneath its opaque rim; inset both ends.
  const float Width = FMath::Clamp(ViewportWidth - 446.f, 180.f, 420.f);
- if (auto* DrawerSlot = Cast<UCanvasPanelSlot>(RefundDrawerHost->Slot)) DrawerSlot->SetOffsets(FMargin(-430, 0, Width, 0));
+ if (auto* DrawerSlot = Cast<UCanvasPanelSlot>(RefundDrawerHost->Slot)) DrawerSlot->SetOffsets(FMargin(-388, 24, Width, 24));
  RefundDrawerProgress = FMath::Clamp(RefundDrawerProgress + (RefundDrawerOpen ? 1.f : -1.f) * FMath::Max(DeltaTime, 0.f) / 0.22f, 0.f, 1.f);
  const float Ease = RefundDrawerProgress * RefundDrawerProgress * (3.f - 2.f * RefundDrawerProgress);
  RefundDrawerPanel->SetRenderTranslation(FVector2D(Width * (1.f - Ease), 0));
