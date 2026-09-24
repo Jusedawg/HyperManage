@@ -194,7 +194,7 @@ Blueprint selection and blueprint-slot operations check every registered member 
 
 ### Review selection refunds
 
-In single-player, use **Review / Refresh refunds** in the right panel to estimate the selected buildings' dismantle returns. The target is excluded. The review combines ordinary buildings and lightweight pieces, reports additional native child buildings, and lists all item totals in a scrollable report. No buildings are removed, no items are granted, and undo history is unchanged.
+In single-player, use **Refund review** in the right panel to estimate the selected buildings' dismantle returns. The target is excluded. The review combines ordinary buildings and lightweight pieces, reports additional native child buildings, and lists all item totals in a scrollable report. No buildings are removed, no items are granted, and undo history is unchanged.
 
 The player's no-build-cost rule excludes construction materials; ordinary buildings may still report stored contents. If any part of the review fails, no partial estimate is shown. Wait for edits to finish or reselect unavailable buildings and retry. Limits are 1,024 buildings including children and 16,384 refund stacks. Refunds can change as machines run. This is an estimate, not a guarantee of dismantle eligibility; bulk dismantling remains unavailable. Multiplayer review and live refund accuracy still require validation.
 
@@ -202,4 +202,4 @@ The review also checks ordinary buildings and their added children for current d
 
 Refund review checks whether the complete batch fits in your current inventory using the game's stacking and item-acceptance rules. If it does not fit, the review reports that overflow handling would be needed; it does not calculate an exact overflow split or create a crate. Capacity checks are skipped above 256 returned stack entries or 100,000 items to avoid a long scan. Missing inventory reports capacity unavailable. Nothing is added or removed, and capacity may change after the review.
 
-The refund report stays inside a collapsible section of the right panel. Scroll inside it to read every item and warning. **Review / Refresh refunds** replaces the report using your current selection and inventory; the time shown is the last refresh, not a live feed. A failed refresh replaces old totals with the error. The report is not saved with the game.
+The refund report slides left from behind the main tool tray in a separate matching panel. It starts closed and has its own scrollbar, **Refresh** button and **X** close button. Closing the report leaves the main tray open. Refresh replaces the report using your current selection and inventory; the time shown is the last refresh, not a live feed. A failed refresh replaces old totals with the error. The report is not saved with the game.

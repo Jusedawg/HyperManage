@@ -1,3 +1,4 @@
+#include "Components/Border.h"
 #include "HyperManageSlotStore.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
 #include "Serialization/MemoryWriter.h"
@@ -295,17 +296,35 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Snap Z is visible"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Snap Z\n")); }));
 	TestTrue(TEXT("Icon-only level has an identifying tooltip"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.StartsWith(TEXT("Level\n")); }));
  TestNotNull(TEXT("Refund review report exists"), Tools->RefundReviewText.Get());
- TestFalse(TEXT("Refund report starts collapsed"), Tools->RefundReviewArea->GetIsExpanded());
+ TestTrue(TEXT("Refund drawer starts hidden"), Tools->RefundDrawerHost->GetVisibility() == ESlateVisibility::Collapsed);
  FString LongReport;
  for (int32 Index = 0; Index < 40; ++Index) LongReport += FString::Printf(TEXT("Refund row %d\n"), Index);
  Tools->SetRefundReviewReport(LongReport);
- TestTrue(TEXT("Review expands after refresh"), Tools->RefundReviewArea->GetIsExpanded());
+ TestTrue(TEXT("Review opens after refresh"), Tools->RefundDrawerOpen);
+ Tools->UpdateRefundDrawer(0.11f, 1920.f);
+ TestTrue(TEXT("Drawer is partway through its slide"), Tools->RefundDrawerPanel->GetRenderTransform().Translation.X > 0.f);
+ Tools->UpdateRefundDrawer(1.f, 1920.f);
+ TestTrue(TEXT("Open drawer reaches its dock"), FMath::IsNearlyZero(Tools->RefundDrawerPanel->GetRenderTransform().Translation.X));
+ TestTrue(TEXT("Drawer is a sibling of main tray, not inside its scroll area"), Tools->RefundDrawerHost->GetParent() == Window->GetParent());
+ const auto* DrawerSlot = Cast<UCanvasPanelSlot>(Tools->RefundDrawerHost->Slot);
+ TestTrue(TEXT("Drawer renders behind main tray"), DrawerSlot->GetZOrder() < Cast<UCanvasPanelSlot>(Window->Slot)->GetZOrder());
+ Tools->UpdateRefundDrawer(0.f, 720.f);
+ TestTrue(TEXT("Drawer width leaves room for the main tray on smaller canvases"), DrawerSlot->GetOffsets().Right <= 274.f);
+ Tools->UpdateRefundDrawer(0.f, 1920.f);
+ TestTrue(TEXT("Retracted content is clipped"), Tools->RefundDrawerHost->GetClipping() == EWidgetClipping::ClipToBounds);
+ Tools->CloseRefundDrawer();
+ TestTrue(TEXT("Closing drawer immediately releases hit testing"), Tools->RefundDrawerPanel->GetVisibility() == ESlateVisibility::HitTestInvisible);
+ Tools->UpdateRefundDrawer(1.f, 1920.f);
+ TestTrue(TEXT("Drawer fully hides after retraction"), Tools->RefundDrawerHost->GetVisibility() == ESlateVisibility::Collapsed);
+ TestTrue(TEXT("Closing report keeps main tray attached"), Window->GetParent() == Root);
+ TestTrue(TEXT("Drawer provides its own refresh control"), Labels.Contains(TEXT("Refresh")));
+ Tools->SetRefundReviewReport(LongReport);
  TestTrue(TEXT("Long report retains its last row"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row 39")));
  Tools->SetRefundReviewReport(TEXT("Review unavailable"));
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
-	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Review / Refresh refunds")));
+	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.70")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.71")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

@@ -72,7 +72,13 @@ protected:
  UPROPERTY(Transient) TObjectPtr<UButton> BlueprintSlotButton;
  UFUNCTION() void RememberBlueprintSlot();
  UFUNCTION() void ReviewDismantleRefunds();
- UPROPERTY(Transient) TObjectPtr<class UExpandableArea> RefundReviewArea;
+ UPROPERTY(Transient) TObjectPtr<class UCanvasPanel> RefundDrawerHost;
+ UPROPERTY(Transient) TObjectPtr<class UBorder> RefundDrawerPanel;
+ bool RefundDrawerOpen = false;
+ float RefundDrawerProgress = 0.f;
+ void BuildRefundDrawer(class UNamedSlot* Window);
+ void UpdateRefundDrawer(float DeltaTime, float ViewportWidth);
+ UFUNCTION() void CloseRefundDrawer();
  UPROPERTY(Transient) TObjectPtr<class UScrollBox> RefundReviewScroll;
  UPROPERTY(Transient) TObjectPtr<class UTextBlock> RefundReviewText;
  void SetRefundReviewReport(const FString& Report);

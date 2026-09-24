@@ -201,6 +201,8 @@ void UHyperManageToolWidget::NativeConstruct()
 
 void UHyperManageToolWidget::CloseTools()
 {
+ CloseRefundDrawer();
+ if (RefundDrawerHost) RefundDrawerHost->SetVisibility(ESlateVisibility::Collapsed);
 	OnEscapePressed();
 }
 
@@ -229,7 +231,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.70")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.71")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -607,33 +609,12 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  auto* ReviewButton = WidgetTree->ConstructWidget<UButton>();
  ReviewButton->SetBackgroundColor(FLinearColor(0.24f, 0.27f, 0.28f));
  auto* ReviewLabel = WidgetTree->ConstructWidget<UTextBlock>();
- ReviewLabel->SetText(FText::FromString(TEXT("Review / Refresh refunds"))); ReviewLabel->SetFont(OffsetFont);
+ ReviewLabel->SetText(FText::FromString(TEXT("Refund review"))); ReviewLabel->SetFont(OffsetFont);
  ReviewLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
  ReviewButton->SetContent(ReviewLabel);
  ReviewButton->SetToolTipText(FText::FromString(TEXT("Read-only single-player refund estimate for selected buildings, excluding the target. Includes native child buildings. Does not dismantle, change inventory or add history.")));
  ReviewButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReviewDismantleRefunds);
  Rows->AddChildToVerticalBox(ReviewButton)->SetPadding(FMargin(0, 4));
- RefundReviewArea = WidgetTree->ConstructWidget<UExpandableArea>(); StyleExpansionArrow(RefundReviewArea);
- auto* ReviewHeading = WidgetTree->ConstructWidget<UTextBlock>();
- ReviewHeading->SetText(FText::FromString(TEXT("REFUND REVIEW (snapshot)"))); ReviewHeading->SetFont(OffsetFont);
- ReviewHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
- RefundReviewText = WidgetTree->ConstructWidget<UTextBlock>();
- auto ReviewFont = OffsetFont; ReviewFont.Size = 13; RefundReviewText->SetFont(ReviewFont);
- RefundReviewText->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
- RefundReviewText->SetAutoWrapText(true);
- RefundReviewText->SetText(FText::FromString(TEXT("Choose Review / Refresh refunds to inspect the current selection.")));
- RefundReviewScroll = WidgetTree->ConstructWidget<UScrollBox>();
- RefundReviewScroll->SetAlwaysShowScrollbar(true); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);
- RefundReviewScroll->AddChild(RefundReviewText);
- auto* ReviewSize = WidgetTree->ConstructWidget<USizeBox>(); ReviewSize->SetHeightOverride(300); ReviewSize->SetContent(RefundReviewScroll);
- auto* ReviewBackground = WidgetTree->ConstructWidget<UBorder>();
- ReviewBackground->SetBrushColor(FLinearColor(0.045f, 0.05f, 0.055f, 0.95f));
- ReviewBackground->SetPadding(FMargin(8)); ReviewBackground->SetContent(ReviewSize);
- RefundReviewArea->SetContentForSlot(TEXT("Header"), ReviewHeading);
- RefundReviewArea->SetContentForSlot(TEXT("Body"), ReviewBackground);
- RefundReviewArea->SetIsExpanded(false); RefundReviewArea->SetHeaderPadding(FMargin(0, 4));
- RefundReviewArea->SetToolTipText(FText::FromString(TEXT("Snapshot only. Refresh after changing selection, buildings or inventory. Scroll inside this report to read all items and warnings. No dismantling or inventory changes.")));
- Rows->AddChildToVerticalBox(RefundReviewArea)->SetPadding(FMargin(0, 0, 0, 4));
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
 	Rows->AddChildToVerticalBox(QuickActionHost);
 	auto* Body = WidgetTree->ConstructWidget<USizeBox>();
@@ -797,6 +778,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		CanvasSlot->SetAlignment(FVector2D(1.f, 0.f));
 		CanvasSlot->SetOffsets(FMargin(0, 0, 430, 0));
 	}
+ BuildRefundDrawer(Window);
 
 }
 
@@ -805,6 +787,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	Super::NativeTick(Geometry, DeltaTime);
 	TrayOpenTime = FMath::Min(TrayOpenTime + DeltaTime, 0.2f);
 	if (DockedTray) DockedTray->SetRenderTranslation(FVector2D(430.f * FMath::Square(1.f - TrayOpenTime / 0.2f), 0));
+ if (DockedTray) {
+  const auto* Parent = DockedTray->GetParent();
+  const float Width = Parent ? Parent->GetCachedGeometry().GetLocalSize().X : 0.f;
+  UpdateRefundDrawer(DeltaTime, Width > 0.f ? Width : 1920.f);
+ }
 	auto* System = UHyperManageSystem::Get();
 	if (!System || !System->Config) return;
  if (System->Selection && SelectionSlotStatus) {
@@ -1347,9 +1334,73 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
 
 void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
 {
- if (!RefundReviewText || !RefundReviewArea || !RefundReviewScroll) return;
+ if (!RefundReviewText || !RefundDrawerHost || !RefundReviewScroll) return;
  const FString Header = FString::Printf(TEXT("Updated %s\nRefresh after selection or inventory changes.\n\n"), *FDateTime::Now().ToString(TEXT("%H:%M:%S")));
  RefundReviewText->SetText(FText::FromString(Header + Report));
- RefundReviewArea->SetIsExpanded(true);
+ RefundDrawerOpen = true;
+ RefundDrawerHost->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+ if (RefundDrawerPanel) RefundDrawerPanel->SetVisibility(ESlateVisibility::Visible);
  RefundReviewScroll->ScrollToStart();
+}
+
+void UHyperManageToolWidget::BuildRefundDrawer(UNamedSlot* Window)
+{
+ auto* Canvas = Cast<UCanvasPanel>(Window->GetParent());
+ if (!Canvas) return;
+ if (RefundDrawerHost) RefundDrawerHost->RemoveFromParent();
+ RefundDrawerOpen = false; RefundDrawerProgress = 0.f;
+ RefundDrawerHost = WidgetTree->ConstructWidget<UCanvasPanel>();
+ // The sleeve clips the retracted panel rather than showing it through the translucent tray.
+ RefundDrawerHost->SetClipping(EWidgetClipping::ClipToBounds);
+ auto* HostSlot = Canvas->AddChildToCanvas(RefundDrawerHost);
+ HostSlot->SetAnchors(FAnchors(1.f, 0.06f, 1.f, 0.93f)); HostSlot->SetAlignment(FVector2D(1.f, 0.f));
+ HostSlot->SetOffsets(FMargin(-430, 0, 420, 0));
+ if (auto* MainSlot = Cast<UCanvasPanelSlot>(Window->Slot)) HostSlot->SetZOrder(MainSlot->GetZOrder() - 1);
+ auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
+ auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
+ auto MakeLabel = [&](const TCHAR* Text, int32 Size) {
+  auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Text));
+  auto Font = Label->GetFont(); Font.Size = Size; Label->SetFont(Font);
+  Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f))); return Label;
+ };
+ Header->AddChildToHorizontalBox(MakeLabel(TEXT("REFUND REVIEW"), 15))->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+ auto* Refresh = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(Refresh); Refresh->SetContent(MakeLabel(TEXT("Refresh"), 12));
+ Refresh->SetToolTipText(FText::FromString(TEXT("Recalculate the current selection and inventory. This does not dismantle anything.")));
+ Refresh->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ReviewDismantleRefunds);
+ Header->AddChildToHorizontalBox(Refresh)->SetPadding(FMargin(4, 0));
+ auto* Close = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(Close); Close->SetContent(MakeLabel(TEXT("X"), 14));
+ Close->SetToolTipText(FText::FromString(TEXT("Retract refund review; keep the main tool tray open.")));
+ Close->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CloseRefundDrawer); Header->AddChildToHorizontalBox(Close);
+ Rows->AddChildToVerticalBox(Header)->SetPadding(FMargin(0, 0, 0, 8));
+ RefundReviewText = MakeLabel(TEXT("Refresh to inspect the current selection."), 13); RefundReviewText->SetAutoWrapText(true);
+ RefundReviewScroll = WidgetTree->ConstructWidget<UScrollBox>();
+ RefundReviewScroll->SetAlwaysShowScrollbar(true); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);
+ RefundReviewScroll->AddChild(RefundReviewText);
+ Rows->AddChildToVerticalBox(RefundReviewScroll)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+ RefundDrawerPanel = WidgetTree->ConstructWidget<UBorder>();
+ RefundDrawerPanel->SetBrush(FSlateRoundedBoxBrush(FLinearColor(0.025f, 0.032f, 0.035f, 0.90f), FVector4(24, 0, 0, 24), FLinearColor(0.10f, 0.11f, 0.12f), 14.f));
+ RefundDrawerPanel->SetPadding(FMargin(18, 18, 12, 14)); RefundDrawerPanel->SetContent(Rows);
+ auto* PanelSlot = RefundDrawerHost->AddChildToCanvas(RefundDrawerPanel);
+ PanelSlot->SetAnchors(FAnchors(0, 0, 1, 1)); PanelSlot->SetOffsets(FMargin(0));
+ UpdateRefundDrawer(0.f, 1920.f);
+}
+
+void UHyperManageToolWidget::CloseRefundDrawer()
+{
+ RefundDrawerOpen = false;
+ // Immediately release report hit testing; visual retraction continues on subsequent ticks.
+ if (RefundDrawerPanel) RefundDrawerPanel->SetVisibility(ESlateVisibility::HitTestInvisible);
+}
+
+void UHyperManageToolWidget::UpdateRefundDrawer(float DeltaTime, float ViewportWidth)
+{
+ if (!RefundDrawerHost || !RefundDrawerPanel) return;
+ const float Width = FMath::Clamp(ViewportWidth - 446.f, 180.f, 420.f);
+ if (auto* DrawerSlot = Cast<UCanvasPanelSlot>(RefundDrawerHost->Slot)) DrawerSlot->SetOffsets(FMargin(-430, 0, Width, 0));
+ RefundDrawerProgress = FMath::Clamp(RefundDrawerProgress + (RefundDrawerOpen ? 1.f : -1.f) * FMath::Max(DeltaTime, 0.f) / 0.22f, 0.f, 1.f);
+ const float Ease = RefundDrawerProgress * RefundDrawerProgress * (3.f - 2.f * RefundDrawerProgress);
+ RefundDrawerPanel->SetRenderTranslation(FVector2D(Width * (1.f - Ease), 0));
+ RefundDrawerPanel->SetVisibility(RefundDrawerOpen ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
+ RefundDrawerHost->SetVisibility(!RefundDrawerOpen && RefundDrawerProgress <= 0.f ? ESlateVisibility::Collapsed : ESlateVisibility::SelfHitTestInvisible);
+ if (DockedTray) RefundDrawerHost->SetRenderTranslation(DockedTray->GetRenderTransform().Translation);
 }
