@@ -34,6 +34,14 @@
 #include "Components/EditableTextBox.h"
 
 namespace {
+void StylePanelScrollbar(UScrollBox* Scroll)
+{
+ auto Style = Scroll->GetWidgetBarStyle();
+ Style.NormalThumbImage.TintColor = FSlateColor(FLinearColor(0.34f, 0.30f, 0.23f));
+ Style.HoveredThumbImage.TintColor = FSlateColor(FLinearColor(0.48f, 0.42f, 0.32f));
+ Style.DraggedThumbImage.TintColor = FSlateColor(FLinearColor(0.58f, 0.50f, 0.38f));
+ Scroll->SetWidgetBarStyle(Style);
+}
 void StyleExpansionArrow(UExpandableArea* Area)
 {
  auto Style = Area->GetStyle();
@@ -231,7 +239,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.72")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.73")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -745,7 +753,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	Rows->AddChildToVerticalBox(Body);
 	Frame->SetContent(Rows);
 	auto* Scroll = WidgetTree->ConstructWidget<UScrollBox>();
-	Scroll->SetAlwaysShowScrollbar(true);
+	Scroll->SetAlwaysShowScrollbar(true); StylePanelScrollbar(Scroll);
 	// Wheel input belongs to the hovered transform buttons; use the scroll rail to navigate the tray.
 	Scroll->SetWheelScrollMultiplier(0.f); Scroll->SetConsumeMouseWheel(EConsumeMouseWheel::Never);
 	Scroll->AddChild(Frame);
@@ -1374,7 +1382,7 @@ void UHyperManageToolWidget::BuildRefundDrawer(UNamedSlot* Window)
  Rows->AddChildToVerticalBox(Header)->SetPadding(FMargin(0, 0, 0, 8));
  RefundReviewText = MakeLabel(TEXT("Refresh to inspect the current selection."), 13); RefundReviewText->SetAutoWrapText(true);
  RefundReviewScroll = WidgetTree->ConstructWidget<UScrollBox>();
- RefundReviewScroll->SetAlwaysShowScrollbar(true); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);
+ RefundReviewScroll->SetAlwaysShowScrollbar(true); StylePanelScrollbar(RefundReviewScroll); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);
  RefundReviewScroll->AddChild(RefundReviewText);
  Rows->AddChildToVerticalBox(RefundReviewScroll)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  RefundDrawerPanel = WidgetTree->ConstructWidget<UBorder>();

@@ -324,7 +324,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.72")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.73")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
