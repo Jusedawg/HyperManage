@@ -82,6 +82,11 @@ protected:
  UPROPERTY(Transient) TObjectPtr<class UScrollBox> RefundReviewScroll;
  UPROPERTY(Transient) TObjectPtr<class UTextBlock> RefundReviewText;
  void SetRefundReviewReport(const FString& Report);
+ TSet<TWeakObjectPtr<AActor>> ReviewedSelection;
+ TWeakObjectPtr<AActor> ReviewedTarget;
+ bool TrackRefundSelection = false;
+ void CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target);
+ void CheckRefundSelection(const TArray<AActor*>& Actors, AActor* Target, bool Pending);
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;
 	UPROPERTY(Transient) TObjectPtr<class UExpandableArea> HistoryArea;

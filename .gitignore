@@ -94,3 +94,6 @@ Research/Suite/
 # Local documentation workspace
 /Docs/
 /docs/
+
+# Local deployment backups
+/LocalBackups/

@@ -320,11 +320,34 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("Drawer provides its own refresh control"), Labels.Contains(TEXT("Refresh")));
  Tools->SetRefundReviewReport(LongReport);
  TestTrue(TEXT("Long report retains its last row"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row 39")));
+ auto* ReviewWorld = UWorld::CreateWorld(EWorldType::Game, false);
+ auto* ReviewA = ReviewWorld->SpawnActor<AActor>();
+ auto* ReviewB = ReviewWorld->SpawnActor<AActor>();
+ Tools->CaptureRefundSelection({ReviewA, ReviewB}, nullptr);
+ Tools->CheckRefundSelection({ReviewB, ReviewA}, nullptr, false);
+ TestTrue(TEXT("Selection order does not invalidate a review"), Tools->TrackRefundSelection);
+ Tools->CheckRefundSelection({ReviewA}, nullptr, false);
+ TestTrue(TEXT("Membership changes replace old totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Review out of date")));
+ TestFalse(TEXT("Outdated review drops its tracking state"), Tools->TrackRefundSelection);
+ Tools->SetRefundReviewReport(LongReport);
+ Tools->CaptureRefundSelection({ReviewA}, nullptr);
+ Tools->CloseRefundDrawer();
+ Tools->CheckRefundSelection({ReviewA}, ReviewB, false);
+ TestFalse(TEXT("Target change does not reopen a closed drawer"), Tools->RefundDrawerOpen);
+ TestFalse(TEXT("Target change invalidates the review"), Tools->TrackRefundSelection);
+ Tools->CaptureRefundSelection({ReviewA}, nullptr);
+ Tools->CheckRefundSelection({ReviewA}, nullptr, true);
+ TestFalse(TEXT("Pending edits invalidate the review"), Tools->TrackRefundSelection);
+ Tools->CaptureRefundSelection({ReviewA}, nullptr);
+ ReviewA->Destroy();
+ Tools->CheckRefundSelection({ReviewA}, nullptr, false);
+ TestFalse(TEXT("Unavailable reviewed actor invalidates the review"), Tools->TrackRefundSelection);
+ ReviewWorld->DestroyWorld(false);
  Tools->SetRefundReviewReport(TEXT("Review unavailable"));
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.73")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.74")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
