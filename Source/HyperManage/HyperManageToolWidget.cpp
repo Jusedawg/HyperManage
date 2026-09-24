@@ -239,7 +239,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.74")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.75")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -804,7 +804,7 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
  if (TrackRefundSelection && System && System->Selection) {
   TArray<AActor*> Actors;
   System->Selection->SelectedActorsNoTarget(Actors);
-  CheckRefundSelection(Actors, System->Selection->TargetActor, System->Selection->HasPendingOperations());
+  CheckRefundSelection(Actors, System->Selection->TargetActor, System->Selection->HasPendingOperations(), System->Undo ? System->Undo->GetRevision() : 0);
  }
 	if (!System || !System->Config) return;
  if (System->Selection && SelectionSlotStatus) {
@@ -1343,29 +1343,33 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");
  Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle remains unavailable.");
  SetRefundReviewReport(Details);
- CaptureRefundSelection(Actors, System->Selection->TargetActor);
+ CaptureRefundSelection(Actors, System->Selection->TargetActor, System->Undo ? System->Undo->GetRevision() : 0);
 }
 
-void UHyperManageToolWidget::CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target)
+void UHyperManageToolWidget::CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision)
 {
  ReviewedSelection.Reset();
- for (auto* Actor : Actors) ReviewedSelection.Add(Actor);
+ for (auto* Actor : Actors) ReviewedSelection.Add(Actor, IsValid(Actor) ? Actor->GetActorTransform() : FTransform::Identity);
+ ReviewedEditRevision = EditRevision;
  ReviewedTarget = Target;
  TrackRefundSelection = true;
 }
 
-void UHyperManageToolWidget::CheckRefundSelection(const TArray<AActor*>& Actors, AActor* Target, bool Pending)
+void UHyperManageToolWidget::CheckRefundSelection(const TArray<AActor*>& Actors, AActor* Target, bool Pending, uint64 EditRevision)
 {
  if (!TrackRefundSelection) return;
  TSet<TWeakObjectPtr<AActor>> Current;
  for (auto* Actor : Actors) Current.Add(Actor);
- bool Changed = Pending || ReviewedTarget != TWeakObjectPtr<AActor>(Target) || Current.Num() != ReviewedSelection.Num();
- for (const auto& Actor : ReviewedSelection) Changed |= !Actor.IsValid() || !Current.Contains(Actor);
+ bool Changed = Pending || EditRevision != ReviewedEditRevision || ReviewedTarget.IsStale() || ReviewedTarget != TWeakObjectPtr<AActor>(Target) || Current.Num() != ReviewedSelection.Num();
+ for (const auto& Entry : ReviewedSelection) {
+  const auto& Actor = Entry.Key;
+  Changed |= !Actor.IsValid() || !Current.Contains(Actor) || (Actor.IsValid() && !Actor->GetActorTransform().Equals(Entry.Value, 0.01));
+ }
  if (!Changed) return;
  TrackRefundSelection = false;
  ReviewedSelection.Reset(); ReviewedTarget.Reset();
  // Replace old totals without reopening a closed drawer or disturbing its scroll position.
- if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\nSelection or target changed, or a building edit is pending. Refresh to review the current group.\n\nInventory and machine contents also require a fresh review.")));
+ if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\nSelection, target or building transforms changed, or edit history was updated. Refresh to review the current group.\n\nInventory and machine contents also require a fresh review.")));
 }
 
 void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
