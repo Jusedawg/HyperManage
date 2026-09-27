@@ -83,10 +83,11 @@ protected:
  UPROPERTY(Transient) TObjectPtr<class UTextBlock> RefundReviewText;
  void SetRefundReviewReport(const FString& Report);
  TMap<TWeakObjectPtr<AActor>, FTransform> ReviewedSelection;
+ TMap<TWeakObjectPtr<AActor>, FTransform> ReviewedChildren;
  uint64 ReviewedEditRevision = 0;
  TWeakObjectPtr<AActor> ReviewedTarget;
  bool TrackRefundSelection = false;
- void CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision = 0);
+ void CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision = 0, const TArray<AActor*>& Related = {});
  void CheckRefundSelection(const TArray<AActor*>& Actors, AActor* Target, bool Pending, uint64 EditRevision = 0);
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;
 	UPROPERTY(Transient) TObjectPtr<UButton> RedoButton;

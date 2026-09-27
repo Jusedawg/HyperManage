@@ -349,6 +349,21 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  MovingReviewActor->SetActorLocation(FVector(100, 200, 300));
  Tools->CheckRefundSelection({MovingReviewActor}, nullptr, false);
  TestFalse(TEXT("External transform changes invalidate the review"), Tools->TrackRefundSelection);
+ Tools->CaptureRefundSelection({ReviewA}, nullptr, 0, {ReviewA, MovingReviewActor, MovingReviewActor});
+ TestEqual(TEXT("Related children exclude selection and deduplicate"), Tools->ReviewedChildren.Num(), 1);
+ Tools->CheckRefundSelection({ReviewA}, nullptr, false);
+ TestTrue(TEXT("Unselected child does not invalidate unchanged selection"), Tools->TrackRefundSelection);
+ MovingReviewActor->SetActorLocation(FVector(400, 500, 600));
+ Tools->CheckRefundSelection({ReviewA}, nullptr, false);
+ TestFalse(TEXT("Moving an included child invalidates old totals"), Tools->TrackRefundSelection);
+ TestTrue(TEXT("Invalidation releases related child snapshots"), Tools->ReviewedChildren.IsEmpty());
+ Tools->CaptureRefundSelection({ReviewA}, nullptr, 0, {MovingReviewActor});
+ MovingReviewActor->Destroy();
+ Tools->CheckRefundSelection({ReviewA}, nullptr, false);
+ TestFalse(TEXT("Removing an included child invalidates old totals"), Tools->TrackRefundSelection);
+ Tools->CaptureRefundSelection({ReviewA}, nullptr, 0, {ReviewB});
+ Tools->SetRefundReviewReport(TEXT("Review unavailable"));
+ TestTrue(TEXT("Failed refresh clears related child snapshots"), Tools->ReviewedChildren.IsEmpty());
  Tools->CaptureRefundSelection({ReviewA}, ReviewB);
  ReviewB->Destroy();
  Tools->CheckRefundSelection({ReviewA}, ReviewB, false);
@@ -362,7 +377,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.78")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.79")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

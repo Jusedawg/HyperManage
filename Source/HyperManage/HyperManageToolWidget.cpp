@@ -239,7 +239,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.78")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.79")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1348,13 +1348,18 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");
  Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle remains unavailable.");
  SetRefundReviewReport(Details);
- CaptureRefundSelection(Actors, System->Selection->TargetActor, System->Undo ? System->Undo->GetRevision() : 0);
+ TArray<AActor*> Related;
+ for (const auto& Entry : Review.Refunds.Actors) Related.Add(Entry.Actor.Get());
+ CaptureRefundSelection(Actors, System->Selection->TargetActor, System->Undo ? System->Undo->GetRevision() : 0, Related);
 }
 
-void UHyperManageToolWidget::CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision)
+void UHyperManageToolWidget::CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision, const TArray<AActor*>& Related)
 {
  ReviewedSelection.Reset();
  for (auto* Actor : Actors) ReviewedSelection.Add(Actor, IsValid(Actor) ? Actor->GetActorTransform() : FTransform::Identity);
+ ReviewedChildren.Reset();
+ for (auto* Actor : Related) if (!ReviewedSelection.Contains(Actor))
+  ReviewedChildren.Add(Actor, IsValid(Actor) ? Actor->GetActorTransform() : FTransform::Identity);
  ReviewedEditRevision = EditRevision;
  ReviewedTarget = Target;
  TrackRefundSelection = true;
@@ -1370,16 +1375,20 @@ void UHyperManageToolWidget::CheckRefundSelection(const TArray<AActor*>& Actors,
   const auto& Actor = Entry.Key;
   Changed |= !Actor.IsValid() || !Current.Contains(Actor) || (Actor.IsValid() && !Actor->GetActorTransform().Equals(Entry.Value, 0.01));
  }
+ for (const auto& Entry : ReviewedChildren) {
+  const auto& Actor = Entry.Key;
+  Changed |= !Actor.IsValid() || (Actor.IsValid() && !Actor->GetActorTransform().Equals(Entry.Value, 0.01));
+ }
  if (!Changed) return;
  TrackRefundSelection = false;
- ReviewedSelection.Reset(); ReviewedTarget.Reset();
+ ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  // Replace old totals without reopening a closed drawer or disturbing its scroll position.
- if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\nSelection, target or building transforms changed, or edit history was updated. Refresh to review the current group.\n\nInventory and machine contents also require a fresh review.")));
+ if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\nSelection, target, reviewed buildings or included children changed, or edit history was updated. Refresh to review the current group.\n\nInventory and machine contents also require a fresh review.")));
 }
 
 void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
 {
- TrackRefundSelection = false; ReviewedSelection.Reset(); ReviewedTarget.Reset();
+ TrackRefundSelection = false; ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  if (!RefundReviewText || !RefundDrawerHost || !RefundReviewScroll) return;
  const FString Header = FString::Printf(TEXT("Updated %s\nRefresh after selection or inventory changes.\n\n"), *FDateTime::Now().ToString(TEXT("%H:%M:%S")));
  RefundReviewText->SetText(FText::FromString(Header + Report));
