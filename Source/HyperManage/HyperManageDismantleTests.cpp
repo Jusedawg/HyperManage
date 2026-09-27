@@ -2,6 +2,7 @@
 #include "HyperManageDismantlePlan.h"
 #include "HyperManageDismantleReview.h"
 #include "Buildables/FGBuildable.h"
+#include "FGBuildableBeam.h"
 #include "FGRecipe.h"
 #include "HyperManageDismantleRefund.h"
 #include "FGPlayerState.h"
@@ -360,6 +361,25 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("No empty lightweight query"), LightReads, 0);
  Reject(Build({})); Reject(Build({nullptr})); Reject(Build({Actor}, Actor)); Reject(Build({Proxy}, Alias));
  Plan.Status = EHyperManageDismantlePlanStatus::MissingDependency;
+ Plan.ProblemActor = Actor; Plan.RequiredActor = Child;
+ Review = Build({Actor, Proxy});
+ TestTrue(TEXT("Missing dependency identifies both building locations"), Review.Error.Contains(TEXT("Building:")) && Review.Error.Contains(TEXT("Required:")) && Review.Error.Contains(TEXT("world m:")));
+ TestTrue(TEXT("Recovery instructions respect modal panel input"), Review.Error.Contains(TEXT("Close the panel")));
+ TestFalse(TEXT("Diagnostics do not expose internal object names"), Review.Error.Contains(Actor->GetPathName()));
+ auto* NamedBuilding = World->SpawnActor<AFGBuildableBeam>();
+ if (!TestNotNull(TEXT("Named building fixture created"), NamedBuilding)) { World->DestroyWorld(false); return false; }
+ NamedBuilding->mDisplayName = FText::FromString(TEXT("Example constructor"));
+ Plan.RequiredActor = NamedBuilding;
+ TestTrue(TEXT("Player-facing building name is shown"), Build({Actor, Proxy}).Error.Contains(TEXT("Example constructor")));
+ Plan.Status = EHyperManageDismantlePlanStatus::ProtectedTarget;
+ TestTrue(TEXT("Protected dependency is identified"), Build({Actor, Proxy}).Error.Contains(TEXT("Protected: Example constructor")));
+ Plan.Status = EHyperManageDismantlePlanStatus::TooManyActors;
+ TestTrue(TEXT("Expanded group limit has a distinct explanation"), Build({Actor, Proxy}).Error.Contains(TEXT("1,024")));
+ Plan.Status = EHyperManageDismantlePlanStatus::DependencyCycle;
+ TestTrue(TEXT("Cycle has a distinct explanation"), Build({Actor, Proxy}).Error.Contains(TEXT("dependency cycle")));
+ Plan.Status = EHyperManageDismantlePlanStatus::MissingDependency;
+ NamedBuilding->Destroy();
+ TestTrue(TEXT("Unavailable dependency is safe to describe"), Build({Actor, Proxy}).Error.Contains(TEXT("Unavailable building")));
  NativeReads = LightReads = 0; Reject(Build({Actor, Proxy}));
  TestEqual(TEXT("Bad plan blocks all refund queries"), NativeReads + LightReads, 0);
  Plan.Status = EHyperManageDismantlePlanStatus::Ready;

@@ -1,4 +1,5 @@
 #include "HyperManageDismantleReview.h"
+#include "Buildables/FGBuildable.h"
 #include "Engine/World.h"
 #include "FGPlayerState.h"
 #include "FGDismantleInterface.h"
@@ -36,10 +37,39 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
   });
 }
 
+FString FHyperManageDismantleReviewer::DescribePlanFailure(const FHyperManageDismantlePlan& Plan)
+{
+ auto Describe = [](const TWeakObjectPtr<AActor>& Actor) -> FString
+ {
+  if (!Actor.IsValid()) return TEXT("Unavailable building");
+  const auto* Buildable = Cast<AFGBuildable>(Actor.Get());
+  const FString Name = Buildable && !Buildable->mDisplayName.IsEmpty() ? Buildable->mDisplayName.ToString() : TEXT("Building");
+  const FVector Position = Actor->GetActorLocation() / 100.0;
+  return FString::Printf(TEXT("%s (world m: X %.1f, Y %.1f, Z %.1f)"), *Name, Position.X, Position.Y, Position.Z);
+ };
+ switch (Plan.Status)
+ {
+  case EHyperManageDismantlePlanStatus::MissingDependency:
+   return FString::Printf(TEXT("A building requires an unselected dependency.\nBuilding: %s\nRequired: %s\n\nClose the panel, select the required building, then refresh. Nothing was added automatically."), *Describe(Plan.ProblemActor), *Describe(Plan.RequiredActor));
+  case EHyperManageDismantlePlanStatus::ProtectedTarget:
+   return FString::Printf(TEXT("A child or dependency is the protected target.\nProtected: %s\n\nChange the target or selection, then refresh."), *Describe(Plan.RequiredActor.IsValid() ? Plan.RequiredActor : Plan.ProblemActor));
+  case EHyperManageDismantlePlanStatus::TooManyActors:
+   return TEXT("The group exceeds 1,024 buildings after including children. Review a smaller selection.");
+  case EHyperManageDismantlePlanStatus::DependencyCycle:
+   return TEXT("The group contains a dependency cycle and cannot be safely ordered. Review a smaller independent group; if the cycle remains, this group is unsupported.");
+  case EHyperManageDismantlePlanStatus::UnsupportedActor:
+   return FString::Printf(TEXT("This building does not support the current review path:\n%s\n\nExclude it and refresh. No partial estimate is shown."), *Describe(Plan.ProblemActor));
+  case EHyperManageDismantlePlanStatus::InvalidActor:
+   return TEXT("A building or related dependency is unavailable. Reselect the group and refresh. No partial estimate is shown.");
+  default:
+   return TEXT("The full building group could not be reviewed. Reselect the group and refresh.");
+ }
+}
+
 FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWorld* World,
  const TArray<AActor*>& Selection, AActor* Target, FPlan PlanNative, FNative ReadNative, FLightweight ReadLightweight, FEligibility ReadEligibility)
 {
- auto Fail = [](const TCHAR* Error)
+ auto Fail = [](const FString& Error)
  {
   FHyperManageDismantleReview Result; Result.Error = Error; return Result;
  };
@@ -70,14 +100,7 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWor
  if (!Actors.IsEmpty())
  {
   Plan = PlanNative(Actors);
-  if (Plan.Status != EHyperManageDismantlePlanStatus::Ready)
-  {
-   if (Plan.Status == EHyperManageDismantlePlanStatus::MissingDependency)
-    return Fail(TEXT("A building requires an unselected dependency. Select its related buildings and retry; nothing was added automatically."));
-   if (Plan.Status == EHyperManageDismantlePlanStatus::ProtectedTarget)
-    return Fail(TEXT("A child or dependency is the protected target. Change the target or selection and retry."));
-   return Fail(TEXT("The full building group could not be reviewed. It contains unavailable, unsupported or cyclic dependencies."));
-  }
+  if (Plan.Status != EHyperManageDismantlePlanStatus::Ready) return Fail(DescribePlanFailure(Plan));
  }
  if (Plan.OrderedActors.Num() + Refs.Num() > FHyperManageDismantlePlanner::MaxActors)
   return Fail(TEXT("Review supports at most 1024 buildings, including children."));

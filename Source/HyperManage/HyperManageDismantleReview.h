@@ -26,6 +26,7 @@ public:
  static FHyperManageDismantleReview Build(UWorld* World, const TArray<AActor*>& Selection, AActor* Target, const AFGPlayerState* Player);
 private:
  friend class FHyperManageDismantleReviewTest;
+ static FString DescribePlanFailure(const FHyperManageDismantlePlan& Plan);
  using FEligibility = TFunctionRef<bool(AActor*, const TArray<AActor*>&, FHyperManageDismantleEligibility&)>;
  using FPlan = TFunctionRef<FHyperManageDismantlePlan(const TArray<AActor*>&)>;
  using FNative = TFunctionRef<FHyperManageRefundPreview(const FHyperManageDismantlePlan&)>;
