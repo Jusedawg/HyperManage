@@ -111,6 +111,7 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWor
  {
   if (!Ref.IsValid() || Ref->GetWorld() != World) return Fail(TEXT("A building changed before eligibility review. Please retry."));
   NativeGroup.Add(Ref.Get());
+  if (!Seen.Contains(Ref.Get())) Result.AddedChildDetails.Add(DescribeBuilding(Ref));
  }
  for (AActor* Actor : NativeGroup)
  {

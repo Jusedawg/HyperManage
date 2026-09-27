@@ -299,9 +299,9 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  Native.Status = Lightweight.Status = EHyperManageRefundStatus::Ready;
  Native.Actors.AddDefaulted(2); Native.Actors[0].Actor = Child; Native.Actors[1].Actor = Actor;
  Lightweight.Instances.AddDefaulted(); Lightweight.Instances[0].Ref = Proxy->Ref;
- int32 Plans = 0, NativeReads = 0, LightReads = 0;
+ int32 Plans = 0, NativeReads = 0, LightReads = 0, ExpectedNativeInputs = 1;
  auto PlanSource = [&](const TArray<AActor*>& Input) {
-  ++Plans; TestEqual(TEXT("Native input deduplicated"), Input.Num(), 1); return Plan;
+  ++Plans; TestEqual(TEXT("Native input deduplicated"), Input.Num(), ExpectedNativeInputs); return Plan;
  };
  auto NativeSource = [&](const FHyperManageDismantlePlan&) { ++NativeReads; return Native; };
  auto LightSource = [&](const TArray<FHyperManageLightweightRef>& Input) {
@@ -321,7 +321,7 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  };
  auto Reject = [&](const FHyperManageDismantleReview& Review) {
   TestFalse(TEXT("Failure explains why"), Review.Error.IsEmpty());
-  TestTrue(TEXT("Failure exposes no partial diagnostics"), Review.EligibilityDetails.IsEmpty());
+  TestTrue(TEXT("Failure exposes no partial diagnostics"), Review.EligibilityDetails.IsEmpty() && Review.AddedChildDetails.IsEmpty());
   TestTrue(TEXT("Failure exposes no partial refunds"), Review.Refunds.Actors.IsEmpty() && Review.Refunds.Instances.IsEmpty());
   TestTrue(TEXT("Failure is not ready"), Review.Refunds.Status != EHyperManageRefundStatus::Ready);
  };
@@ -333,6 +333,12 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("One plan call"), Plans, 1);
  TestEqual(TEXT("All native actors checked"), Review.NativeChecked, 2);
  TestEqual(TEXT("No blocked actors by default"), Review.NativeBlocked, 0);
+ TestEqual(TEXT("Automatically included child has a visible detail entry"), Review.AddedChildDetails.Num(), 1);
+ TestTrue(TEXT("Child detail contains world coordinates"), Review.AddedChildDetails[0].Contains(TEXT("world m:")));
+ ExpectedNativeInputs = 2; Plan.AddedChildren = 0;
+ Review = Build({Actor, Child, Proxy});
+ TestTrue(TEXT("Explicitly selected child is not listed as an extra"), Review.AddedChildDetails.IsEmpty());
+ ExpectedNativeInputs = 1; Plan.AddedChildren = 1;
  BlockChild = WarnChild = true;
  Review = Build({Actor, Proxy});
  TestTrue(TEXT("Blocked eligibility still allows read-only refund estimate"), Review.Error.IsEmpty());
@@ -366,6 +372,7 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("Lightweight-only review works"), Review.Error.IsEmpty());
  TestEqual(TEXT("Lightweight eligibility is not claimed"), EligibilityReads, 0);
  TestEqual(TEXT("No native eligibility count for lightweight-only selection"), Review.NativeChecked, 0);
+ TestTrue(TEXT("Lightweight-only review does not claim native children"), Review.AddedChildDetails.IsEmpty());
  TestEqual(TEXT("No empty native plan query"), Plans, 0);
  TestEqual(TEXT("No empty native refund query"), NativeReads, 0);
  LightReads = 0; Review = Build({Actor});

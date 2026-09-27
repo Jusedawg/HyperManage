@@ -14,6 +14,7 @@ struct FHyperManageDismantleReview
  FString Error;
  FHyperManageRefundPreview Refunds;
  int32 AddedChildren = 0;
+ TArray<FString> AddedChildDetails;
  int32 NativeChecked = 0;
  int32 NativeBlocked = 0;
  int32 NativeWarnings = 0;

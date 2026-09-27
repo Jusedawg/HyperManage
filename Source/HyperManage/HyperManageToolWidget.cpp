@@ -239,7 +239,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.77")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.78")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1325,6 +1325,11 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  FString Details = FString::Printf(TEXT("Estimate only - nothing will be dismantled.\n%d standard + %d lightweight buildings; %d additional children.\n%s\n\n"),
   Review.Refunds.Actors.Num(), Review.Refunds.Instances.Num(), Review.AddedChildren,
   Review.Refunds.NoBuildCost ? TEXT("No build cost: construction materials excluded.") : TEXT("Construction refunds and stored contents."));
+ if (!Review.AddedChildDetails.IsEmpty()) {
+  Details += TEXT("Additional child buildings included in this estimate:\n");
+  for (const auto& Child : Review.AddedChildDetails) Details += Child + TEXT("\n");
+  Details += TEXT("These are related children, not extra selected objects. Nothing has been selected or removed.\n\n");
+ }
  switch (Capacity) {
   case EHyperManageRefundCapacity::Fits: Details += TEXT("Inventory: the complete refund batch fits now.\n"); break;
   case EHyperManageRefundCapacity::NeedsOverflow: Details += TEXT("Inventory: cannot accept the full batch; overflow handling would be needed.\n"); break;

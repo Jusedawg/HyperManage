@@ -194,7 +194,7 @@ Blueprint selection and blueprint-slot operations check every registered member 
 
 ### Review selection refunds
 
-In single-player, use **Refund review** in the right panel to estimate the selected buildings' dismantle returns. The target is excluded. The review combines ordinary buildings and lightweight pieces, reports additional native child buildings, and lists all item totals in a scrollable report. No buildings are removed, no items are granted, and undo history is unchanged.
+In single-player, use **Refund review** in the right panel to estimate the selected buildings' dismantle returns. The target is excluded. The review combines ordinary buildings and lightweight pieces, lists automatically included native child buildings by name when available and world position, and lists all item totals in a scrollable report. No buildings are removed, no items are granted, and undo history is unchanged.
 
 The player's no-build-cost rule excludes construction materials; ordinary buildings may still report stored contents. If any part of the review fails, no partial estimate is shown. Missing native dependencies are identified by building name when available and world coordinates in meters. Close the panel to select the required building, then refresh. Protected targets, oversized groups and dependency cycles have separate explanations. Wait for edits to finish or reselect unavailable buildings and retry. Limits are 1,024 buildings including children and 16,384 refund stacks. Refunds can change as machines run. This is an estimate, not a guarantee of dismantle eligibility; bulk dismantling remains unavailable. Multiplayer review and live refund accuracy still require validation.
 
