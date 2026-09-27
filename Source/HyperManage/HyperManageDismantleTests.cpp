@@ -308,12 +308,12 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
   ++LightReads; TestEqual(TEXT("One lightweight input"), Input.Num(), 1); return Lightweight;
  };
  int32 EligibilityReads = 0;
- bool BlockChild = false, WarnChild = false, EligibilityAvailable = true;
+ bool BlockChild = false, WarnChild = false, WarnParent = false, EligibilityAvailable = true;
  auto EligibilitySource = [&](AActor* Item, const TArray<AActor*>& Group, FHyperManageDismantleEligibility& Out) {
   ++EligibilityReads;
   TestTrue(TEXT("Eligibility sees the complete native group, including added children"), Group.Contains(Actor) && Group.Contains(Child));
   Out.CanDismantle = !(BlockChild && Item == Child);
-  if (WarnChild && Item == Child) Out.Reasons = {TEXT("Example game warning"), TEXT("Example game warning")};
+  if ((WarnChild && Item == Child) || (WarnParent && Item == Actor)) Out.Reasons = {TEXT("Example game warning"), TEXT("Example game warning")};
   return EligibilityAvailable;
  };
  auto Build = [&](const TArray<AActor*>& Input, AActor* Protected = nullptr) {
@@ -321,6 +321,7 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  };
  auto Reject = [&](const FHyperManageDismantleReview& Review) {
   TestFalse(TEXT("Failure explains why"), Review.Error.IsEmpty());
+  TestTrue(TEXT("Failure exposes no partial diagnostics"), Review.EligibilityDetails.IsEmpty());
   TestTrue(TEXT("Failure exposes no partial refunds"), Review.Refunds.Actors.IsEmpty() && Review.Refunds.Instances.IsEmpty());
   TestTrue(TEXT("Failure is not ready"), Review.Refunds.Status != EHyperManageRefundStatus::Ready);
  };
@@ -339,6 +340,17 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  TestEqual(TEXT("Warning actor counted once"), Review.NativeWarnings, 1);
  TestEqual(TEXT("Repeated reasons deduplicated"), Review.EligibilityReasons.Num(), 1);
  TestEqual(TEXT("Refunds retained with eligibility diagnostics"), Review.Refunds.Actors.Num(), 2);
+ TestEqual(TEXT("One affected building has one detail entry"), Review.EligibilityDetails.Num(), 1);
+ TestTrue(TEXT("Refusing building detail includes its position"), Review.EligibilityDetails[0].Contains(TEXT("Refuses dismantling:")) && Review.EligibilityDetails[0].Contains(TEXT("world m:")));
+ TestEqual(TEXT("Duplicate reasons appear once per building"), Review.EligibilityDetails[0].Find(TEXT("Example game warning")), Review.EligibilityDetails[0].Find(TEXT("Example game warning"), ESearchCase::CaseSensitive, ESearchDir::FromEnd));
+ WarnParent = true;
+ Review = Build({Actor, Proxy});
+ TestEqual(TEXT("Same warning on different buildings retains both attributions"), Review.EligibilityDetails.Num(), 2);
+ TestTrue(TEXT("Advisory building remains distinct from refusal"), Review.EligibilityDetails[1].Contains(TEXT("Warning (advisory):")));
+ WarnParent = WarnChild = false;
+ Review = Build({Actor, Proxy});
+ TestTrue(TEXT("Refusal without game explanation is explicit"), Review.EligibilityDetails[0].Contains(TEXT("did not provide a reason")));
+ WarnChild = true;
  BlockChild = false;
  Review = Build({Actor, Proxy});
  TestEqual(TEXT("Advisory warning does not claim a hard block"), Review.NativeBlocked, 0);

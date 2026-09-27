@@ -37,28 +37,29 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
   });
 }
 
+FString FHyperManageDismantleReviewer::DescribeBuilding(const TWeakObjectPtr<AActor>& Actor)
+{
+ if (!Actor.IsValid()) return TEXT("Unavailable building");
+ const auto* Buildable = Cast<AFGBuildable>(Actor.Get());
+ const FString Name = Buildable && !Buildable->mDisplayName.IsEmpty() ? Buildable->mDisplayName.ToString() : TEXT("Building");
+ const FVector Position = Actor->GetActorLocation() / 100.0;
+ return FString::Printf(TEXT("%s (world m: X %.1f, Y %.1f, Z %.1f)"), *Name, Position.X, Position.Y, Position.Z);
+}
+
 FString FHyperManageDismantleReviewer::DescribePlanFailure(const FHyperManageDismantlePlan& Plan)
 {
- auto Describe = [](const TWeakObjectPtr<AActor>& Actor) -> FString
- {
-  if (!Actor.IsValid()) return TEXT("Unavailable building");
-  const auto* Buildable = Cast<AFGBuildable>(Actor.Get());
-  const FString Name = Buildable && !Buildable->mDisplayName.IsEmpty() ? Buildable->mDisplayName.ToString() : TEXT("Building");
-  const FVector Position = Actor->GetActorLocation() / 100.0;
-  return FString::Printf(TEXT("%s (world m: X %.1f, Y %.1f, Z %.1f)"), *Name, Position.X, Position.Y, Position.Z);
- };
  switch (Plan.Status)
  {
   case EHyperManageDismantlePlanStatus::MissingDependency:
-   return FString::Printf(TEXT("A building requires an unselected dependency.\nBuilding: %s\nRequired: %s\n\nClose the panel, select the required building, then refresh. Nothing was added automatically."), *Describe(Plan.ProblemActor), *Describe(Plan.RequiredActor));
+   return FString::Printf(TEXT("A building requires an unselected dependency.\nBuilding: %s\nRequired: %s\n\nClose the panel, select the required building, then refresh. Nothing was added automatically."), *DescribeBuilding(Plan.ProblemActor), *DescribeBuilding(Plan.RequiredActor));
   case EHyperManageDismantlePlanStatus::ProtectedTarget:
-   return FString::Printf(TEXT("A child or dependency is the protected target.\nProtected: %s\n\nChange the target or selection, then refresh."), *Describe(Plan.RequiredActor.IsValid() ? Plan.RequiredActor : Plan.ProblemActor));
+   return FString::Printf(TEXT("A child or dependency is the protected target.\nProtected: %s\n\nChange the target or selection, then refresh."), *DescribeBuilding(Plan.RequiredActor.IsValid() ? Plan.RequiredActor : Plan.ProblemActor));
   case EHyperManageDismantlePlanStatus::TooManyActors:
    return TEXT("The group exceeds 1,024 buildings after including children. Review a smaller selection.");
   case EHyperManageDismantlePlanStatus::DependencyCycle:
    return TEXT("The group contains a dependency cycle and cannot be safely ordered. Review a smaller independent group; if the cycle remains, this group is unsupported.");
   case EHyperManageDismantlePlanStatus::UnsupportedActor:
-   return FString::Printf(TEXT("This building does not support the current review path:\n%s\n\nExclude it and refresh. No partial estimate is shown."), *Describe(Plan.ProblemActor));
+   return FString::Printf(TEXT("This building does not support the current review path:\n%s\n\nExclude it and refresh. No partial estimate is shown."), *DescribeBuilding(Plan.ProblemActor));
   case EHyperManageDismantlePlanStatus::InvalidActor:
    return TEXT("A building or related dependency is unavailable. Reselect the group and refresh. No partial estimate is shown.");
   default:
@@ -120,6 +121,15 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::BuildWithSources(UWor
   if (!Eligibility.CanDismantle) ++Result.NativeBlocked;
   if (!Eligibility.Reasons.IsEmpty()) ++Result.NativeWarnings;
   for (const auto& Reason : Eligibility.Reasons) Result.EligibilityReasons.AddUnique(Reason);
+  if (!Eligibility.CanDismantle || !Eligibility.Reasons.IsEmpty())
+  {
+   FString Detail = FString::Printf(TEXT("%s: %s"), Eligibility.CanDismantle ? TEXT("Warning (advisory)") : TEXT("Refuses dismantling"), *DescribeBuilding(Actor));
+   TArray<FString> Reasons;
+   for (const auto& Reason : Eligibility.Reasons) if (!Reason.IsEmpty()) Reasons.AddUnique(Reason);
+   for (const auto& Reason : Reasons) Detail += TEXT("\n  ") + Reason;
+   if (!Eligibility.CanDismantle && Reasons.IsEmpty()) Detail += TEXT("\n  The game did not provide a reason.");
+   Result.EligibilityDetails.Add(MoveTemp(Detail));
+  }
  }
  FHyperManageRefundPreview Native, Lightweight;
  if (!Actors.IsEmpty())

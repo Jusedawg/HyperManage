@@ -239,7 +239,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.76")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.77")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1335,7 +1335,7 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  if (Review.NativeChecked > 0) {
   Details += FString::Printf(TEXT("Removal check: %d standard buildings checked; %d currently refuse dismantling; %d report warnings.\n"),
    Review.NativeChecked, Review.NativeBlocked, Review.NativeWarnings);
-  for (const auto& Reason : Review.EligibilityReasons) Details += Reason + TEXT("\n");
+  for (const auto& Detail : Review.EligibilityDetails) Details += Detail + TEXT("\n\n");
  }
  if (!Review.Refunds.Instances.IsEmpty()) Details += TEXT("Lightweight removal eligibility has not been checked.\n");
  Details += TEXT("Checks describe current conditions, not permission to dismantle.\n\n");
