@@ -4,6 +4,7 @@
 #include "FGPlayerState.h"
 #include "FGDismantleInterface.h"
 #include "FGConstructDisqualifier.h"
+#include "Resources/FGItemDescriptor.h"
 
 FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
  UWorld* World, const TArray<AActor*>& Selection, AActor* Target, const AFGPlayerState* Player)
@@ -35,6 +36,33 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
    }
    return IsValid(Actor);
   });
+}
+
+FString FHyperManageDismantleReviewer::FormatRefundBreakdown(const FHyperManageRefundPreview& Preview)
+{
+ if (Preview.Status != EHyperManageRefundStatus::Ready) return FString();
+ FString Report = TEXT("\n\nPER-BUILDING REFUNDS\nItem types are grouped within each building for display only.\n");
+ auto Append = [&Report](const FString& Building, const TArray<FInventoryStack>& Stacks) {
+  Report += TEXT("\n") + Building + TEXT("\n");
+  TMap<TSubclassOf<UFGItemDescriptor>, int64> Totals;
+  for (const auto& Stack : Stacks) if (Stack.NumItems > 0) Totals.FindOrAdd(Stack.Item.GetItemClass()) += Stack.NumItems;
+  TArray<FString> Lines;
+  for (const auto& Entry : Totals) {
+   const FText Name = IsValid(Entry.Key.Get()) ? UFGItemDescriptor::GetItemName(Entry.Key) : FText();
+   Lines.Add(FString::Printf(TEXT("  %s: %lld"), Name.IsEmpty() ? TEXT("Item") : *Name.ToString(), Entry.Value));
+  }
+  Lines.Sort();
+  for (const auto& Line : Lines) Report += Line + TEXT("\n");
+  if (Lines.IsEmpty()) Report += TEXT("  No refundable items reported.\n");
+ };
+ for (const auto& Entry : Preview.Actors) Append(TEXT("Standard: ") + DescribeBuilding(Entry.Actor), Entry.Stacks);
+ for (const auto& Entry : Preview.Instances) {
+  const auto* Building = Entry.Ref.BuildableClass.GetDefaultObject();
+  const FString Name = Building && !Building->mDisplayName.IsEmpty() ? Building->mDisplayName.ToString() : TEXT("Building");
+  const FVector Position = Entry.Ref.ExpectedTransform.GetLocation() / 100.0;
+  Append(FString::Printf(TEXT("Lightweight: %s (world m: X %.1f, Y %.1f, Z %.1f)"), *Name, Position.X, Position.Y, Position.Z), Entry.Stacks);
+ }
+ return Report;
 }
 
 FString FHyperManageDismantleReviewer::DescribeBuilding(const TWeakObjectPtr<AActor>& Actor)

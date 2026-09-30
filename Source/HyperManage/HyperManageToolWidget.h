@@ -82,7 +82,12 @@ protected:
  UFUNCTION() void CloseRefundDrawer();
  UPROPERTY(Transient) TObjectPtr<class UScrollBox> RefundReviewScroll;
  UPROPERTY(Transient) TObjectPtr<class UTextBlock> RefundReviewText;
- void SetRefundReviewReport(const FString& Report);
+ UPROPERTY(Transient) TObjectPtr<class UCheckBox> RefundBreakdownToggle;
+ FString RefundSummary;
+ FString RefundBreakdown;
+ UFUNCTION() void ToggleRefundBreakdown(bool Expanded);
+ void ClearRefundBreakdown();
+ void SetRefundReviewReport(const FString& Report, const FString& Breakdown = FString());
  TMap<TWeakObjectPtr<AActor>, FTransform> ReviewedSelection;
  TMap<TWeakObjectPtr<AActor>, FTransform> ReviewedChildren;
  uint64 ReviewedEditRevision = 0;

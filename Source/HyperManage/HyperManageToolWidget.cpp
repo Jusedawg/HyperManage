@@ -248,7 +248,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.81")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.82")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1366,7 +1366,7 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  for (const auto& Line : Lines) Details += Line + TEXT("\n");
  if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");
  Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle remains unavailable.");
- SetRefundReviewReport(Details);
+ SetRefundReviewReport(Details, FHyperManageDismantleReviewer::FormatRefundBreakdown(Review.Refunds));
  TArray<AActor*> Related;
  for (const auto& Entry : Review.Refunds.Actors) Related.Add(Entry.Actor.Get());
  CaptureRefundSelection(Actors, System->Selection->TargetActor, System->Undo ? System->Undo->GetRevision() : 0, Related);
@@ -1407,6 +1407,7 @@ void UHyperManageToolWidget::CheckRefundSelection(const TArray<AActor*>& Actors,
 
 void UHyperManageToolWidget::InvalidateRefundReview(const FString& Reason)
 {
+ ClearRefundBreakdown();
  StopWatchingRefundInventory();
  TrackRefundRules = false; ReviewedPlayer.Reset();
  TrackRefundSelection = false;
@@ -1472,14 +1473,30 @@ void UHyperManageToolWidget::RefundInventoryItemsChanged(TSubclassOf<UFGItemDesc
  if (Count > 0) RefundInventorySlotChanged(INDEX_NONE);
 }
 
-void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
+void UHyperManageToolWidget::ClearRefundBreakdown()
 {
+ RefundSummary.Empty(); RefundBreakdown.Empty();
+ if (RefundBreakdownToggle) { RefundBreakdownToggle->SetIsChecked(false); RefundBreakdownToggle->SetIsEnabled(false); }
+}
+
+void UHyperManageToolWidget::ToggleRefundBreakdown(bool Expanded)
+{
+ if (RefundReviewText && !RefundSummary.IsEmpty())
+  RefundReviewText->SetText(FText::FromString(RefundSummary + (Expanded ? RefundBreakdown : FString())));
+ if (RefundReviewScroll) RefundReviewScroll->ScrollToStart();
+}
+
+void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report, const FString& Breakdown)
+{
+ ClearRefundBreakdown();
  StopWatchingRefundInventory();
  TrackRefundRules = false; ReviewedPlayer.Reset();
  TrackRefundSelection = false; ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  if (!RefundReviewText || !RefundDrawerHost || !RefundReviewScroll) return;
  const FString Header = FString::Printf(TEXT("Updated %s\nRefresh after selection or inventory changes.\n\n"), *FDateTime::Now().ToString(TEXT("%H:%M:%S")));
- RefundReviewText->SetText(FText::FromString(Header + Report));
+ RefundSummary = Header + Report; RefundBreakdown = Breakdown;
+ if (RefundBreakdownToggle) RefundBreakdownToggle->SetIsEnabled(!Breakdown.IsEmpty());
+ ToggleRefundBreakdown(false);
  RefundDrawerOpen = true;
  RefundDrawerHost->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
  if (RefundDrawerPanel) RefundDrawerPanel->SetVisibility(ESlateVisibility::Visible);
@@ -1515,6 +1532,11 @@ void UHyperManageToolWidget::BuildRefundDrawer(UNamedSlot* Window)
  Close->SetToolTipText(FText::FromString(TEXT("Retract refund review; keep the main tool tray open.")));
  Close->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CloseRefundDrawer); Header->AddChildToHorizontalBox(Close);
  Rows->AddChildToVerticalBox(Header)->SetPadding(FMargin(0, 0, 0, 8));
+ RefundBreakdownToggle = WidgetTree->ConstructWidget<UCheckBox>();
+ RefundBreakdownToggle->SetContent(MakeLabel(TEXT("Per-building refunds"), 12)); RefundBreakdownToggle->SetIsEnabled(false);
+ RefundBreakdownToggle->SetToolTipText(FText::FromString(TEXT("Show the same snapshot's item totals for each building, including related children. This does not refresh or change selection.")));
+ RefundBreakdownToggle->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ToggleRefundBreakdown);
+ Rows->AddChildToVerticalBox(RefundBreakdownToggle)->SetPadding(FMargin(0, 0, 0, 6));
  RefundReviewText = MakeLabel(TEXT("Refresh to inspect the current selection."), 13); RefundReviewText->SetAutoWrapText(true);
  RefundReviewScroll = WidgetTree->ConstructWidget<UScrollBox>();
  RefundReviewScroll->SetAlwaysShowScrollbar(true); StylePanelScrollbar(RefundReviewScroll); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);

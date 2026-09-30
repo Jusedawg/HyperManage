@@ -25,6 +25,7 @@ struct FHyperManageDismantleReview
 class HYPERMANAGE_API FHyperManageDismantleReviewer
 {
 public:
+ static FString FormatRefundBreakdown(const FHyperManageRefundPreview& Preview);
  static FHyperManageDismantleReview Build(UWorld* World, const TArray<AActor*>& Selection, AActor* Target, const AFGPlayerState* Player);
 private:
  friend class FHyperManageDismantleReviewTest;
