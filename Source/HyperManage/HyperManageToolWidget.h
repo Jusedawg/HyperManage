@@ -47,6 +47,7 @@ protected:
 	void HookWidget(EActionNameIdx ToolAction, UButton* Button, FString ToolTip);
 
 	virtual void NativeConstruct() override;
+ virtual void BeginDestroy() override;
 	void RepairToolbarLayout();
 	void RepairQuickActions();
 	UPROPERTY(Transient) TObjectPtr<class UVerticalBox> QuickActionHost;
@@ -87,6 +88,15 @@ protected:
  uint64 ReviewedEditRevision = 0;
  TWeakObjectPtr<AActor> ReviewedTarget;
  bool TrackRefundSelection = false;
+ TWeakObjectPtr<class UFGInventoryComponent> ReviewedInventory;
+ bool TrackRefundInventory = false;
+ void WatchRefundInventory(class UFGInventoryComponent* Inventory);
+ void StopWatchingRefundInventory();
+ void CheckRefundInventory(class UFGInventoryComponent* Inventory);
+ void InvalidateRefundReview(const FString& Reason);
+ UFUNCTION() void RefundInventorySlotChanged(int32 Index);
+ UFUNCTION() void RefundInventoryResized(int32 OldSize, int32 NewSize);
+ UFUNCTION() void RefundInventoryItemsChanged(TSubclassOf<class UFGItemDescriptor> ItemClass, int32 Count, class UFGInventoryComponent* OtherInventory);
  void CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision = 0, const TArray<AActor*>& Related = {});
  void CheckRefundSelection(const TArray<AActor*>& Actors, AActor* Target, bool Pending, uint64 EditRevision = 0);
 	UPROPERTY(Transient) TObjectPtr<UButton> UndoButton;

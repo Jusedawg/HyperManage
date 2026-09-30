@@ -1,4 +1,5 @@
 #include "HyperManageDismantlePlan.h"
+#include "Buildables/FGBuildable.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "FGDismantleInterface.h"

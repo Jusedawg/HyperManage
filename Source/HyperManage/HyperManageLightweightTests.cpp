@@ -1,3 +1,5 @@
+#include "CoreMinimal.h"
+#include "FGInventoryComponent.h"
 #include "Components/Border.h"
 #include "HyperManageSlotStore.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
@@ -372,12 +374,38 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  ReviewA->Destroy();
  Tools->CheckRefundSelection({ReviewA}, nullptr, false);
  TestFalse(TEXT("Unavailable reviewed actor invalidates the review"), Tools->TrackRefundSelection);
+ auto* Inventory = NewObject<UFGInventoryComponent>();
+ auto* Replacement = NewObject<UFGInventoryComponent>();
+ Tools->SetRefundReviewReport(LongReport); Tools->WatchRefundInventory(Inventory);
+ Tools->CloseRefundDrawer();
+ Inventory->OnSlotUpdatedDelegate.Broadcast(0);
+ TestFalse(TEXT("Inventory change invalidates snapshot tracking"), Tools->TrackRefundInventory);
+ TestTrue(TEXT("Inventory change replaces old totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("capacity estimate is out of date")));
+ TestFalse(TEXT("Inventory event does not reopen closed drawer"), Tools->RefundDrawerOpen);
+ Tools->WatchRefundInventory(Inventory); Tools->WatchRefundInventory(Replacement);
+ Inventory->OnSlotUpdatedDelegate.Broadcast(0);
+ TestTrue(TEXT("Old inventory listener is removed on rebind"), Tools->TrackRefundInventory);
+ Replacement->ResizeInventoryDelegate.Broadcast(10, 11);
+ TestFalse(TEXT("Inventory resize invalidates capacity"), Tools->TrackRefundInventory);
+ Tools->WatchRefundInventory(Inventory);
+ Inventory->OnItemAddedDelegate.Broadcast(nullptr, 1, nullptr);
+ TestFalse(TEXT("Item additions invalidate capacity"), Tools->TrackRefundInventory);
+ Tools->WatchRefundInventory(Inventory);
+ Inventory->OnItemRemovedDelegate.Broadcast(nullptr, 1, nullptr);
+ TestFalse(TEXT("Item removals invalidate capacity"), Tools->TrackRefundInventory);
+ Tools->WatchRefundInventory(Inventory);
+ Tools->CheckRefundInventory(Replacement);
+ TestFalse(TEXT("Inventory replacement invalidates capacity"), Tools->TrackRefundInventory);
+ Tools->WatchRefundInventory(Inventory);
+ Tools->SetRefundReviewReport(TEXT("Review unavailable"));
+ Inventory->OnSlotUpdatedDelegate.Broadcast(0);
+ TestFalse(TEXT("Old inventory event cannot overwrite a failed refresh"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Review out of date")));
  ReviewWorld->DestroyWorld(false);
  Tools->SetRefundReviewReport(TEXT("Review unavailable"));
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.79")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.80")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

@@ -1,4 +1,6 @@
 #include "HyperManageRefundCapacity.h"
+#include "FGCharacterPlayer.h"
+#include "FGInventoryComponent.h"
 #include "HyperManageDismantleReview.h"
 #include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
@@ -147,6 +149,12 @@ void UHyperManageToolWidget::HookWidget(EActionNameIdx ToolAction, UButton* Butt
 	Button->SetToolTipText(FText::FromString(ToolTip));
 }
 
+void UHyperManageToolWidget::BeginDestroy()
+{
+ StopWatchingRefundInventory();
+ Super::BeginDestroy();
+}
+
 void UHyperManageToolWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -239,7 +247,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.79")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.80")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -806,6 +814,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   System->Selection->SelectedActorsNoTarget(Actors);
   CheckRefundSelection(Actors, System->Selection->TargetActor, System->Selection->HasPendingOperations(), System->Undo ? System->Undo->GetRevision() : 0);
  }
+ if (TrackRefundInventory) {
+  const auto* Controller = System ? System->GetLocalController() : nullptr;
+  const auto* Character = Controller ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
+  CheckRefundInventory(IsValid(Character) ? Character->GetInventory() : nullptr);
+ }
 	if (!System || !System->Config) return;
  if (System->Selection && SelectionSlotStatus) {
   const bool Saved = System->Selection->HasSavedSelection();
@@ -1351,6 +1364,8 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  TArray<AActor*> Related;
  for (const auto& Entry : Review.Refunds.Actors) Related.Add(Entry.Actor.Get());
  CaptureRefundSelection(Actors, System->Selection->TargetActor, System->Undo ? System->Undo->GetRevision() : 0, Related);
+ const auto* Character = Controller ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
+ WatchRefundInventory(IsValid(Character) ? Character->GetInventory() : nullptr);
 }
 
 void UHyperManageToolWidget::CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision, const TArray<AActor*>& Related)
@@ -1380,14 +1395,64 @@ void UHyperManageToolWidget::CheckRefundSelection(const TArray<AActor*>& Actors,
   Changed |= !Actor.IsValid() || (Actor.IsValid() && !Actor->GetActorTransform().Equals(Entry.Value, 0.01));
  }
  if (!Changed) return;
+ InvalidateRefundReview(TEXT("Selection, target, reviewed buildings or included children changed, or edit history was updated."));
+}
+
+void UHyperManageToolWidget::InvalidateRefundReview(const FString& Reason)
+{
+ StopWatchingRefundInventory();
  TrackRefundSelection = false;
  ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  // Replace old totals without reopening a closed drawer or disturbing its scroll position.
- if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\nSelection, target, reviewed buildings or included children changed, or edit history was updated. Refresh to review the current group.\n\nInventory and machine contents also require a fresh review.")));
+ if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\n") + Reason + TEXT(" Refresh to review the current group.\n\nMachine contents and dependency changes also require a fresh review.")));
+}
+
+void UHyperManageToolWidget::StopWatchingRefundInventory()
+{
+ if (auto* Inventory = ReviewedInventory.Get()) {
+  Inventory->OnSlotUpdatedDelegate.RemoveDynamic(this, &UHyperManageToolWidget::RefundInventorySlotChanged);
+  Inventory->ResizeInventoryDelegate.RemoveDynamic(this, &UHyperManageToolWidget::RefundInventoryResized);
+  Inventory->OnItemAddedDelegate.RemoveDynamic(this, &UHyperManageToolWidget::RefundInventoryItemsChanged);
+  Inventory->OnItemRemovedDelegate.RemoveDynamic(this, &UHyperManageToolWidget::RefundInventoryItemsChanged);
+ }
+ ReviewedInventory.Reset(); TrackRefundInventory = false;
+}
+
+void UHyperManageToolWidget::WatchRefundInventory(UFGInventoryComponent* Inventory)
+{
+ StopWatchingRefundInventory();
+ if (!IsValid(Inventory)) return;
+ ReviewedInventory = Inventory; TrackRefundInventory = true;
+ Inventory->OnSlotUpdatedDelegate.AddUniqueDynamic(this, &UHyperManageToolWidget::RefundInventorySlotChanged);
+ Inventory->ResizeInventoryDelegate.AddUniqueDynamic(this, &UHyperManageToolWidget::RefundInventoryResized);
+ Inventory->OnItemAddedDelegate.AddUniqueDynamic(this, &UHyperManageToolWidget::RefundInventoryItemsChanged);
+ Inventory->OnItemRemovedDelegate.AddUniqueDynamic(this, &UHyperManageToolWidget::RefundInventoryItemsChanged);
+}
+
+void UHyperManageToolWidget::CheckRefundInventory(UFGInventoryComponent* Inventory)
+{
+ if (TrackRefundInventory && (!ReviewedInventory.IsValid() || ReviewedInventory.Get() != Inventory))
+  InvalidateRefundReview(TEXT("Your inventory is unavailable or has been replaced."));
+}
+
+void UHyperManageToolWidget::RefundInventorySlotChanged(int32 Index)
+{
+ if (TrackRefundInventory) InvalidateRefundReview(TEXT("Your inventory changed; the previous capacity estimate is out of date."));
+}
+
+void UHyperManageToolWidget::RefundInventoryResized(int32 OldSize, int32 NewSize)
+{
+ if (OldSize != NewSize) RefundInventorySlotChanged(INDEX_NONE);
+}
+
+void UHyperManageToolWidget::RefundInventoryItemsChanged(TSubclassOf<UFGItemDescriptor> ItemClass, int32 Count, UFGInventoryComponent* OtherInventory)
+{
+ if (Count > 0) RefundInventorySlotChanged(INDEX_NONE);
 }
 
 void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
 {
+ StopWatchingRefundInventory();
  TrackRefundSelection = false; ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  if (!RefundReviewText || !RefundDrawerHost || !RefundReviewScroll) return;
  const FString Header = FString::Printf(TEXT("Updated %s\nRefresh after selection or inventory changes.\n\n"), *FDateTime::Now().ToString(TEXT("%H:%M:%S")));
