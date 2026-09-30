@@ -1,4 +1,5 @@
 #include "CoreMinimal.h"
+#include "Components/EditableTextBox.h"
 #include "FGInventoryComponent.h"
 #include "FGPlayerState.h"
 #include "Components/Border.h"
@@ -324,17 +325,29 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  Tools->SetRefundReviewReport(LongReport);
  TestTrue(TEXT("Long report retains its last row"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row 39")));
  TestFalse(TEXT("Breakdown is disabled without successful snapshot details"), Tools->RefundBreakdownToggle->GetIsEnabled());
- Tools->SetRefundReviewReport(LongReport, TEXT("Per-building test item: 42"));
+ Tools->SetRefundReviewReport(LongReport, {TEXT("Per-building test item: 42"), TEXT("Foundation: Concrete 12")});
  TestFalse(TEXT("Fresh report starts with compact totals"), Tools->RefundBreakdownToggle->IsChecked());
  const FString Summary = Tools->RefundReviewText->GetText().ToString();
  Tools->ToggleRefundBreakdown(true);
  TestTrue(TEXT("Breakdown appends item details"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Per-building test item: 42")));
  Tools->ToggleRefundBreakdown(false);
  TestEqual(TEXT("Collapsing breakdown preserves original timestamp and summary"), Tools->RefundReviewText->GetText().ToString(), Summary);
+ Tools->RefundBreakdownToggle->SetIsChecked(true);
+ Tools->RefundSearchField->SetText(FText::FromString(TEXT("  cOnCrEtE  ")));
+ Tools->FilterRefundBreakdown(Tools->RefundSearchField->GetText());
+ TestTrue(TEXT("Search is case insensitive and trims whitespace"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Foundation: Concrete 12")));
+ TestFalse(TEXT("Search excludes nonmatching building blocks"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Per-building test item: 42")));
+ TestTrue(TEXT("Search leaves summary totals visible"), Tools->RefundReviewText->GetText().ToString().StartsWith(Summary));
+ Tools->RefundSearchField->SetText(FText::FromString(TEXT("no-such-item")));
+ Tools->FilterRefundBreakdown(Tools->RefundSearchField->GetText());
+ TestTrue(TEXT("Unmatched search is explicit"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("No matching buildings or items")));
+ Tools->RefundSearchField->SetText(FText()); Tools->FilterRefundBreakdown(FText());
+ TestTrue(TEXT("Clearing search restores all entries"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Per-building test item: 42")));
  Tools->InvalidateRefundReview(TEXT("Test selection change."));
  Tools->ToggleRefundBreakdown(true);
  TestTrue(TEXT("Invalidated breakdown cannot resurrect old totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Review out of date")));
  TestTrue(TEXT("Invalidation clears detailed snapshot text"), Tools->RefundBreakdown.IsEmpty());
+ TestTrue(TEXT("Invalidation hides search"), Tools->RefundSearchField->GetVisibility() == ESlateVisibility::Collapsed);
  TestFalse(TEXT("Invalidation disables detail toggle"), Tools->RefundBreakdownToggle->GetIsEnabled());
  auto* ReviewWorld = UWorld::CreateWorld(EWorldType::Game, false);
  auto* ReviewA = ReviewWorld->SpawnActor<AActor>();
@@ -448,7 +461,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.82")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.83")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

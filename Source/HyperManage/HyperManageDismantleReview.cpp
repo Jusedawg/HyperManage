@@ -38,12 +38,12 @@ FHyperManageDismantleReview FHyperManageDismantleReviewer::Build(
   });
 }
 
-FString FHyperManageDismantleReviewer::FormatRefundBreakdown(const FHyperManageRefundPreview& Preview)
+TArray<FString> FHyperManageDismantleReviewer::FormatRefundBreakdown(const FHyperManageRefundPreview& Preview)
 {
- if (Preview.Status != EHyperManageRefundStatus::Ready) return FString();
- FString Report = TEXT("\n\nPER-BUILDING REFUNDS\nItem types are grouped within each building for display only.\n");
- auto Append = [&Report](const FString& Building, const TArray<FInventoryStack>& Stacks) {
-  Report += TEXT("\n") + Building + TEXT("\n");
+ if (Preview.Status != EHyperManageRefundStatus::Ready) return {};
+ TArray<FString> Entries;
+ auto Append = [&Entries](const FString& Building, const TArray<FInventoryStack>& Stacks) {
+  FString Report = Building + TEXT("\n");
   TMap<TSubclassOf<UFGItemDescriptor>, int64> Totals;
   for (const auto& Stack : Stacks) if (Stack.NumItems > 0) Totals.FindOrAdd(Stack.Item.GetItemClass()) += Stack.NumItems;
   TArray<FString> Lines;
@@ -54,6 +54,7 @@ FString FHyperManageDismantleReviewer::FormatRefundBreakdown(const FHyperManageR
   Lines.Sort();
   for (const auto& Line : Lines) Report += Line + TEXT("\n");
   if (Lines.IsEmpty()) Report += TEXT("  No refundable items reported.\n");
+  Entries.Add(MoveTemp(Report));
  };
  for (const auto& Entry : Preview.Actors) Append(TEXT("Standard: ") + DescribeBuilding(Entry.Actor), Entry.Stacks);
  for (const auto& Entry : Preview.Instances) {
@@ -62,7 +63,7 @@ FString FHyperManageDismantleReviewer::FormatRefundBreakdown(const FHyperManageR
   const FVector Position = Entry.Ref.ExpectedTransform.GetLocation() / 100.0;
   Append(FString::Printf(TEXT("Lightweight: %s (world m: X %.1f, Y %.1f, Z %.1f)"), *Name, Position.X, Position.Y, Position.Z), Entry.Stacks);
  }
- return Report;
+ return Entries;
 }
 
 FString FHyperManageDismantleReviewer::DescribeBuilding(const TWeakObjectPtr<AActor>& Actor)

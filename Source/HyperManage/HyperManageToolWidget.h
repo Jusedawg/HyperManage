@@ -84,10 +84,12 @@ protected:
  UPROPERTY(Transient) TObjectPtr<class UTextBlock> RefundReviewText;
  UPROPERTY(Transient) TObjectPtr<class UCheckBox> RefundBreakdownToggle;
  FString RefundSummary;
- FString RefundBreakdown;
+ TArray<FString> RefundBreakdown;
+ UPROPERTY(Transient) TObjectPtr<class UEditableTextBox> RefundSearchField;
+ UFUNCTION() void FilterRefundBreakdown(const FText& Query);
  UFUNCTION() void ToggleRefundBreakdown(bool Expanded);
  void ClearRefundBreakdown();
- void SetRefundReviewReport(const FString& Report, const FString& Breakdown = FString());
+ void SetRefundReviewReport(const FString& Report, const TArray<FString>& Breakdown = {});
  TMap<TWeakObjectPtr<AActor>, FTransform> ReviewedSelection;
  TMap<TWeakObjectPtr<AActor>, FTransform> ReviewedChildren;
  uint64 ReviewedEditRevision = 0;

@@ -248,7 +248,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.82")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.83")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -1476,17 +1476,32 @@ void UHyperManageToolWidget::RefundInventoryItemsChanged(TSubclassOf<UFGItemDesc
 void UHyperManageToolWidget::ClearRefundBreakdown()
 {
  RefundSummary.Empty(); RefundBreakdown.Empty();
+ if (RefundSearchField) { RefundSearchField->SetText(FText()); RefundSearchField->SetVisibility(ESlateVisibility::Collapsed); }
  if (RefundBreakdownToggle) { RefundBreakdownToggle->SetIsChecked(false); RefundBreakdownToggle->SetIsEnabled(false); }
+}
+
+void UHyperManageToolWidget::FilterRefundBreakdown(const FText& Query)
+{
+ ToggleRefundBreakdown(RefundBreakdownToggle && RefundBreakdownToggle->IsChecked());
 }
 
 void UHyperManageToolWidget::ToggleRefundBreakdown(bool Expanded)
 {
- if (RefundReviewText && !RefundSummary.IsEmpty())
-  RefundReviewText->SetText(FText::FromString(RefundSummary + (Expanded ? RefundBreakdown : FString())));
+ if (RefundSearchField) RefundSearchField->SetVisibility(Expanded && !RefundBreakdown.IsEmpty() ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+ if (RefundSummary.IsEmpty()) return;
+ FString Detail;
+ if (Expanded && !RefundBreakdown.IsEmpty()) {
+  const FString Query = RefundSearchField ? RefundSearchField->GetText().ToString().TrimStartAndEnd() : FString();
+  TArray<FString> Matches;
+  for (const auto& Entry : RefundBreakdown) if (Query.IsEmpty() || Entry.Contains(Query, ESearchCase::IgnoreCase)) Matches.Add(Entry);
+  Detail = FString::Printf(TEXT("\n\nPER-BUILDING REFUNDS (%d / %d buildings)\nSearch filters this breakdown only; totals above cover the full review.\n\n"), Matches.Num(), RefundBreakdown.Num());
+  Detail += Matches.IsEmpty() ? TEXT("No matching buildings or items.") : FString::Join(Matches, TEXT("\n"));
+ }
+ if (RefundReviewText) RefundReviewText->SetText(FText::FromString(RefundSummary + Detail));
  if (RefundReviewScroll) RefundReviewScroll->ScrollToStart();
 }
 
-void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report, const FString& Breakdown)
+void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report, const TArray<FString>& Breakdown)
 {
  ClearRefundBreakdown();
  StopWatchingRefundInventory();
@@ -1537,6 +1552,17 @@ void UHyperManageToolWidget::BuildRefundDrawer(UNamedSlot* Window)
  RefundBreakdownToggle->SetToolTipText(FText::FromString(TEXT("Show the same snapshot's item totals for each building, including related children. This does not refresh or change selection.")));
  RefundBreakdownToggle->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ToggleRefundBreakdown);
  Rows->AddChildToVerticalBox(RefundBreakdownToggle)->SetPadding(FMargin(0, 0, 0, 6));
+ RefundSearchField = WidgetTree->ConstructWidget<UEditableTextBox>();
+ auto SearchStyle = RefundSearchField->WidgetStyle; SearchStyle.TextStyle.Font.Size = 12;
+ SearchStyle.BackgroundImageNormal = FSlateColorBrush(FLinearColor(0.10f, 0.115f, 0.13f));
+ SearchStyle.BackgroundImageHovered = FSlateColorBrush(FLinearColor(0.14f, 0.16f, 0.18f));
+ SearchStyle.BackgroundImageFocused = SearchStyle.BackgroundImageHovered;
+ SearchStyle.ForegroundColor = FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f));
+ RefundSearchField->WidgetStyle = SearchStyle; RefundSearchField->SetHintText(FText::FromString(TEXT("Find building or item...")));
+ RefundSearchField->SetToolTipText(FText::FromString(TEXT("Filter per-building entries by name, item or position. Case-insensitive; full review totals remain unchanged. Clear this field to show every building.")));
+ RefundSearchField->SetVisibility(ESlateVisibility::Collapsed);
+ RefundSearchField->OnTextChanged.AddDynamic(this, &UHyperManageToolWidget::FilterRefundBreakdown);
+ Rows->AddChildToVerticalBox(RefundSearchField)->SetPadding(FMargin(0, 0, 0, 6));
  RefundReviewText = MakeLabel(TEXT("Refresh to inspect the current selection."), 13); RefundReviewText->SetAutoWrapText(true);
  RefundReviewScroll = WidgetTree->ConstructWidget<UScrollBox>();
  RefundReviewScroll->SetAlwaysShowScrollbar(true); StylePanelScrollbar(RefundReviewScroll); RefundReviewScroll->SetConsumeMouseWheel(EConsumeMouseWheel::Always);

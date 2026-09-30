@@ -333,7 +333,9 @@ bool FHyperManageDismantleReviewTest::RunTest(const FString& Parameters)
  FindFProperty<FClassProperty>(FInventoryItem::StaticStruct(), TEXT("ItemClass"))->SetObjectPropertyValue_InContainer(&DisplayStack.Item, UFGItemDescriptor::StaticClass());
  DisplayStack.NumItems = MAX_int32;
  DisplayPreview.Actors[0].Stacks = {DisplayStack, DisplayStack};
- const FString Breakdown = FHyperManageDismantleReviewer::FormatRefundBreakdown(DisplayPreview);
+ const auto BreakdownEntries = FHyperManageDismantleReviewer::FormatRefundBreakdown(DisplayPreview);
+ TestEqual(TEXT("Breakdown retains one searchable block per building"), BreakdownEntries.Num(), 3);
+ const FString Breakdown = FString::Join(BreakdownEntries, TEXT("\n"));
  TestTrue(TEXT("Per-building grouping uses 64-bit totals"), Breakdown.Contains(TEXT("4294967294")));
  TestTrue(TEXT("Breakdown distinguishes standard and lightweight sources"), Breakdown.Contains(TEXT("Standard:")) && Breakdown.Contains(TEXT("Lightweight:")));
  TestTrue(TEXT("Buildings with no refunds remain visible"), Breakdown.Contains(TEXT("No refundable items reported.")));
