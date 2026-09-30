@@ -19,6 +19,14 @@
 
 bool UHyperManageDismantle::ValidateCandidates(UWorld* World, const TArray<AActor*>& Input, AActor* Target, TArray<AActor*>& Output, FString& Error)
 {
+ auto* Subsystem = IsValid(World) ? AFGLightweightBuildableSubsystem::Get(World) : nullptr;
+ return ValidateWithResolver(World, Input, Target, Output, Error, [Subsystem](const FHyperManageLightweightRef& Ref) {
+  return IsValid(Subsystem) ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Ref.BuildableClass, Ref.Index) : nullptr;
+ });
+}
+
+bool UHyperManageDismantle::ValidateWithResolver(UWorld* World, const TArray<AActor*>& Input, AActor* Target, TArray<AActor*>& Output, FString& Error, FResolveInstance Resolve)
+{
  Output.Reset(); Error.Reset();
  auto Fail = [&](const TCHAR* Message) { Output.Reset(); Error = Message; return false; };
  if (!IsValid(World) || World->GetNetMode() != NM_Standalone) return Fail(TEXT("Dismantling is currently single-player only."));
@@ -27,20 +35,56 @@ bool UHyperManageDismantle::ValidateCandidates(UWorld* World, const TArray<AActo
   if (!IsValid(Actor) || Actor->GetWorld() != World || Actor == Target) return Fail(TEXT("A building is unavailable or is the protected target. Reselect and retry."));
   if (Seen.Contains(Actor)) continue;
   Seen.Add(Actor);
-  auto* Building = Cast<AFGBuildable>(Actor);
-  const bool Structural = Actor->IsA<AFGBuildableBeam>() || Actor->IsA<AFGBuildablePillar>() || Actor->IsA<AFGBuildableWall>() || Actor->IsA<AFGBuildableFoundation>();
-  const FString Package = Actor->GetClass()->GetOutermost()->GetName();
-  if (!Building || !Structural || (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame")))
-   return Fail(TEXT("This first dismantle version supports native vanilla beams, pillars, walls and foundations only. Lightweight pieces, machines and modded buildings are not supported yet. Nothing was removed."));
-  if (Building->GetIsLightweightTemporary() || Building->GetIsDismantled() || Building->GetIsPendingDismantleRemoval() || Building->IsAboutToBeDismantled())
+  auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor);
+  auto* Building = Proxy ? Proxy->Ref.BuildableClass.GetDefaultObject() : Cast<AFGBuildable>(Actor);
+  const bool Structural = Building && (Building->IsA<AFGBuildableBeam>() || Building->IsA<AFGBuildablePillar>()
+   || Building->IsA<AFGBuildableWall>() || Building->IsA<AFGBuildableFoundation>());
+  const FString Package = Building ? Building->GetClass()->GetOutermost()->GetName() : FString();
+  if (!Structural || (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame"))) {
+   Output.Reset();
+   const FString Name = Building && !Building->mDisplayName.IsEmpty() ? Building->mDisplayName.ToString() : Actor->GetName();
+   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams or pillars. Machines, storage and modded buildings will come later. Nothing was removed."), *Name);
+   return false;
+  }
+  if (Proxy) {
+   if (!Proxy->Available || Proxy->IsPending() || !Proxy->Ref.SelectionId.IsValid() || Proxy->Ref.Index < 0 || !Proxy->Ref.Matches(Resolve(Proxy->Ref)))
+    return Fail(TEXT("A selected piece changed or is unavailable. Reselect it and retry. Nothing was removed."));
+   if (const auto* TargetProxy = Cast<AHyperManageLightweightProxy>(Target); IsValid(TargetProxy)
+    && TargetProxy->Ref.BuildableClass == Proxy->Ref.BuildableClass && TargetProxy->Ref.Index == Proxy->Ref.Index)
+    return Fail(TEXT("A selected piece is the protected target. Nothing was removed."));
+   for (auto* Existing : Output) if (const auto* Other = Cast<AHyperManageLightweightProxy>(Existing);
+    Other && Other->Ref.BuildableClass == Proxy->Ref.BuildableClass && Other->Ref.Index == Proxy->Ref.Index)
+    return Fail(TEXT("The selection contains duplicate handles for one building. Clear the selection and reselect it."));
+  }
+  else if (Building->GetIsLightweightTemporary() || Building->GetIsDismantled() || Building->GetIsPendingDismantleRemoval() || Building->IsAboutToBeDismantled())
    return Fail(TEXT("A building is temporary or already being dismantled. Reselect and retry."));
   TArray<UFGInventoryComponent*> Inventories; Building->GetComponents(Inventories);
-  if (!Inventories.IsEmpty()) return Fail(TEXT("Buildings with inventory components are not supported by this first dismantle version."));
+  if (!Inventories.IsEmpty()) return Fail(TEXT("Buildings with inventories are not supported yet. Nothing was removed."));
   Output.Add(Actor);
   if (Output.Num() > MaxBuildings) return Fail(TEXT("Dismantle at most 50 supported buildings at a time."));
  }
  if (Output.IsEmpty()) return Fail(TEXT("Select supported buildings first. The target is excluded."));
  return true;
+}
+
+void UHyperManageDismantle::MakeDispatch(const TArray<AActor*>& Selection, TArray<AActor*>& Actors, TArray<FDismantleLightweightBundle>& Bundles)
+{
+ Actors.Reset(); Bundles.Reset();
+ for (auto* Actor : Selection) {
+  if (const auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
+   auto* Bundle = Bundles.FindByPredicate([&](const FDismantleLightweightBundle& Entry) { return Entry.BuildableClass == Proxy->Ref.BuildableClass; });
+   if (!Bundle) Bundle = &Bundles.Add_GetRef(FDismantleLightweightBundle(Proxy->Ref.BuildableClass));
+   Bundle->RemovalIndices.AddUnique(Proxy->Ref.Index);
+  }
+  else Actors.AddUnique(Actor);
+ }
+}
+
+bool UHyperManageDismantle::MatchesInstance(const FConfirmedInstance& Snapshot, const FHyperManageLightweightRef& Ref, const FRuntimeBuildableInstanceData* Data)
+{
+ return Snapshot.Ref.SelectionId == Ref.SelectionId && Snapshot.Ref.BuildableClass == Ref.BuildableClass && Snapshot.Ref.Index == Ref.Index
+  && Snapshot.Ref.Recipe == Ref.Recipe && Snapshot.Ref.ExpectedTransform.Equals(Ref.ExpectedTransform, 0.01)
+  && Ref.Matches(Data) && Snapshot.Handles == Data->Handles;
 }
 
 UFunction* UHyperManageDismantle::FindNativeDispatch(UObject* State)
@@ -86,7 +130,7 @@ bool UHyperManageDismantle::Preflight(TArray<AActor*>& Actors, FString& Error)
  }
  const auto Review = FHyperManageDismantleReviewer::Build(World, Actors, System->Selection->TargetActor, Player);
  if (!Review.Error.IsEmpty()) { Error = Review.Error; return false; }
- if (Review.AddedChildren != 0 || Review.Refunds.Actors.Num() != Actors.Num()) {
+ if (Review.AddedChildren != 0 || Review.Refunds.Actors.Num() + Review.Refunds.Instances.Num() != Actors.Num()) {
   Error = TEXT("Select all related children explicitly before dismantling. This first version never expands a destructive selection."); return false;
  }
  if (Review.NativeBlocked || Review.NativeWarnings) { Error = TEXT("The game reports a dismantle refusal or warning. Resolve it before retrying; Refund review shows details."); return false; }
@@ -102,12 +146,21 @@ void UHyperManageDismantle::Request()
  if (AwaitingConfirmation || !System || !System->UI) return;
  FString Error; TArray<AActor*> Actors;
  if (!Preflight(Actors, Error)) { System->UI->ShowPopup(TEXT("Cannot dismantle selection"), Error); return; }
- Pending.Reset(); for (auto* Actor : Actors) Pending.Add(Actor, Actor->GetActorTransform());
+ Pending.Reset(); PendingInstances.Reset();
+ auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
+ for (auto* Actor : Actors) {
+  Pending.Add(Actor, Actor->GetActorTransform());
+  if (const auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor)) {
+   const auto* Data = IsValid(Subsystem) ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Proxy->Ref.BuildableClass, Proxy->Ref.Index) : nullptr;
+   if (!Proxy->Ref.Matches(Data)) { Pending.Reset(); PendingInstances.Reset(); System->UI->ShowPopup(TEXT("Cannot dismantle selection"), TEXT("A piece changed. Reselect and retry.")); return; }
+   PendingInstances.Add(Actor, FConfirmedInstance{Proxy->Ref, Data->Handles});
+  }
+ }
  PendingTarget = System->Selection->TargetActor;
  PendingPlayer = System->GetLocalController()->GetPlayerState<AFGPlayerState>();
  PendingNoBuildCost = PendingPlayer->GetPlayerRules().NoBuildCost;
  PendingAt = System->GetWorld()->GetRealTimeSeconds(); AwaitingConfirmation = true;
- System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nOnly native structural buildings within 20 m are supported. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
+ System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams and pillars within 20 m. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
 }
 
 void UHyperManageDismantle::Confirm(bool Accepted)
@@ -115,6 +168,7 @@ void UHyperManageDismantle::Confirm(bool Accepted)
  if (!AwaitingConfirmation) return;
  AwaitingConfirmation = false;
  const auto Snapshot = MoveTemp(Pending); Pending.Reset();
+ const auto Instances = MoveTemp(PendingInstances); PendingInstances.Reset();
  if (!Accepted || !System || !System->UI) return;
  FString Error; TArray<AActor*> Actors;
  auto Fail = [&](const FString& Message) { System->UI->ShowPopup(TEXT("Dismantle cancelled"), Message); };
@@ -126,16 +180,26 @@ void UHyperManageDismantle::Confirm(bool Accepted)
   Fail(TEXT("The confirmation expired or its selection, target or player rules changed. Start again.")); return;
  }
  if (!MatchesSnapshot(Actors, Snapshot)) { Fail(TEXT("The confirmed buildings changed. Start again.")); return; }
+ auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
+ for (const auto& Entry : Instances) {
+  const auto* Proxy = Cast<AHyperManageLightweightProxy>(Entry.Key.Get());
+  const auto* Data = Proxy && IsValid(Subsystem) ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Proxy->Ref.BuildableClass, Proxy->Ref.Index) : nullptr;
+  if (!Proxy || !MatchesInstance(Entry.Value, Proxy->Ref, Data)) { Fail(TEXT("A confirmed piece changed or was replaced. Reselect and retry.")); return; }
+ }
  auto* Character = Cast<AFGCharacterPlayer>(Controller->GetPawn());
  auto* Gun = Character ? Character->GetBuildGun() : nullptr;
  UFGBuildGunStateDismantle* State = nullptr;
  if (IsValid(Gun)) ForEachObjectWithOuter(Gun, [&](UObject* Object) { if (auto* Candidate = Cast<UFGBuildGunStateDismantle>(Object)) State = Candidate; }, false);
  auto* Function = FindNativeDispatch(State);
  if (!Function || !State || State->GetWorld() != System->GetWorld()) { Fail(TEXT("The game's dismantle handler is unavailable. Equip the build gun once, then retry.")); return; }
- // Use the game's own transaction. Never grant a separate refund or call DestroyActor here.
+ // Use the game's own batch handler. Never grant a separate refund or call DestroyActor here.
  FStructOnScope Parameters(Function);
  auto* ActorArray = FindFProperty<FArrayProperty>(Function, TEXT("selectedActors"));
- ActorArray->CopyCompleteValue(ActorArray->ContainerPtrToValuePtr<void>(Parameters.GetStructMemory()), &Actors);
+ TArray<AActor*> NativeActors; TArray<FDismantleLightweightBundle> Bundles;
+ MakeDispatch(Actors, NativeActors, Bundles);
+ ActorArray->CopyCompleteValue(ActorArray->ContainerPtrToValuePtr<void>(Parameters.GetStructMemory()), &NativeActors);
+ auto* BundleArray = FindFProperty<FArrayProperty>(Function, TEXT("lightweightBundles"));
+ BundleArray->CopyCompleteValue(BundleArray->ContainerPtrToValuePtr<void>(Parameters.GetStructMemory()), &Bundles);
  System->Selection->SelectClear(true);
  if (System->Undo) System->Undo->ClearUndoStack();
  State->ProcessEvent(Function, Parameters.GetStructMemory());

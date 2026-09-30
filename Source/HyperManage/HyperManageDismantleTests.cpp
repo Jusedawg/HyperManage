@@ -56,6 +56,42 @@ bool FHyperManageDismantleExecutionTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Changed transform rejected"), UHyperManageDismantle::MatchesSnapshot({Beam, Batch[0]}, Snapshot));
  TestNotNull(TEXT("Native batch RPC signature is available"), UHyperManageDismantle::FindNativeDispatch(GetMutableDefault<UFGBuildGunStateDismantle>()));
  TestNull(TEXT("Arbitrary object cannot dispatch"), UHyperManageDismantle::FindNativeDispatch(Unsupported));
+ FRuntimeBuildableInstanceData Data;
+ Data.Transform = FTransform::Identity; Data.BuiltWithRecipe = UFGRecipe::StaticClass(); Data.Handles.Add(MakeShared<FInstanceOwnershipHandle, ESPMode::NotThreadSafe>());
+ auto* Piece = World->SpawnActor<AHyperManageLightweightProxy>();
+ Piece->Ref.BuildableClass = AFGBuildableBeam::StaticClass(); Piece->Ref.Index = 4;
+ Piece->Ref.Recipe = Data.BuiltWithRecipe; Piece->Ref.SelectionId = FGuid::NewGuid();
+ auto Resolve = [&](const FHyperManageLightweightRef&) { return &Data; };
+ auto CheckPieces = [&](const TArray<AActor*>& Input, AActor* Target = nullptr) {
+  return UHyperManageDismantle::ValidateWithResolver(World, Input, Target, Output, Error, Resolve);
+ };
+ TestTrue(TEXT("Lightweight and ordinary structures accepted together"), CheckPieces({Beam, Piece}));
+ auto* Alias = World->SpawnActor<AHyperManageLightweightProxy>(); Alias->Ref = Piece->Ref;
+ TestFalse(TEXT("Target protected by instance identity even with another handle"), CheckPieces({Piece}, Alias));
+ TestFalse(TEXT("Duplicate instance handles rejected"), CheckPieces({Piece, Alias}));
+ TestTrue(TEXT("Duplicate failure exposes no partial list"), Output.IsEmpty());
+ TArray<AActor*> Native; TArray<FDismantleLightweightBundle> Bundles;
+ UHyperManageDismantle::MakeDispatch({Beam, Piece, Piece}, Native, Bundles);
+ TestEqual(TEXT("Only real actors go to native actor array"), Native.Num(), 1);
+ TestEqual(TEXT("One class produces one bundle"), Bundles.Num(), 1);
+ if (Bundles.Num() == 1) {
+  TestEqual(TEXT("Duplicate removal index not dispatched twice"), Bundles[0].RemovalIndices.Num(), 1);
+  TestEqual(TEXT("Exact lightweight index dispatched"), Bundles[0].RemovalIndices[0], 4);
+  TestTrue(TEXT("Exact lightweight class dispatched"), Bundles[0].BuildableClass == Piece->Ref.BuildableClass);
+ }
+ UHyperManageDismantle::FConfirmedInstance Confirmed{Piece->Ref, Data.Handles};
+ TestTrue(TEXT("Unchanged instance confirmation accepted"), UHyperManageDismantle::MatchesInstance(Confirmed, Piece->Ref, &Data));
+ Piece->Ref.Index = 5;
+ TestFalse(TEXT("Changed runtime index rejected despite identical transform"), UHyperManageDismantle::MatchesInstance(Confirmed, Piece->Ref, &Data));
+ Piece->Ref = Confirmed.Ref; Piece->Ref.SelectionId = FGuid::NewGuid();
+ TestFalse(TEXT("Replacement selection identity rejected"), UHyperManageDismantle::MatchesInstance(Confirmed, Piece->Ref, &Data));
+ Piece->Ref = Confirmed.Ref; Data.Handles[0] = MakeShared<FInstanceOwnershipHandle, ESPMode::NotThreadSafe>();
+ TestFalse(TEXT("Replaced runtime handle rejected even with identical recipe, index and transform"), UHyperManageDismantle::MatchesInstance(Confirmed, Piece->Ref, &Data));
+ Data.Transform.AddToTranslation(FVector(100, 0, 0));
+ TestFalse(TEXT("Moved live instance rejected"), CheckPieces({Beam, Piece}));
+ TestTrue(TEXT("Changed instance rejects entire batch"), Output.IsEmpty());
+ TestFalse(TEXT("Missing runtime record rejected"), UHyperManageDismantle::ValidateWithResolver(World, {Piece}, nullptr, Output, Error,
+  [](const FHyperManageLightweightRef&) -> const FRuntimeBuildableInstanceData* { return nullptr; }));
  Beam->Destroy();
  TestFalse(TEXT("Destroyed member rejected"), Check({Beam}));
  TestFalse(TEXT("Destroyed confirmed member rejected"), UHyperManageDismantle::MatchesSnapshot({Beam, Batch[0]}, Snapshot));

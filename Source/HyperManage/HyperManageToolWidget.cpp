@@ -206,7 +206,7 @@ void UHyperManageToolWidget::NativeConstruct()
 	HookWidget(EActionNameIdx::MoveSelection, btnMoveSelection, "Move Selection from Anchor to Target");
 	HookWidget(EActionNameIdx::CopySelection, btnCopySelection, "(Coming Soon) Copy Selection from Anchor to Target");
 	HookWidget(EActionNameIdx::NewSelection, btnNewSelection, "Clear Selection (Ctrl+Z restores it)");
-	HookWidget(EActionNameIdx::DeleteSelection, btnDeleteSelection, "Dismantle supported native structures (confirmation required)");
+	HookWidget(EActionNameIdx::DeleteSelection, btnDeleteSelection, "Dismantle supported building pieces (confirmation required)");
 	HookWidget(EActionNameIdx::SaveSelection, btnSaveSelection, "Remember Selection for This Session");
 	HookWidget(EActionNameIdx::LoadSelection, btnLoadSelection, "Restore Remembered Selection (Ctrl+Z restores the previous selection)");
 
@@ -249,7 +249,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.84")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.85")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -635,9 +635,9 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  Rows->AddChildToVerticalBox(ReviewButton)->SetPadding(FMargin(0, 4));
  auto* DismantleButton = WidgetTree->ConstructWidget<UButton>(); StyleFieldButton(DismantleButton);
  auto* DismantleLabel = WidgetTree->ConstructWidget<UTextBlock>(); DismantleLabel->SetFont(OffsetFont);
- DismantleLabel->SetText(FText::FromString(TEXT("Dismantle native structures..."))); DismantleLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+ DismantleLabel->SetText(FText::FromString(TEXT("Dismantle selection..."))); DismantleLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
  DismantleButton->SetContent(DismantleLabel);
- DismantleButton->SetToolTipText(FText::FromString(TEXT("Confirm permanent removal of up to 50 native vanilla beams/pillars/walls/foundations within 20 m. Single-player; no lightweight pieces, machines or overflow. Uses game refunds; clears edit history. Not undoable.")));
+ DismantleButton->SetToolTipText(FText::FromString(TEXT("Confirm permanent removal of up to 50 vanilla foundations/ramps/walls/beams/pillars within 20 m. Single-player; includes lightweight pieces; no machines or overflow. Uses game refunds; clears edit history. Not undoable.")));
  DismantleButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RequestDismantle);
  Rows->AddChildToVerticalBox(DismantleButton)->SetPadding(FMargin(0, 0, 0, 4));
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -1378,7 +1378,7 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  Details += TEXT("Checks describe current conditions, not permission to dismantle.\n\n");
  for (const auto& Line : Lines) Details += Line + TEXT("\n");
  if (Lines.IsEmpty()) Details += TEXT("No refundable items reported.\n");
- Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle is limited to the separate native-structures command.");
+ Details += TEXT("\nTotals group item types for display only. Refund amounts may change; bulk dismantle is limited to the separate Dismantle selection command.");
  SetRefundReviewReport(Details, FHyperManageDismantleReviewer::FormatRefundBreakdown(Review.Refunds));
  TArray<AActor*> Related;
  for (const auto& Entry : Review.Refunds.Actors) Related.Add(Entry.Actor.Get());

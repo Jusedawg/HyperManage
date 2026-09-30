@@ -1,5 +1,7 @@
 #pragma once
 #include "HyperManageSystem.h"
+#include "HyperManageLightweight.h"
+#include "Equipment/FGBuildGunDismantle.h"
 #include "HyperManageDismantle.generated.h"
 
 UCLASS()
@@ -13,10 +15,16 @@ public:
 private:
  friend class FHyperManageDismantleExecutionTest;
  static bool ValidateCandidates(UWorld* World, const TArray<AActor*>& Input, AActor* Target, TArray<AActor*>& Output, FString& Error);
+ using FResolveInstance = TFunctionRef<const FRuntimeBuildableInstanceData*(const FHyperManageLightweightRef&)>;
+ static bool ValidateWithResolver(UWorld* World, const TArray<AActor*>& Input, AActor* Target, TArray<AActor*>& Output, FString& Error, FResolveInstance Resolve);
+ static void MakeDispatch(const TArray<AActor*>& Selection, TArray<AActor*>& Actors, TArray<FDismantleLightweightBundle>& Bundles);
  static UFunction* FindNativeDispatch(UObject* State);
  static bool MatchesSnapshot(const TArray<AActor*>& Actors, const TMap<TWeakObjectPtr<AActor>, FTransform>& Snapshot);
  bool Preflight(TArray<AActor*>& Actors, FString& Error);
  TMap<TWeakObjectPtr<AActor>, FTransform> Pending;
+ struct FConfirmedInstance { FHyperManageLightweightRef Ref; TArray<FInstanceOwnerHandlePtr> Handles; };
+ TMap<TWeakObjectPtr<AActor>, FConfirmedInstance> PendingInstances;
+ static bool MatchesInstance(const FConfirmedInstance& Snapshot, const FHyperManageLightweightRef& Ref, const FRuntimeBuildableInstanceData* Data);
  TWeakObjectPtr<AActor> PendingTarget;
  TWeakObjectPtr<AFGPlayerState> PendingPlayer;
  bool PendingNoBuildCost = false;
