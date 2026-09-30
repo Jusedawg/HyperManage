@@ -1,4 +1,5 @@
 #include "HyperManageSystem.h"
+#include "HyperManageDismantle.h"
 #include "HyperManageUndo.h"
 #include "HyperManageConfig.h"
 #include "HyperManageSelection.h"
@@ -63,6 +64,7 @@ void UHyperManageSystem::Initialize(UGameInstance* GameInstance, UWorld* World)
 	Config = InitComponent<UHyperManageConfiguration>(this);
 	UI = InitComponent<UHyperManageUI>(this);
 	Action = InitComponent<UHyperManageAction>(this);
+ Dismantle = InitComponent<UHyperManageDismantle>(this);
 	Input = InitComponent<UHyperManageInput>(this);
 }
 
@@ -321,7 +323,7 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 			UI->ShowConfirm(TITLE_START_NEW_SELECTION, BODY_START_NEW_SELECTION, Selection, "SelectClear");
 			break;
 		case EActionNameIdx::DeleteSelection:
-			UI->ComingSoon();
+			if (Dismantle) Dismantle->Request();
 			break;
 		case EActionNameIdx::SaveSelection:
 			Selection->SaveSelection();

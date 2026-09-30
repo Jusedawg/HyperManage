@@ -177,6 +177,7 @@ public: // Components ==========================================================
 
 	UPROPERTY(BlueprintReadOnly, Category = "HyperManage Component")
 	class UHyperManageAction* Action;
+ UPROPERTY(Transient) class UHyperManageDismantle* Dismantle;
 
 	UPROPERTY(BlueprintReadOnly, Category = "HyperManage Component")
 	class UHyperManageInput* Input;

@@ -73,6 +73,7 @@ protected:
  UPROPERTY(Transient) TObjectPtr<UButton> BlueprintSlotButton;
  UFUNCTION() void RememberBlueprintSlot();
  UFUNCTION() void ReviewDismantleRefunds();
+ UFUNCTION() void RequestDismantle();
  UPROPERTY(Transient) TObjectPtr<class UCanvasPanel> RefundDrawerHost;
  UPROPERTY(Transient) TObjectPtr<class UBorder> RefundDrawerPanel;
  bool RefundDrawerOpen = false;

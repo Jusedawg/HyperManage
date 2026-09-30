@@ -1,3 +1,6 @@
+#include "HyperManageDismantle.h"
+#include "FGInventoryComponent.h"
+#include "Equipment/FGBuildGunDismantle.h"
 #include "HyperManageRefundCapacity.h"
 #include "HyperManageDismantlePlan.h"
 #include "HyperManageDismantleReview.h"
@@ -13,6 +16,54 @@
 #include "Misc/AutomationTest.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageDismantleExecutionTest, "HyperManage.Dismantle.ExecutionGuards", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FHyperManageDismantleExecutionTest::RunTest(const FString& Parameters)
+{
+ UWorld* World = UWorld::CreateWorld(EWorldType::Game, false);
+ UWorld* OtherWorld = UWorld::CreateWorld(EWorldType::Game, false);
+ auto* Beam = World->SpawnActor<AFGBuildableBeam>();
+ auto* Other = World->SpawnActor<AFGBuildableBeam>();
+ auto* Foreign = OtherWorld->SpawnActor<AFGBuildableBeam>();
+ auto* Unsupported = World->SpawnActor<AActor>();
+ TArray<AActor*> Output; FString Error;
+ auto Check = [&](const TArray<AActor*>& Input, AActor* Target = nullptr) {
+  return UHyperManageDismantle::ValidateCandidates(World, Input, Target, Output, Error);
+ };
+ TestTrue(TEXT("Native structural fixture accepted"), Check({Beam, Beam}));
+ TestEqual(TEXT("Duplicates are dispatched only once"), Output.Num(), 1);
+ TestFalse(TEXT("Empty selection rejected"), Check({}));
+ TestFalse(TEXT("Protected target rejected"), Check({Other, Beam}, Beam));
+ TestTrue(TEXT("Rejected batch has no partial execution list"), Output.IsEmpty());
+ TestFalse(TEXT("Foreign world rejected"), Check({Beam, Foreign}));
+ TestFalse(TEXT("Unsupported object rejects entire batch"), Check({Beam, Unsupported}));
+ TestTrue(TEXT("Unsupported batch leaves no partial list"), Output.IsEmpty());
+ TestFalse(TEXT("Null object rejected"), Check({Beam, nullptr}));
+ TArray<AActor*> Batch;
+ for (int32 Index = 0; Index < UHyperManageDismantle::MaxBuildings; ++Index) Batch.Add(World->SpawnActor<AFGBuildableBeam>());
+ TestTrue(TEXT("Maximum batch accepted"), Check(Batch));
+ Batch.Add(Other);
+ TestFalse(TEXT("Over limit rejected"), Check(Batch));
+ TestTrue(TEXT("Over limit leaves no partial list"), Output.IsEmpty());
+ auto* Inventory = NewObject<UFGInventoryComponent>(Other);
+ Other->AddInstanceComponent(Inventory);
+ TestFalse(TEXT("Inventory-bearing structure rejected"), Check({Other}));
+ TMap<TWeakObjectPtr<AActor>, FTransform> Snapshot;
+ Snapshot.Add(Beam, Beam->GetActorTransform()); Snapshot.Add(Batch[0], Batch[0]->GetActorTransform());
+ TestTrue(TEXT("Same confirmed set accepted regardless of order"), UHyperManageDismantle::MatchesSnapshot({Batch[0], Beam}, Snapshot));
+ TestFalse(TEXT("Changed membership rejected"), UHyperManageDismantle::MatchesSnapshot({Batch[1], Beam}, Snapshot));
+ TestFalse(TEXT("Duplicate cannot substitute for confirmed member"), UHyperManageDismantle::MatchesSnapshot({Beam, Beam}, Snapshot));
+ Snapshot[Beam].AddToTranslation(FVector(100, 0, 0));
+ TestFalse(TEXT("Changed transform rejected"), UHyperManageDismantle::MatchesSnapshot({Beam, Batch[0]}, Snapshot));
+ TestNotNull(TEXT("Native batch RPC signature is available"), UHyperManageDismantle::FindNativeDispatch(GetMutableDefault<UFGBuildGunStateDismantle>()));
+ TestNull(TEXT("Arbitrary object cannot dispatch"), UHyperManageDismantle::FindNativeDispatch(Unsupported));
+ Beam->Destroy();
+ TestFalse(TEXT("Destroyed member rejected"), Check({Beam}));
+ TestFalse(TEXT("Destroyed confirmed member rejected"), UHyperManageDismantle::MatchesSnapshot({Beam, Batch[0]}, Snapshot));
+ TestTrue(TEXT("Validation did not destroy other buildings"), IsValid(Other) && IsValid(Batch[0]));
+ OtherWorld->DestroyWorld(false); World->DestroyWorld(false);
+ return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageDismantlePlanTest, "HyperManage.Dismantle.DependencyPlan", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FHyperManageDismantlePlanTest::RunTest(const FString& Parameters)
 {
