@@ -1,6 +1,7 @@
 #include "HyperManageRefundCapacity.h"
 #include "FGCharacterPlayer.h"
 #include "FGInventoryComponent.h"
+#include "FGPlayerState.h"
 #include "HyperManageDismantleReview.h"
 #include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
@@ -247,7 +248,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.80")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.81")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -819,6 +820,11 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   const auto* Character = Controller ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
   CheckRefundInventory(IsValid(Character) ? Character->GetInventory() : nullptr);
  }
+ if (TrackRefundRules) {
+  const auto* Controller = System ? System->GetLocalController() : nullptr;
+  auto* Player = Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr;
+  CheckRefundRules(Player, IsValid(Player) && Player->GetPlayerRules().NoBuildCost);
+ }
 	if (!System || !System->Config) return;
  if (System->Selection && SelectionSlotStatus) {
   const bool Saved = System->Selection->HasSavedSelection();
@@ -1366,6 +1372,7 @@ void UHyperManageToolWidget::ReviewDismantleRefunds()
  CaptureRefundSelection(Actors, System->Selection->TargetActor, System->Undo ? System->Undo->GetRevision() : 0, Related);
  const auto* Character = Controller ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
  WatchRefundInventory(IsValid(Character) ? Character->GetInventory() : nullptr);
+ CaptureRefundRules(Controller ? Controller->GetPlayerState<AFGPlayerState>() : nullptr, Review.Refunds.NoBuildCost);
 }
 
 void UHyperManageToolWidget::CaptureRefundSelection(const TArray<AActor*>& Actors, AActor* Target, uint64 EditRevision, const TArray<AActor*>& Related)
@@ -1401,10 +1408,25 @@ void UHyperManageToolWidget::CheckRefundSelection(const TArray<AActor*>& Actors,
 void UHyperManageToolWidget::InvalidateRefundReview(const FString& Reason)
 {
  StopWatchingRefundInventory();
+ TrackRefundRules = false; ReviewedPlayer.Reset();
  TrackRefundSelection = false;
  ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  // Replace old totals without reopening a closed drawer or disturbing its scroll position.
  if (RefundReviewText) RefundReviewText->SetText(FText::FromString(TEXT("Review out of date\n\n") + Reason + TEXT(" Refresh to review the current group.\n\nMachine contents and dependency changes also require a fresh review.")));
+}
+
+void UHyperManageToolWidget::CaptureRefundRules(AFGPlayerState* Player, bool NoBuildCost)
+{
+ ReviewedPlayer = Player; ReviewedNoBuildCost = NoBuildCost; TrackRefundRules = true;
+}
+
+void UHyperManageToolWidget::CheckRefundRules(AFGPlayerState* Player, bool NoBuildCost)
+{
+ if (!TrackRefundRules) return;
+ if (!ReviewedPlayer.IsValid() || !IsValid(Player) || ReviewedPlayer.Get() != Player)
+  InvalidateRefundReview(TEXT("The player associated with this estimate is unavailable or has changed."));
+ else if (ReviewedNoBuildCost != NoBuildCost)
+  InvalidateRefundReview(TEXT("The No build cost rule changed; the previous material totals are out of date."));
 }
 
 void UHyperManageToolWidget::StopWatchingRefundInventory()
@@ -1453,6 +1475,7 @@ void UHyperManageToolWidget::RefundInventoryItemsChanged(TSubclassOf<UFGItemDesc
 void UHyperManageToolWidget::SetRefundReviewReport(const FString& Report)
 {
  StopWatchingRefundInventory();
+ TrackRefundRules = false; ReviewedPlayer.Reset();
  TrackRefundSelection = false; ReviewedSelection.Reset(); ReviewedChildren.Reset(); ReviewedTarget.Reset();
  if (!RefundReviewText || !RefundDrawerHost || !RefundReviewScroll) return;
  const FString Header = FString::Printf(TEXT("Updated %s\nRefresh after selection or inventory changes.\n\n"), *FDateTime::Now().ToString(TEXT("%H:%M:%S")));

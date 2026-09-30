@@ -90,6 +90,11 @@ protected:
  bool TrackRefundSelection = false;
  TWeakObjectPtr<class UFGInventoryComponent> ReviewedInventory;
  bool TrackRefundInventory = false;
+ TWeakObjectPtr<class AFGPlayerState> ReviewedPlayer;
+ bool ReviewedNoBuildCost = false;
+ bool TrackRefundRules = false;
+ void CaptureRefundRules(class AFGPlayerState* Player, bool NoBuildCost);
+ void CheckRefundRules(class AFGPlayerState* Player, bool NoBuildCost);
  void WatchRefundInventory(class UFGInventoryComponent* Inventory);
  void StopWatchingRefundInventory();
  void CheckRefundInventory(class UFGInventoryComponent* Inventory);

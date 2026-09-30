@@ -1,5 +1,6 @@
 #include "CoreMinimal.h"
 #include "FGInventoryComponent.h"
+#include "FGPlayerState.h"
 #include "Components/Border.h"
 #include "HyperManageSlotStore.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
@@ -400,12 +401,41 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  Tools->SetRefundReviewReport(TEXT("Review unavailable"));
  Inventory->OnSlotUpdatedDelegate.Broadcast(0);
  TestFalse(TEXT("Old inventory event cannot overwrite a failed refresh"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Review out of date")));
+ auto* ReviewPlayer = ReviewWorld->SpawnActor<AFGPlayerState>();
+ auto* OtherReviewPlayer = ReviewWorld->SpawnActor<AFGPlayerState>();
+ if (!TestNotNull(TEXT("Review player fixture created"), ReviewPlayer) || !TestNotNull(TEXT("Replacement player fixture created"), OtherReviewPlayer)) {
+  ReviewWorld->DestroyWorld(false); return false;
+ }
+ Tools->SetRefundReviewReport(LongReport); Tools->CaptureRefundRules(ReviewPlayer, false);
+ Tools->CheckRefundRules(ReviewPlayer, false);
+ TestTrue(TEXT("Unchanged player rules preserve review"), Tools->TrackRefundRules);
+ Tools->CloseRefundDrawer();
+ Tools->WatchRefundInventory(Inventory);
+ Tools->CheckRefundRules(ReviewPlayer, true);
+ TestFalse(TEXT("Enabling no build cost invalidates totals"), Tools->TrackRefundRules);
+ TestFalse(TEXT("Rule change releases inventory listeners"), Tools->TrackRefundInventory);
+ TestFalse(TEXT("Rule change keeps closed drawer closed"), Tools->RefundDrawerOpen);
+ TestTrue(TEXT("Rule change explains why totals are outdated"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("No build cost rule changed")));
+ Tools->CaptureRefundRules(ReviewPlayer, true);
+ Tools->CheckRefundRules(ReviewPlayer, false);
+ TestFalse(TEXT("Disabling no build cost also invalidates totals"), Tools->TrackRefundRules);
+ Tools->CaptureRefundRules(ReviewPlayer, false);
+ Tools->CheckRefundRules(OtherReviewPlayer, false);
+ TestFalse(TEXT("Replacement player invalidates identical cost rules"), Tools->TrackRefundRules);
+ Tools->CaptureRefundRules(ReviewPlayer, false);
+ Tools->CheckRefundRules(nullptr, false);
+ TestFalse(TEXT("Missing player invalidates the review"), Tools->TrackRefundRules);
+ Tools->CaptureRefundRules(ReviewPlayer, false);
+ Tools->SetRefundReviewReport(TEXT("Review unavailable"));
+ Tools->CheckRefundRules(OtherReviewPlayer, true);
+ TestFalse(TEXT("Failed refresh releases rule tracking"), Tools->TrackRefundRules);
+ TestFalse(TEXT("Old rule snapshot cannot overwrite failed refresh"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Review out of date")));
  ReviewWorld->DestroyWorld(false);
  Tools->SetRefundReviewReport(TEXT("Review unavailable"));
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.80")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.81")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
