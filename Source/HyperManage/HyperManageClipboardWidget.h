@@ -23,5 +23,6 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> RedoText;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> ScaleText;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> NotesText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> DismantleText;
 	void UpdateReference(const class UHyperManageConfiguration& Configuration, int32 Count);
 };

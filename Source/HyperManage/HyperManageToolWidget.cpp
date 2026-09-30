@@ -249,7 +249,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.85")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.86")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -637,7 +637,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
  auto* DismantleLabel = WidgetTree->ConstructWidget<UTextBlock>(); DismantleLabel->SetFont(OffsetFont);
  DismantleLabel->SetText(FText::FromString(TEXT("Dismantle selection..."))); DismantleLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
  DismantleButton->SetContent(DismantleLabel);
- DismantleButton->SetToolTipText(FText::FromString(TEXT("Confirm permanent removal of up to 50 vanilla foundations/ramps/walls/beams/pillars within 20 m. Single-player; includes lightweight pieces; no machines or overflow. Uses game refunds; clears edit history. Not undoable.")));
+ DismantleButton->SetToolTipText(FText::FromString(TEXT("Shortcut: Delete by default while the tool is equipped (configurable). Opens confirmation without the panel. Confirm permanent removal of up to 50 vanilla foundations/ramps/walls/beams/pillars within 20 m. Single-player; includes lightweight pieces; no machines or overflow. Uses game refunds; clears edit history. Not undoable.")));
  DismantleButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::RequestDismantle);
  Rows->AddChildToVerticalBox(DismantleButton)->SetPadding(FMargin(0, 0, 0, 4));
 	QuickActionHost = WidgetTree->ConstructWidget<UVerticalBox>();

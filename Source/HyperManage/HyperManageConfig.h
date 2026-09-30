@@ -163,6 +163,8 @@ class HYPERMANAGE_API UHyperManageConfiguration : public UHyperManageComponent
 	GENERATED_BODY()
 
 private:
+	friend class FHyperManageDismantleHotkeyTest;
+	static void UpgradeDismantleBinding(FHyperManageKeyConfigs& Keys);
 	void WriteStructToConfig(const FString& ConfigName, void* PtrToStruct, UScriptStruct* ScriptStruct);
 
 	void ReadConfigIntoStruct(const FString& ConfigName, void* StructPtr, UScriptStruct* ScriptStruct);

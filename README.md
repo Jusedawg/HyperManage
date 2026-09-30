@@ -206,6 +206,8 @@ The refund report slides left from behind the main tool tray in a matching panel
 
 ### Dismantle selection
 
+With the HyperManage tool equipped, select pieces and press **Delete** to open dismantle confirmation without opening the right panel. Holding Delete does not repeat the command. The panel button remains available. The clipboard shows your configured shortcut. Remap the Delete Selection action in `HyperManage-Keys.cfg`; existing custom shortcuts are preserved. Older unbound defaults gain Delete unless another action already uses it. In key format 1.1, setting the key to Invalid keeps it unbound.
+
 In single-player, **Dismantle selection...** removes supported vanilla foundations, ramps, walls, beams and pillars after confirmation. Both ordinary and lightweight versions are supported; you do not need to distinguish between them. Select up to 50 pieces within 20 meters. Machines, storage and modded buildings are not supported yet. A rejected selection identifies its unsupported building, and nothing is removed. The protected target is excluded.
 
 Select required children and dependencies explicitly. The complete refund must fit in your inventory; overflow handling is not supported yet. Confirmation expires after 60 seconds. Selection, transforms, target, player, cost rules and lightweight references are checked again, along with current refunds and capacity. Changed or unavailable pieces cancel the request. The game handles removal and refunds for both building representations.

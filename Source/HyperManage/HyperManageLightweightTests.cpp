@@ -461,7 +461,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.85")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.86")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -484,9 +484,11 @@ bool FHyperManageClipboardLayoutTest::RunTest(const FString& Parameters)
 		 FHyperManageKeyConfig(Shrink, EKeys::J, true, true, false, false),
 		 FHyperManageKeyConfig(Grow, EKeys::L, true, true, false, false),
 		 FHyperManageKeyConfig(ChangeIncSize, EKeys::I, true, true, false, false),
-		 FHyperManageKeyConfig(KnowNotes, EKeys::K, true, true, false, false)
+		 FHyperManageKeyConfig(KnowNotes, EKeys::K, true, true, false, false),
+         FHyperManageKeyConfig(DeleteSelection, EKeys::Delete, false, false, false, false)
 	 };
 	 Clipboard->UpdateReference(*Config, 12345);
+     TestEqual(TEXT("Dismantle shortcut is visible"), Clipboard->DismantleText->GetText().ToString(), FString(TEXT("Delete  Dismantle (confirm)")));
 	 TestEqual(TEXT("Redo shortcut is visible"), Clipboard->RedoText->GetText().ToString(), FString(TEXT("Ctrl+Y  Redo")));
 	 TestTrue(TEXT("Selection count has its own box"), Clipboard->CountText->GetText().ToString().Contains(TEXT("12345")));
 	 TestTrue(TEXT("Shrink and grow are documented"), Clipboard->ScaleText->GetText().ToString().Contains(TEXT("Ctrl+Alt+L  Grow")));

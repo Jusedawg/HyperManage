@@ -209,6 +209,20 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 	for (auto ActionIdx : InvalidKeyActions) {
 		CheckKeyConfigSettings(FHyperManageKeyConfig(ActionIdx, EKeys::Invalid, NoCtrl, NoAlt, NoShift, NoRepeat));
 	}
+	UpgradeDismantleBinding(MMKeyConfigs);
+}
+
+void UHyperManageConfiguration::UpgradeDismantleBinding(FHyperManageKeyConfigs& Keys)
+{
+ const bool OldFormat = Keys.DoNotEditConfigFormatVersion == TEXT("1.0");
+ const bool DeleteInUse = Keys.ActionKeys.ContainsByPredicate([](const FHyperManageKeyConfig& Key) {
+  return Key.ActionIndex != DeleteSelection && Key.Key == EKeys::Delete && !Key.Ctrl && !Key.Alt && !Key.Shift;
+ });
+ for (auto& Key : Keys.ActionKeys) if (Key.ActionIndex == DeleteSelection) {
+  if (OldFormat && Key.Key == EKeys::Invalid && !DeleteInUse) Key = FHyperManageKeyConfig(DeleteSelection, EKeys::Delete, false, false, false, false);
+  Key.UseRepeats = false;
+ }
+ Keys.DoNotEditConfigFormatVersion = TEXT("1.1");
 }
 
 void UHyperManageConfiguration::NextIncrementSize()

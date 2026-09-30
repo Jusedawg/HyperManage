@@ -68,6 +68,7 @@ TSharedRef<SWidget> UHyperManageClipboardWidget::RebuildWidget()
 		ScaleText = AddText(TEXT("Ctrl+Alt+J  Shrink    Ctrl+Alt+L  Grow"), 56, 449, 296, 40, 10);
 		StatusText = AddText(TEXT("Increment: Medium\nMove: 0.1m  Rotate: 5 deg\nXY: 8m Z: 1m | Group | View"), 56, 489, 296, 60, 9);
 		NotesText = AddText(TEXT("Ctrl+Alt+K  Cycle notes"), 100, 552, 248, 24, 10);
+		DismantleText = AddText(TEXT("Delete  Dismantle (confirm)"), 56, 579, 296, 24, 10);
 		SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 	return Super::RebuildWidget();
@@ -95,6 +96,7 @@ void UHyperManageClipboardWidget::UpdateReference(const UHyperManageConfiguratio
 	auto Binding = [&](EActionNameIdx Action) {
 		for (const auto& Key : Configuration.MMKeyConfigs.ActionKeys) {
 			if (Key.ActionIndex != Action) continue;
+			if (Key.Key == EKeys::Invalid) return FString(TEXT("Unbound"));
 			FString Name = Key.KeyName;
 			if (Name == TEXT("LeftMouseButton")) Name = TEXT("LMB");
 			else if (Name == TEXT("RightMouseButton")) Name = TEXT("RMB");
@@ -108,6 +110,7 @@ void UHyperManageClipboardWidget::UpdateReference(const UHyperManageConfiguratio
 	Set(SelectionText, Binding(SelectTarget) + TEXT("  Select\n") + Binding(DeselectTarget) + TEXT("  Deselect"));
 	Set(UndoText, Binding(Undo) + TEXT("  Undo"));
 	Set(RedoText, Binding(Redo) + TEXT("  Redo"));
+	Set(DismantleText, Binding(DeleteSelection) + TEXT("  Dismantle (confirm)"));
 	Set(ScaleText, Binding(Shrink) + TEXT("  Shrink    ") + Binding(Grow) + TEXT("  Grow"));
 	Set(NotesText, Binding(KnowNotes) + TEXT("  Cycle notes"));
 	Set(StatusText, FString::Printf(TEXT("%s  Increment: %s\nMove: %gm   Rotate: %g deg\nXY: %gm Z: %gm | %s | %s"), *Binding(ChangeIncSize),

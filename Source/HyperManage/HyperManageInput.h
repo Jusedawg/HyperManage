@@ -11,6 +11,7 @@ class HYPERMANAGE_API UHyperManageInput : public UHyperManageComponent
 	GENERATED_BODY()
 
 private:
+	friend class FHyperManageDismantleHotkeyTest;
 	TMap<FKey, FTimerHandle> KeyTimerHandleMap;
 
 	UPROPERTY(Transient)

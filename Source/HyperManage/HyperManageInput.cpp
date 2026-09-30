@@ -74,6 +74,9 @@ void UHyperManageInput::SetupInputComponent()
 
 void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionIndex, EInputEvent InputEvent)
 {
+	// Destructive actions run once per press, regardless of configured repeat behavior.
+	if (ActionIndex == DeleteSelection && InputEvent != IE_Pressed) return;
+
 	// remove timer if the key has been released
 	if (InputEvent == EInputEvent::IE_Released) {
 		if (KeyTimerHandleMap.Contains(Key)) {
