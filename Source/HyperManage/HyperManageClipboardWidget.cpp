@@ -67,8 +67,8 @@ TSharedRef<SWidget> UHyperManageClipboardWidget::RebuildWidget()
 		}
 		ScaleText = AddText(TEXT("Ctrl+Alt+J  Shrink    Ctrl+Alt+L  Grow"), 56, 449, 296, 40, 10);
 		StatusText = AddText(TEXT("Increment: Medium\nMove: 0.1m  Rotate: 5 deg\nXY: 8m Z: 1m | Group | View"), 56, 489, 296, 60, 9);
-		NotesText = AddText(TEXT("Ctrl+Alt+K  Cycle notes"), 100, 552, 248, 24, 10);
-		DismantleText = AddText(TEXT("Delete  Dismantle (confirm)"), 56, 579, 296, 24, 10);
+		NotesText = AddText(TEXT("Ctrl+Alt+K  Notes"), 56, 552, 148, 24, 9);
+		DismantleText = AddText(TEXT("Delete  Dismantle"), 212, 552, 140, 24, 9);
 		SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 	return Super::RebuildWidget();
@@ -110,9 +110,9 @@ void UHyperManageClipboardWidget::UpdateReference(const UHyperManageConfiguratio
 	Set(SelectionText, Binding(SelectTarget) + TEXT("  Select\n") + Binding(DeselectTarget) + TEXT("  Deselect"));
 	Set(UndoText, Binding(Undo) + TEXT("  Undo"));
 	Set(RedoText, Binding(Redo) + TEXT("  Redo"));
-	Set(DismantleText, Binding(DeleteSelection) + TEXT("  Dismantle (confirm)"));
+	Set(DismantleText, Binding(DeleteSelection) + TEXT("  Dismantle"));
 	Set(ScaleText, Binding(Shrink) + TEXT("  Shrink    ") + Binding(Grow) + TEXT("  Grow"));
-	Set(NotesText, Binding(KnowNotes) + TEXT("  Cycle notes"));
+	Set(NotesText, Binding(KnowNotes) + TEXT("  Notes"));
 	Set(StatusText, FString::Printf(TEXT("%s  Increment: %s\nMove: %gm   Rotate: %g deg\nXY: %gm Z: %gm | %s | %s"), *Binding(ChangeIncSize),
 		*UEnum::GetDisplayValueAsText(Config.IncrementSize.GetValue()).ToString(), Increment.CentimetersToMove / 100.f, Increment.DegreesToRotate,
 		Config.AlignmentGridCm / 100.f, Config.HeightGridCm / 100.f, Config.IsGrouped ? TEXT("Group") : TEXT("Individual"), Config.IsViewBased ? TEXT("View") : TEXT("Object")));
