@@ -6,6 +6,9 @@
 #include "HyperManageDismantleReview.h"
 #include "Buildables/FGBuildable.h"
 #include "FGBuildableBeam.h"
+#include "Buildables/FGBuildableWalkway.h"
+#include "Buildables/FGBuildableStair.h"
+#include "Buildables/FGBuildableLadder.h"
 #include "FGRecipe.h"
 #include "HyperManageDismantleRefund.h"
 #include "FGPlayerState.h"
@@ -66,6 +69,31 @@ bool FHyperManageDismantleExecutionTest::RunTest(const FString& Parameters)
   return UHyperManageDismantle::ValidateWithResolver(World, Input, Target, Output, Error, Resolve);
  };
  TestTrue(TEXT("Lightweight and ordinary structures accepted together"), CheckPieces({Beam, Piece}));
+ auto* Walkway = World->SpawnActor<AFGBuildableWalkway>();
+ auto* Stair = World->SpawnActor<AFGBuildableStair>();
+ TestTrue(TEXT("Ordinary stairs and walkways accepted in mixed selection"), Check({Beam, Walkway, Stair}));
+ TestFalse(TEXT("Walkway target is protected"), Check({Walkway, Stair}, Walkway));
+ for (UClass* Class : {AFGBuildableWalkway::StaticClass(), AFGBuildableWalkwayLightweight::StaticClass(), AFGBuildableStair::StaticClass(), AFGBuildableLadder::StaticClass()}) {
+  // Use the class default through an injected lightweight record; ladder's native base is abstract.
+  Piece->Ref.BuildableClass = Class;
+  TestTrue(*FString::Printf(TEXT("Structural class accepted: %s"), *Class->GetName()), CheckPieces({Walkway, Piece}));
+ }
+ Piece->Ref.BuildableClass = AFGBuildableBeam::StaticClass();
+ auto* StairInventory = NewObject<UFGInventoryComponent>(Stair); Stair->AddInstanceComponent(StairInventory);
+ TestFalse(TEXT("Expanded classes still reject inventory components"), Check({Walkway, Stair}));
+ TestTrue(TEXT("Expanded-class rejection has no partial removal list"), Output.IsEmpty());
+ auto* WalkwayPiece = World->SpawnActor<AHyperManageLightweightProxy>(); WalkwayPiece->Ref = Piece->Ref;
+ WalkwayPiece->Ref.BuildableClass = AFGBuildableWalkwayLightweight::StaticClass(); WalkwayPiece->Ref.SelectionId = FGuid::NewGuid();
+ TArray<AActor*> MixedActors; TArray<FDismantleLightweightBundle> MixedBundles;
+ UHyperManageDismantle::MakeDispatch({Walkway, Piece, WalkwayPiece}, MixedActors, MixedBundles);
+ TestEqual(TEXT("Mixed classes keep ordinary walkway in actor list"), MixedActors.Num(), 1);
+ TestEqual(TEXT("Same index in different lightweight classes stays separate"), MixedBundles.Num(), 2);
+ if (MixedBundles.Num() == 2) {
+  TestTrue(TEXT("Bundle classes remain distinct"), MixedBundles[0].BuildableClass != MixedBundles[1].BuildableClass);
+  TestEqual(TEXT("First class index retained"), MixedBundles[0].RemovalIndices[0], 4);
+  TestEqual(TEXT("Second class index retained"), MixedBundles[1].RemovalIndices[0], 4);
+ }
+
  auto* Alias = World->SpawnActor<AHyperManageLightweightProxy>(); Alias->Ref = Piece->Ref;
  TestFalse(TEXT("Target protected by instance identity even with another handle"), CheckPieces({Piece}, Alias));
  TestFalse(TEXT("Duplicate instance handles rejected"), CheckPieces({Piece, Alias}));

@@ -12,6 +12,9 @@
 #include "FGBuildablePillar.h"
 #include "Buildables/FGBuildableWall.h"
 #include "Buildables/FGBuildableFoundation.h"
+#include "Buildables/FGBuildableWalkway.h"
+#include "Buildables/FGBuildableStair.h"
+#include "Buildables/FGBuildableLadder.h"
 #include "Equipment/FGBuildGunDismantle.h"
 #include "UObject/StructOnScope.h"
 #include "UObject/UObjectHash.h"
@@ -38,12 +41,13 @@ bool UHyperManageDismantle::ValidateWithResolver(UWorld* World, const TArray<AAc
   auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor);
   auto* Building = Proxy ? Proxy->Ref.BuildableClass.GetDefaultObject() : Cast<AFGBuildable>(Actor);
   const bool Structural = Building && (Building->IsA<AFGBuildableBeam>() || Building->IsA<AFGBuildablePillar>()
-   || Building->IsA<AFGBuildableWall>() || Building->IsA<AFGBuildableFoundation>());
+   || Building->IsA<AFGBuildableWall>() || Building->IsA<AFGBuildableFoundation>()
+   || Building->IsA<AFGBuildableWalkway>() || Building->IsA<AFGBuildableStair>() || Building->IsA<AFGBuildableLadder>());
   const FString Package = Building ? Building->GetClass()->GetOutermost()->GetName() : FString();
   if (!Structural || (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame"))) {
    Output.Reset();
    const FString Name = Building && !Building->mDisplayName.IsEmpty() ? Building->mDisplayName.ToString() : Actor->GetName();
-   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams or pillars. Machines, storage and modded buildings will come later. Nothing was removed."), *Name);
+   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams, pillars, walkways, stairs or ladders. Machines, storage and modded buildings will come later. Nothing was removed."), *Name);
    return false;
   }
   if (Proxy) {
@@ -160,7 +164,7 @@ void UHyperManageDismantle::Request()
  PendingPlayer = System->GetLocalController()->GetPlayerState<AFGPlayerState>();
  PendingNoBuildCost = PendingPlayer->GetPlayerRules().NoBuildCost;
  PendingAt = System->GetWorld()->GetRealTimeSeconds(); AwaitingConfirmation = true;
- System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams and pillars within 20 m. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
+ System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams, pillars, walkways, stairs and ladders within 20 m. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
 }
 
 void UHyperManageDismantle::Confirm(bool Accepted)
