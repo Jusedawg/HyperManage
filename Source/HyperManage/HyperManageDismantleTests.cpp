@@ -1,5 +1,6 @@
 #include "HyperManageDismantle.h"
 #include "FGInventoryComponent.h"
+#include "FGFactoryConnectionComponent.h"
 #include "Equipment/FGBuildGunDismantle.h"
 #include "HyperManageRefundCapacity.h"
 #include "HyperManageDismantlePlan.h"
@@ -9,6 +10,7 @@
 #include "Buildables/FGBuildableWalkway.h"
 #include "Buildables/FGBuildableStair.h"
 #include "Buildables/FGBuildableLadder.h"
+#include "Buildables/FGBuildableStorage.h"
 #include "FGRecipe.h"
 #include "HyperManageDismantleRefund.h"
 #include "FGPlayerState.h"
@@ -120,6 +122,50 @@ bool FHyperManageDismantleExecutionTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("Changed instance rejects entire batch"), Output.IsEmpty());
  TestFalse(TEXT("Missing runtime record rejected"), UHyperManageDismantle::ValidateWithResolver(World, {Piece}, nullptr, Output, Error,
   [](const FHyperManageLightweightRef&) -> const FRuntimeBuildableInstanceData* { return nullptr; }));
+ auto* StorageClass = LoadClass<AFGBuildableStorage>(nullptr, TEXT("/Game/FactoryGame/Buildable/Factory/StorageContainerMk1/Build_StorageContainerMk1.Build_StorageContainerMk1_C"));
+ auto* IndustrialClass = LoadClass<AFGBuildableStorage>(nullptr, TEXT("/Game/FactoryGame/Buildable/Factory/StorageContainerMk2/Build_StorageContainerMk2.Build_StorageContainerMk2_C"));
+ TestTrue(TEXT("Standard storage class supported"), UHyperManageDismantle::IsSupportedStorageClass(StorageClass));
+ TestTrue(TEXT("Industrial storage class supported"), UHyperManageDismantle::IsSupportedStorageClass(IndustrialClass));
+ TestFalse(TEXT("Base storage is not a wildcard for other container types"), UHyperManageDismantle::IsSupportedStorageClass(AFGBuildableStorage::StaticClass()));
+ auto MakeContents = [&](int32 Count, AActor* State = nullptr) {
+  FInventoryStack Stack; FInventoryStack::StaticStruct()->InitializeStruct(&Stack);
+  FindFProperty<FClassProperty>(FInventoryItem::StaticStruct(), TEXT("ItemClass"))->SetObjectPropertyValue_InContainer(&Stack.Item, UFGItemDescriptor::StaticClass());
+  Stack.NumItems = Count; Stack.Item.LegacyItemStateActor = State;
+  return Stack;
+ };
+ TestTrue(TEXT("Stored stacks can be split across refund entries"), UHyperManageDismantle::RefundCoversContents({MakeContents(8)}, {MakeContents(3), MakeContents(5)}));
+ TestFalse(TEXT("Insufficient refund rejected"), UHyperManageDismantle::RefundCoversContents({MakeContents(9)}, {MakeContents(8)}));
+ TestFalse(TEXT("Same refund cannot cover two stored stacks twice"), UHyperManageDismantle::RefundCoversContents({MakeContents(5), MakeContents(5)}, {MakeContents(5)}));
+ TestFalse(TEXT("Different item state does not cover stored contents"), UHyperManageDismantle::RefundCoversContents({MakeContents(1, Beam)}, {MakeContents(1, Other)}));
+ TestTrue(TEXT("Matching state and quantity accepted"), UHyperManageDismantle::RefundCoversContents({MakeContents(2, Beam)}, {MakeContents(2, Beam)}));
+ TestFalse(TEXT("Malformed quantity rejected"), UHyperManageDismantle::RefundCoversContents({MakeContents(-1)}, {}));
+ TestTrue(TEXT("Empty container needs no content refund"), UHyperManageDismantle::RefundCoversContents({}, {}));
+ if (StorageClass) {
+  auto* Container = World->SpawnActor<AFGBuildableStorage>(StorageClass);
+  TestNotNull(TEXT("Storage fixture spawns"), Container);
+  if (Container) {
+   TestTrue(TEXT("Disconnected standard container passes candidate checks"), Check({Container}));
+   TestFalse(TEXT("Container target is protected"), Check({Container}, Container));
+   auto* Connection = NewObject<UFGFactoryConnectionComponent>(Container); Container->AddInstanceComponent(Connection);
+   auto* ConnectedFlag = FindFProperty<FBoolProperty>(UFGFactoryConnectionComponent::StaticClass(), TEXT("mHasConnectedComponent"));
+   ConnectedFlag->SetPropertyValue_InContainer(Connection, true);
+   TestFalse(TEXT("Connected container rejects whole mixed selection"), Check({Walkway, Container}));
+   TestTrue(TEXT("Connected failure leaves no partial candidate list"), Output.IsEmpty());
+   ConnectedFlag->SetPropertyValue_InContainer(Connection, false);
+   TestTrue(TEXT("Disconnected container accepted again"), Check({Container}));
+   auto* InventoryProperty = FindFProperty<FObjectPropertyBase>(AFGBuildableStorage::StaticClass(), TEXT("mStorageInventory"));
+   auto* OriginalInventory = Container->GetStorageInventory();
+   InventoryProperty->SetObjectPropertyValue_InContainer(Container, nullptr);
+   TestFalse(TEXT("Missing storage inventory rejected"), Check({Container}));
+   InventoryProperty->SetObjectPropertyValue_InContainer(Container, OriginalInventory);
+   auto* Extra = NewObject<UFGInventoryComponent>(Container); Container->AddInstanceComponent(Extra);
+   auto* StackProperty = FindFProperty<FArrayProperty>(UFGInventoryComponent::StaticClass(), TEXT("mInventoryStacks"));
+   TArray<FInventoryStack> ExtraStacks = {MakeContents(1)};
+   StackProperty->CopyCompleteValue(StackProperty->ContainerPtrToValuePtr<void>(Extra), &ExtraStacks);
+   TestFalse(TEXT("Additional nonempty inventory rejected"), Check({Container}));
+  }
+ }
+
  Beam->Destroy();
  TestFalse(TEXT("Destroyed member rejected"), Check({Beam}));
  TestFalse(TEXT("Destroyed confirmed member rejected"), UHyperManageDismantle::MatchesSnapshot({Beam, Batch[0]}, Snapshot));

@@ -6,6 +6,9 @@
 #include "HyperManageRefundCapacity.h"
 #include "FGCharacterPlayer.h"
 #include "FGInventoryComponent.h"
+#include "FGFactoryConnectionComponent.h"
+#include "FGDismantleInterface.h"
+#include "Buildables/FGBuildableStorage.h"
 #include "Equipment/FGBuildGun.h"
 #include "Engine/World.h"
 #include "FGBuildableBeam.h"
@@ -19,6 +22,34 @@
 #include "UObject/StructOnScope.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UnrealType.h"
+
+bool UHyperManageDismantle::IsSupportedStorageClass(const UClass* Class)
+{
+ if (!IsValid(Class) || !Class->IsChildOf(AFGBuildableStorage::StaticClass())) return false;
+ const FString Path = Class->GetPathName();
+ return Path == TEXT("/Game/FactoryGame/Buildable/Factory/StorageContainerMk1/Build_StorageContainerMk1.Build_StorageContainerMk1_C")
+  || Path == TEXT("/Game/FactoryGame/Buildable/Factory/StorageContainerMk2/Build_StorageContainerMk2.Build_StorageContainerMk2_C");
+}
+
+bool UHyperManageDismantle::RefundCoversContents(const TArray<FInventoryStack>& Contents, const TArray<FInventoryStack>& Refund)
+{
+ if (Contents.Num() > FHyperManageRefundCapacity::MaxCheckStacks || Refund.Num() > FHyperManageRefundCapacity::MaxCheckStacks) return false;
+ auto Valid = [](const FInventoryStack& Stack) { return Stack.NumItems >= 0 && (Stack.NumItems == 0 || IsValid(Stack.Item.GetItemClass().Get())); };
+ TArray<int32> Remaining;
+ for (const auto& Stack : Refund) { if (!Valid(Stack)) return false; Remaining.Add(Stack.NumItems); }
+ for (const auto& Stack : Contents) {
+  if (!Valid(Stack)) return false;
+  int32 Needed = Stack.NumItems;
+  for (int32 Index = 0; Index < Refund.Num() && Needed > 0; ++Index) {
+   const auto& Item = Refund[Index].Item;
+   if (Remaining[Index] == 0 || Item.GetItemClass() != Stack.Item.GetItemClass() || Item.LegacyItemStateActor != Stack.Item.LegacyItemStateActor
+    || Item.HasState() != Stack.Item.HasState() || (Item.HasState() && !Item.GetItemState().Identical(Stack.Item.GetItemState()))) continue;
+   const int32 Taken = FMath::Min(Needed, Remaining[Index]); Needed -= Taken; Remaining[Index] -= Taken;
+  }
+  if (Needed > 0) return false;
+ }
+ return true;
+}
 
 bool UHyperManageDismantle::ValidateCandidates(UWorld* World, const TArray<AActor*>& Input, AActor* Target, TArray<AActor*>& Output, FString& Error)
 {
@@ -43,11 +74,12 @@ bool UHyperManageDismantle::ValidateWithResolver(UWorld* World, const TArray<AAc
   const bool Structural = Building && (Building->IsA<AFGBuildableBeam>() || Building->IsA<AFGBuildablePillar>()
    || Building->IsA<AFGBuildableWall>() || Building->IsA<AFGBuildableFoundation>()
    || Building->IsA<AFGBuildableWalkway>() || Building->IsA<AFGBuildableStair>() || Building->IsA<AFGBuildableLadder>());
+  const bool Storage = !Proxy && Building && IsSupportedStorageClass(Building->GetClass());
   const FString Package = Building ? Building->GetClass()->GetOutermost()->GetName() : FString();
-  if (!Structural || (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame"))) {
+  if ((!Structural && !Storage) || (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame"))) {
    Output.Reset();
    const FString Name = Building && !Building->mDisplayName.IsEmpty() ? Building->mDisplayName.ToString() : Actor->GetName();
-   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams, pillars, walkways, stairs or ladders. Machines, storage and modded buildings will come later. Nothing was removed."), *Name);
+   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams, pillars, walkways, stairs or ladders. Disconnected Storage Containers and Industrial Storage Containers are also supported. Machines, special storage and modded buildings will come later. Nothing was removed."), *Name);
    return false;
   }
   if (Proxy) {
@@ -63,7 +95,17 @@ bool UHyperManageDismantle::ValidateWithResolver(UWorld* World, const TArray<AAc
   else if (Building->GetIsLightweightTemporary() || Building->GetIsDismantled() || Building->GetIsPendingDismantleRemoval() || Building->IsAboutToBeDismantled())
    return Fail(TEXT("A building is temporary or already being dismantled. Reselect and retry."));
   TArray<UFGInventoryComponent*> Inventories; Building->GetComponents(Inventories);
-  if (!Inventories.IsEmpty()) return Fail(TEXT("Buildings with inventories are not supported yet. Nothing was removed."));
+  if (Storage) {
+   auto* Inventory = CastChecked<AFGBuildableStorage>(Building)->GetStorageInventory();
+   if (!IsValid(Inventory) || Inventory->GetOwner() != Building || Inventory->GetWorld() != World || !Inventories.Contains(Inventory))
+    return Fail(TEXT("The container inventory is unavailable. Nothing was removed."));
+   for (auto* Other : Inventories) if (!IsValid(Other) || (Other != Inventory && !Other->IsEmpty()))
+    return Fail(TEXT("The container has additional inventory contents that are not supported yet. Nothing was removed."));
+   TArray<UFGFactoryConnectionComponent*> Connections; Building->GetComponents(Connections);
+   for (auto* Connection : Connections) if (Connection->IsConnected())
+    return Fail(TEXT("Disconnect the container's belts before dismantling it. This prevents incoming items from changing the refund during confirmation."));
+  }
+  else if (!Inventories.IsEmpty()) return Fail(TEXT("This building's inventory is not supported yet. Nothing was removed."));
   Output.Add(Actor);
   if (Output.Num() > MaxBuildings) return Fail(TEXT("Dismantle at most 50 supported buildings at a time."));
  }
@@ -138,6 +180,17 @@ bool UHyperManageDismantle::Preflight(TArray<AActor*>& Actors, FString& Error)
   Error = TEXT("Select all related children explicitly before dismantling. This first version never expands a destructive selection."); return false;
  }
  if (Review.NativeBlocked || Review.NativeWarnings) { Error = TEXT("The game reports a dismantle refusal or warning. Resolve it before retrying; Refund review shows details."); return false; }
+ for (const auto& Entry : Review.Refunds.Actors) if (auto* Storage = Cast<AFGBuildableStorage>(Entry.Actor.Get())) {
+  auto* Inventory = Storage->GetStorageInventory();
+  if (!IsValid(Inventory)) { Error = TEXT("A container inventory became unavailable. Retry."); return false; }
+  TArray<FInventoryStack> Contents, ContentRefund;
+  Inventory->GetInventoryStacks(Contents);
+  // No-build-cost asks the native contract for contents only, avoiding construction materials masking a missing stored stack.
+  IFGDismantleInterface::Execute_GetDismantleRefund(Storage, ContentRefund, true);
+  if (!RefundCoversContents(Contents, ContentRefund) || !RefundCoversContents(ContentRefund, Entry.Stacks)) {
+   Error = TEXT("The container's stored items could not be verified in the game refund. Nothing was removed; empty the container and retry."); return false;
+  }
+ }
  const auto Capacity = FHyperManageRefundCapacity::Check(World, Review.Refunds, Player);
  if (Capacity != EHyperManageRefundCapacity::Fits && Capacity != EHyperManageRefundCapacity::NoRefund) {
   Error = TEXT("The complete refund must fit in your inventory. Free space or select fewer buildings; overflow handling is not enabled yet."); return false;
@@ -164,7 +217,7 @@ void UHyperManageDismantle::Request()
  PendingPlayer = System->GetLocalController()->GetPlayerState<AFGPlayerState>();
  PendingNoBuildCost = PendingPlayer->GetPlayerRules().NoBuildCost;
  PendingAt = System->GetWorld()->GetRealTimeSeconds(); AwaitingConfirmation = true;
- System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams, pillars, walkways, stairs and ladders within 20 m. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
+ System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams, pillars, walkways, stairs and ladders within 20 m. Disconnected Storage Containers and Industrial Storage Containers are also supported, including their contents. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
 }
 
 void UHyperManageDismantle::Confirm(bool Accepted)
