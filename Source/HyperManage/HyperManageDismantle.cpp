@@ -9,6 +9,8 @@
 #include "FGFactoryConnectionComponent.h"
 #include "FGDismantleInterface.h"
 #include "Buildables/FGBuildableStorage.h"
+#include "Buildables/FGBuildableConveyorBelt.h"
+#include "Buildables/FGBuildableConveyorLift.h"
 #include "Equipment/FGBuildGun.h"
 #include "Engine/World.h"
 #include "FGBuildableBeam.h"
@@ -79,7 +81,7 @@ bool UHyperManageDismantle::ValidateWithResolver(UWorld* World, const TArray<AAc
   if ((!Structural && !Storage) || (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame"))) {
    Output.Reset();
    const FString Name = Building && !Building->mDisplayName.IsEmpty() ? Building->mDisplayName.ToString() : Actor->GetName();
-   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams, pillars, walkways, stairs or ladders. Disconnected Storage Containers and Industrial Storage Containers are also supported. Machines, special storage and modded buildings will come later. Nothing was removed."), *Name);
+   Error = FString::Printf(TEXT("%s is not supported yet. Select vanilla foundations, ramps, walls, beams, pillars, walkways, stairs or ladders. Storage Containers and Industrial Storage Containers are also supported. Machines, special storage and modded buildings will come later. Nothing was removed."), *Name);
    return false;
   }
   if (Proxy) {
@@ -102,8 +104,17 @@ bool UHyperManageDismantle::ValidateWithResolver(UWorld* World, const TArray<AAc
    for (auto* Other : Inventories) if (!IsValid(Other) || (Other != Inventory && !Other->IsEmpty()))
     return Fail(TEXT("The container has additional inventory contents that are not supported yet. Nothing was removed."));
    TArray<UFGFactoryConnectionComponent*> Connections; Building->GetComponents(Connections);
-   for (auto* Connection : Connections) if (Connection->IsConnected())
-    return Fail(TEXT("Disconnect the container's belts before dismantling it. This prevents incoming items from changing the refund during confirmation."));
+   for (auto* Connection : Connections) {
+    auto* Peer = Connection->GetConnection();
+    if (!Connection->IsConnected() && Peer == nullptr) continue;
+    auto* Owner = IsValid(Peer) ? Peer->GetOwner() : nullptr;
+    if (!Connection->IsConnected() || !IsValid(Peer) || Peer->GetWorld() != World || !Peer->IsConnected() || Peer->GetConnection() != Connection || !IsValid(Owner))
+     return Fail(TEXT("A container connection is unavailable or inconsistent. Reconnect or disconnect its belt and retry. Nothing was removed."));
+    const FString PeerPackage = Owner->GetClass()->GetOutermost()->GetName();
+    if ((!Owner->IsA<AFGBuildableConveyorBelt>() && !Owner->IsA<AFGBuildableConveyorLift>())
+     || (!PeerPackage.StartsWith(TEXT("/Game/FactoryGame/")) && PeerPackage != TEXT("/Script/FactoryGame")))
+     return Fail(TEXT("This container is connected to an unsupported building. Disconnect it first. Only vanilla belt and lift connections are supported."));
+   }
   }
   else if (!Inventories.IsEmpty()) return Fail(TEXT("This building's inventory is not supported yet. Nothing was removed."));
   Output.Add(Actor);
@@ -188,13 +199,30 @@ bool UHyperManageDismantle::Preflight(TArray<AActor*>& Actors, FString& Error)
   // No-build-cost asks the native contract for contents only, avoiding construction materials masking a missing stored stack.
   IFGDismantleInterface::Execute_GetDismantleRefund(Storage, ContentRefund, true);
   if (!RefundCoversContents(Contents, ContentRefund) || !RefundCoversContents(ContentRefund, Entry.Stacks)) {
-   Error = TEXT("The container's stored items could not be verified in the game refund. Nothing was removed; empty the container and retry."); return false;
+   Error = TEXT("The container's stored items could not be verified in the game refund. Nothing was removed; retry, or stop incoming belts and try again."); return false;
   }
  }
  const auto Capacity = FHyperManageRefundCapacity::Check(World, Review.Refunds, Player);
  if (Capacity != EHyperManageRefundCapacity::Fits && Capacity != EHyperManageRefundCapacity::NoRefund) {
   Error = TEXT("The complete refund must fit in your inventory. Free space or select fewer buildings; overflow handling is not enabled yet."); return false;
  }
+ return true;
+}
+
+UHyperManageDismantle::FConnections UHyperManageDismantle::CaptureConnections(const TArray<AActor*>& Actors)
+{
+ FConnections Result;
+ for (auto* Actor : Actors) if (IsValid(Actor) && IsSupportedStorageClass(Actor->GetClass())) {
+  TArray<UFGFactoryConnectionComponent*> Connections; Actor->GetComponents(Connections);
+  for (auto* Connection : Connections) Result.Add(Connection, Connection->GetConnection());
+ }
+ return Result;
+}
+
+bool UHyperManageDismantle::ConnectionsMatch(const FConnections& Before, const FConnections& After)
+{
+ if (!Before.OrderIndependentCompareEqual(After)) return false;
+ for (const auto& Entry : Before) if (!Entry.Key.IsValid() || Entry.Value.IsStale()) return false;
  return true;
 }
 
@@ -213,11 +241,12 @@ void UHyperManageDismantle::Request()
    PendingInstances.Add(Actor, FConfirmedInstance{Proxy->Ref, Data->Handles});
   }
  }
+ PendingConnections = CaptureConnections(Actors);
  PendingTarget = System->Selection->TargetActor;
  PendingPlayer = System->GetLocalController()->GetPlayerState<AFGPlayerState>();
  PendingNoBuildCost = PendingPlayer->GetPlayerRules().NoBuildCost;
  PendingAt = System->GetWorld()->GetRealTimeSeconds(); AwaitingConfirmation = true;
- System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams, pillars, walkways, stairs and ladders within 20 m. Disconnected Storage Containers and Industrial Storage Containers are also supported, including their contents. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
+ System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams, pillars, walkways, stairs and ladders within 20 m. Storage Containers and Industrial Storage Containers are also supported, including their contents. The game disconnects attached vanilla belts/lifts; those conveyors are not removed. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
 }
 
 void UHyperManageDismantle::Confirm(bool Accepted)
@@ -226,6 +255,7 @@ void UHyperManageDismantle::Confirm(bool Accepted)
  AwaitingConfirmation = false;
  const auto Snapshot = MoveTemp(Pending); Pending.Reset();
  const auto Instances = MoveTemp(PendingInstances); PendingInstances.Reset();
+ const auto Connections = MoveTemp(PendingConnections); PendingConnections.Reset();
  if (!Accepted || !System || !System->UI) return;
  FString Error; TArray<AActor*> Actors;
  auto Fail = [&](const FString& Message) { System->UI->ShowPopup(TEXT("Dismantle cancelled"), Message); };
@@ -237,6 +267,7 @@ void UHyperManageDismantle::Confirm(bool Accepted)
   Fail(TEXT("The confirmation expired or its selection, target or player rules changed. Start again.")); return;
  }
  if (!MatchesSnapshot(Actors, Snapshot)) { Fail(TEXT("The confirmed buildings changed. Start again.")); return; }
+ if (!ConnectionsMatch(Connections, CaptureConnections(Actors))) { Fail(TEXT("Container connections changed while confirming. Start again.")); return; }
  auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
  for (const auto& Entry : Instances) {
   const auto* Proxy = Cast<AHyperManageLightweightProxy>(Entry.Key.Get());

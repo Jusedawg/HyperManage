@@ -1,6 +1,7 @@
 #include "HyperManageDismantle.h"
 #include "FGInventoryComponent.h"
 #include "FGFactoryConnectionComponent.h"
+#include "Buildables/FGBuildableConveyorBelt.h"
 #include "Equipment/FGBuildGunDismantle.h"
 #include "HyperManageRefundCapacity.h"
 #include "HyperManageDismantlePlan.h"
@@ -149,10 +150,36 @@ bool FHyperManageDismantleExecutionTest::RunTest(const FString& Parameters)
    auto* Connection = NewObject<UFGFactoryConnectionComponent>(Container); Container->AddInstanceComponent(Connection);
    auto* ConnectedFlag = FindFProperty<FBoolProperty>(UFGFactoryConnectionComponent::StaticClass(), TEXT("mHasConnectedComponent"));
    ConnectedFlag->SetPropertyValue_InContainer(Connection, true);
-   TestFalse(TEXT("Connected container rejects whole mixed selection"), Check({Walkway, Container}));
+   TestFalse(TEXT("Missing peer rejects whole mixed selection"), Check({Walkway, Container}));
    TestTrue(TEXT("Connected failure leaves no partial candidate list"), Output.IsEmpty());
    ConnectedFlag->SetPropertyValue_InContainer(Connection, false);
    TestTrue(TEXT("Disconnected container accepted again"), Check({Container}));
+   const auto DisconnectedSnapshot = UHyperManageDismantle::CaptureConnections({Container});
+   auto* Belt = World->SpawnActor<AFGBuildableConveyorBelt>();
+   auto* Peer = NewObject<UFGFactoryConnectionComponent>(Belt); Belt->AddInstanceComponent(Peer);
+   auto* PeerProperty = FindFProperty<FObjectPropertyBase>(UFGFactoryConnectionComponent::StaticClass(), TEXT("mConnectedComponent"));
+   PeerProperty->SetObjectPropertyValue_InContainer(Connection, Peer);
+   PeerProperty->SetObjectPropertyValue_InContainer(Peer, Connection);
+   ConnectedFlag->SetPropertyValue_InContainer(Connection, true); ConnectedFlag->SetPropertyValue_InContainer(Peer, true);
+   TestTrue(TEXT("Reciprocal vanilla belt connection accepted"), Check({Container}));
+   TestEqual(TEXT("Connected belt is not added to removal candidates"), Output.Num(), 1);
+   const auto ConnectedSnapshot = UHyperManageDismantle::CaptureConnections({Container});
+   TestFalse(TEXT("New connection cancels old confirmation"), UHyperManageDismantle::ConnectionsMatch(DisconnectedSnapshot, ConnectedSnapshot));
+   TestTrue(TEXT("Stable connection confirmation accepted"), UHyperManageDismantle::ConnectionsMatch(ConnectedSnapshot, UHyperManageDismantle::CaptureConnections({Container})));
+   PeerProperty->SetObjectPropertyValue_InContainer(Peer, nullptr);
+   TestFalse(TEXT("One-way connection rejected"), Check({Container}));
+   PeerProperty->SetObjectPropertyValue_InContainer(Peer, Connection);
+   auto* UnsupportedPeer = NewObject<UFGFactoryConnectionComponent>(Other); Other->AddInstanceComponent(UnsupportedPeer);
+   PeerProperty->SetObjectPropertyValue_InContainer(UnsupportedPeer, Connection); ConnectedFlag->SetPropertyValue_InContainer(UnsupportedPeer, true);
+   PeerProperty->SetObjectPropertyValue_InContainer(Connection, UnsupportedPeer);
+   TestFalse(TEXT("Non-conveyor connection rejected"), Check({Container}));
+   TestFalse(TEXT("Rewired connection cancels confirmation"), UHyperManageDismantle::ConnectionsMatch(ConnectedSnapshot, UHyperManageDismantle::CaptureConnections({Container})));
+   PeerProperty->SetObjectPropertyValue_InContainer(Connection, nullptr); PeerProperty->SetObjectPropertyValue_InContainer(Peer, nullptr);
+   PeerProperty->SetObjectPropertyValue_InContainer(UnsupportedPeer, nullptr);
+   ConnectedFlag->SetPropertyValue_InContainer(Connection, false); ConnectedFlag->SetPropertyValue_InContainer(Peer, false);
+   ConnectedFlag->SetPropertyValue_InContainer(UnsupportedPeer, false);
+   TestFalse(TEXT("Disconnected connection cancels previous confirmation"), UHyperManageDismantle::ConnectionsMatch(ConnectedSnapshot, UHyperManageDismantle::CaptureConnections({Container})));
+
    auto* InventoryProperty = FindFProperty<FObjectPropertyBase>(AFGBuildableStorage::StaticClass(), TEXT("mStorageInventory"));
    auto* OriginalInventory = Container->GetStorageInventory();
    InventoryProperty->SetObjectPropertyValue_InContainer(Container, nullptr);

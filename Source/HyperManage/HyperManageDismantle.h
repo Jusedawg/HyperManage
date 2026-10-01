@@ -27,6 +27,10 @@ private:
  struct FConfirmedInstance { FHyperManageLightweightRef Ref; TArray<FInstanceOwnerHandlePtr> Handles; };
  TMap<TWeakObjectPtr<AActor>, FConfirmedInstance> PendingInstances;
  static bool MatchesInstance(const FConfirmedInstance& Snapshot, const FHyperManageLightweightRef& Ref, const FRuntimeBuildableInstanceData* Data);
+ using FConnections = TMap<TWeakObjectPtr<class UFGFactoryConnectionComponent>, TWeakObjectPtr<class UFGFactoryConnectionComponent>>;
+ static FConnections CaptureConnections(const TArray<AActor*>& Actors);
+ static bool ConnectionsMatch(const FConnections& Before, const FConnections& After);
+ FConnections PendingConnections;
  TWeakObjectPtr<AActor> PendingTarget;
  TWeakObjectPtr<AFGPlayerState> PendingPlayer;
  bool PendingNoBuildCost = false;
