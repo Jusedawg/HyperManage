@@ -1,5 +1,6 @@
 #include "HyperManageSlotStore.h"
 #include "HyperManageSelection.h"
+#include "HyperManageCopyPreview.h"
 #include "HyperManageConfig.h"
 #include "HyperManageAction.h"
 #include "HyperManageTransform.h"
@@ -578,6 +579,10 @@ bool UHyperManageSelection::SetMarkerWithHistory(AActor* Actor, bool Anchor)
 
 void UHyperManageSelection::ClearWithoutHistory()
 {
+	if (IsValid(System) && IsValid(System->CopyPreview))
+	{
+		System->CopyPreview->Clear();
+	}
 	AnchorActor = nullptr;
 	TargetActor = nullptr;
 	for (auto& Elem : SelectedMap) SelectActor(Elem.Key, false, false);

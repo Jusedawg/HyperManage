@@ -219,3 +219,11 @@ Walkways, walkway ramps, stairs and ladders use the same selection and Delete co
 Before dismantling a Storage Container or Industrial Storage Container, make room in your inventory for its contents and construction refund. HyperManage checks stored stacks against the game’s contents-only refund, preserving item-state distinctions, then checks the full refund together. It repeats these checks on confirmation. Insufficient space or unverified contents cancels the whole request. Items are returned by the game’s normal dismantle handler; HyperManage does not clear or separately pay out the inventory. Live full-container and stateful-item refund checks are still pending.
 
 Storage containers can remain connected to vanilla conveyor belts or lifts. Connections must be valid in both directions; unsupported or inconsistent connections are rejected. The game handles disconnection during removal; attached conveyors are not automatically selected or removed. Changing a connection while confirmation is open cancels the request. Contents and player capacity are checked again when confirming; a busy input can cause a retry if contents change during the check. Space is checked before dispatch, not reserved—late changes are handled by the native game dismantle path. Live input/output cleanup and refund behavior still need verification.
+
+## Copy placement preview
+
+Expand **Copy preview (m)** in the tool panel. Select up to 50 vanilla foundations, ramps or walls, enter a world X/Y/Z offset, and click **Capture** (overlapping squares). The target is excluded. The initial offset is 8 m along X.
+
+Close the panel to inspect the green preview. Reopen it and use **Update preview** to reposition the captured geometry; moving the originals does not move the snapshot. **Cancel preview**, clearing the selection, or unequipping the tool removes it. A failed capture keeps the previous preview.
+
+This single-player stage is visual only: it does not place buildings, validate construction clearance, charge materials, copy inventories or add undo records. Building placement and construction costs are not available yet.

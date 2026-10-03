@@ -50,6 +50,13 @@ protected:
  virtual void BeginDestroy() override;
 	void RepairToolbarLayout();
 	void RepairQuickActions();
+	UPROPERTY(Transient) TObjectPtr<USpinBox> CopyX;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> CopyY;
+	UPROPERTY(Transient) TObjectPtr<USpinBox> CopyZ;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> CopyStatus;
+	UFUNCTION() void CaptureCopyPreview();
+	UFUNCTION() void UpdateCopyPreview();
+	UFUNCTION() void CancelCopyPreview();
 	UPROPERTY(Transient) TObjectPtr<class UVerticalBox> QuickActionHost;
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
 	UPROPERTY(Transient) TObjectPtr<UButton> RemoveBoxEdgesButton;

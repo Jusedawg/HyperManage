@@ -6,6 +6,7 @@
 #include "HyperManageDismantleReview.h"
 #include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
+#include "HyperManageCopyPreview.h"
 #include "HyperManageUI.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
@@ -250,7 +251,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.94")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.95")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -369,6 +370,47 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   Area->SetBorderBrush(FSlateColorBrush(FLinearColor::Transparent)); Area->SetIsExpanded(false);
   Area->SetHeaderPadding(FMargin(0, 4)); Area->SetAreaPadding(FMargin(0, 2)); Rows->AddChildToVerticalBox(Area);
  };
+	auto* CopyHeading = WidgetTree->ConstructWidget<UTextBlock>();
+	CopyHeading->SetText(FText::FromString(TEXT("COPY PREVIEW (m)")));
+	auto CopyFont = CopyHeading->GetFont(); CopyFont.Size = 14; CopyHeading->SetFont(CopyFont);
+	CopyHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
+	auto* CopyBody = WidgetTree->ConstructWidget<UVerticalBox>();
+	auto* CopyRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	auto* PreviewSystem = UHyperManageSystem::Get();
+	const auto* Preview = PreviewSystem ? PreviewSystem->CopyPreview : nullptr;
+	const FVector PreviewMeters = Preview && Preview->GetCount() ? Preview->GetOffsetMeters() : FVector(8, 0, 0);
+	auto AddCopyField = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Field, float Value)
+	{
+		auto* Label = WidgetTree->ConstructWidget<UTextBlock>();
+		Label->SetText(FText::FromString(Axis));
+		CopyRow->AddChildToHorizontalBox(Label)->SetVerticalAlignment(VAlign_Center);
+		Field = WidgetTree->ConstructWidget<USpinBox>();
+		StyleNumericInput(Field);
+		Field->SetMinValue(-1000.f); Field->SetMaxValue(1000.f); Field->SetValue(Value);
+		Field->SetEnableSlider(false); Field->SetMinDesiredWidth(45.f); Field->SetMaxFractionalDigits(3);
+		Field->SetToolTipText(FText::FromString(TEXT("World-axis offset from the captured positions, in meters. Typing does not move the preview; use Update preview.")));
+		CopyRow->AddChildToHorizontalBox(Field)->SetPadding(FMargin(2));
+	};
+	AddCopyField(TEXT("X"), CopyX, PreviewMeters.X);
+	AddCopyField(TEXT("Y"), CopyY, PreviewMeters.Y);
+	AddCopyField(TEXT("Z"), CopyZ, PreviewMeters.Z);
+	auto AddCopyButton = [&](const TCHAR* Name, const TCHAR* Tooltip, int32 Icon)
+	{
+		auto* Button = WidgetTree->ConstructWidget<UButton>();
+		auto* Label = WidgetTree->ConstructWidget<UTextBlock>(); Label->SetText(FText::FromString(Name));
+		AddFieldIcon(WidgetTree, Button, Label, Icon); CompactApplyButton(Button);
+		Button->SetToolTipText(FText::FromString(Tooltip));
+		CopyRow->AddChildToHorizontalBox(Button)->SetPadding(FMargin(2));
+		return Button;
+	};
+	AddCopyButton(TEXT("Capture"), TEXT("Capture selected foundations, ramps and walls, excluding the target. Replaces the previous preview only on success. Up to 50 pieces; single-player only. Nothing is built or charged."), 12)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CaptureCopyPreview);
+	AddCopyButton(TEXT("Update preview"), TEXT("Move the captured preview to this offset. Does not recapture changed source buildings or alter originals."), 14)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::UpdateCopyPreview);
+	AddCopyButton(TEXT("Cancel preview"), TEXT("Discard the preview. Original buildings, inventory and edit history are unchanged."), 7)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CancelCopyPreview);
+	CopyBody->AddChildToVerticalBox(CopyRow);
+	CopyStatus = WidgetTree->ConstructWidget<UTextBlock>(); CopyStatus->SetAutoWrapText(true);
+	CopyStatus->SetText(FText::FromString(Preview && Preview->GetCount() ? TEXT("Preview active. Update its offset or Cancel. Nothing is built.") : TEXT("Preview only: capture foundations, ramps or walls. Placement comes later.")));
+	CopyBody->AddChildToVerticalBox(CopyStatus);
+	AddCollapsedSection(CopyHeading, CopyBody);
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	OffsetHeading->SetText(FText::FromString(TEXT("OFFSET (m)")));
 	auto OffsetFont = OffsetHeading->GetFont(); OffsetFont.Size = 14; OffsetHeading->SetFont(OffsetFont);
@@ -1102,6 +1144,42 @@ void UHyperManageToolWidget::RepairQuickActions()
  Scale->SetStretch(EStretch::ScaleToFit); Scale->SetStretchDirection(EStretchDirection::DownOnly);
 }
 
+
+void UHyperManageToolWidget::CaptureCopyPreview()
+{
+	auto* System = UHyperManageSystem::Get();
+	if (!System || !System->CopyPreview || !System->Selection || !CopyStatus || !CopyX || !CopyY || !CopyZ) return;
+	if (System->Selection->HasPendingOperations())
+	{
+		CopyStatus->SetText(FText::FromString(TEXT("Wait for pending edits before capturing a preview.")));
+		return;
+	}
+	TArray<AActor*> Actors;
+	System->Selection->SelectedActorsNoTarget(Actors);
+	FString Message;
+	System->CopyPreview->Capture(Actors, FVector(CopyX->GetValue(), CopyY->GetValue(), CopyZ->GetValue()), Message);
+	CopyStatus->SetText(FText::FromString(Message));
+}
+
+void UHyperManageToolWidget::UpdateCopyPreview()
+{
+	auto* System = UHyperManageSystem::Get();
+	if (!System || !System->CopyPreview || !CopyStatus || !CopyX || !CopyY || !CopyZ) return;
+	const bool Updated = System->CopyPreview->SetOffset(FVector(CopyX->GetValue(), CopyY->GetValue(), CopyZ->GetValue()));
+	CopyStatus->SetText(FText::FromString(Updated ? TEXT("Preview moved. Close the panel to inspect; nothing is built.") : TEXT("Capture a preview first; offsets must be within 1,000 m per axis.")));
+}
+
+void UHyperManageToolWidget::CancelCopyPreview()
+{
+	if (auto* System = UHyperManageSystem::Get(); System && System->CopyPreview)
+	{
+		System->CopyPreview->Clear();
+	}
+	if (CopyStatus)
+	{
+		CopyStatus->SetText(FText::FromString(TEXT("Preview cleared. Original buildings are unchanged.")));
+	}
+}
 
 void UHyperManageToolWidget::ApplyWorldOffset()
 {
