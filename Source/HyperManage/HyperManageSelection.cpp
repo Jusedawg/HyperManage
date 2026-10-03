@@ -9,6 +9,7 @@
 
 #include "FGOutlineComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/FileHelper.h"
@@ -38,6 +39,62 @@ void UHyperManageSelection::SelectNextMaterial()
 {
 	// Retain the legacy action binding, but never return to destructive material replacement.
 	for (const auto& Elem : SelectedMap) ResetHologram(Elem.Key);
+}
+
+void UHyperManageSelection::SyncInteractionOutline(FSelectedActorInfo& ActorInfo, const FActorOutlineState* State)
+{
+	TSet<UStaticMeshComponent*> CurrentProxies;
+	if (State)
+	{
+		for (const auto& Entry : State->OutlineProxies)
+		{
+			if (IsValid(Entry.Value))
+			{
+				CurrentProxies.Add(Entry.Value.Get());
+			}
+		}
+		for (const auto& Entry : State->InstancedOutlineProxies)
+		{
+			if (IsValid(Entry.Value))
+			{
+				CurrentProxies.Add(Entry.Value.Get());
+			}
+		}
+	}
+	for (auto It = ActorInfo.InteractionStencilValues.CreateIterator(); It; ++It)
+	{
+		auto* Mesh = It.Key().Get();
+		if (!Mesh || !CurrentProxies.Contains(Mesh))
+		{
+			// Never overwrite a newer color assigned by another system.
+			if (Mesh && Mesh->CustomDepthStencilValue == 252)
+			{
+				Mesh->SetCustomDepthStencilValue(It.Value());
+			}
+			It.RemoveCurrent();
+		}
+	}
+	for (auto* Mesh : CurrentProxies)
+	{
+		if (Mesh->CustomDepthStencilValue != 252)
+		{
+			// Remember the latest native color, including changes while interaction focus moves.
+			ActorInfo.InteractionStencilValues.Add(Mesh, Mesh->CustomDepthStencilValue);
+			Mesh->SetCustomDepthStencilValue(252);
+		}
+	}
+}
+
+void UHyperManageSelection::RefreshInteractionHighlights()
+{
+	if (SelectedMap.IsEmpty()) return;
+	auto* Outline = UFGOutlineComponent::Get(GetWorld());
+	for (auto& Entry : SelectedMap)
+	{
+		if (Entry.Value.HighlightMeshes.IsEmpty()) continue;
+		const auto* State = IsValid(Entry.Key) && IsValid(Outline) ? Outline->GetImmutableOutlineStateForActor(Entry.Key) : nullptr;
+		SyncInteractionOutline(Entry.Value, State);
+	}
 }
 
 void UHyperManageSelection::CreateStorageHighlight(AActor* Actor, FSelectedActorInfo& ActorInfo)
@@ -94,6 +151,7 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 	if (Actor->IsA<AFGBuildableStorage>() && SelectionColor == static_cast<EOutlineColor>(252))
 	{
 		CreateStorageHighlight(Actor, ActorInfo);
+		SyncInteractionOutline(ActorInfo, Outline->GetImmutableOutlineStateForActor(Actor));
 		return;
 	}
 	const EOutlineColor Color = Actor == TargetActor ? EOutlineColor::OC_RED :
@@ -116,6 +174,7 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 
 void UHyperManageSelection::HideHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
 {
+	SyncInteractionOutline(ActorInfo, nullptr);
 	for (const auto& Mesh : ActorInfo.HighlightMeshes)
 	{
 		if (IsValid(Mesh))

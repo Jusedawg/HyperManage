@@ -37,6 +37,7 @@ void AHyperManageEquip::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (IsLocal && ManagerEquipped) {
 			System->Input->Detach();
 			System->UI->HideMMWidget();
+			System->Selection->ClearWithoutHistory();
 			ManagerEquipped = false;
 		}
 		System->RemoveActiveEquipment(this);
@@ -46,6 +47,10 @@ void AHyperManageEquip::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AHyperManageEquip::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	if (IsLocal && ManagerEquipped && IsValid(System) && IsValid(System->Selection))
+	{
+		System->Selection->RefreshInteractionHighlights();
+	}
 }
 
 void AHyperManageEquip::SetupHyperManageSystem()

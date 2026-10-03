@@ -19,6 +19,8 @@
 #include "Components/SceneComponent.h"
 #include "Misc/AutomationTest.h"
 #include "HyperManageSelection.h"
+#include "FGOutlineComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/StaticMesh.h"
 #include "Components/StaticMeshComponent.h"
@@ -170,7 +172,30 @@ bool FHyperManageSelectionOverlayTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Highlight uses the green channel"), Highlight->CustomDepthStencilValue, 252);
 		TestTrue(TEXT("Original surface is unchanged"), Mesh->GetMaterial(0) == Original);
 		TestEqual(TEXT("Original visibility is unchanged"), Mesh->IsVisible(), OriginalVisibility);
+		auto* Interaction = NewObject<UStaticMeshComponent>(Actor);
+		auto* InstancedInteraction = NewObject<UInstancedStaticMeshComponent>(Actor);
+		Interaction->SetCustomDepthStencilValue(1);
+		InstancedInteraction->SetCustomDepthStencilValue(2);
+		FActorOutlineState NativeState;
+		NativeState.OutlineProxies.Add(TEXT("Interaction"), Interaction);
+		NativeState.InstancedOutlineProxies.Add(TEXT("InstancedInteraction"), InstancedInteraction);
+		UHyperManageSelection::SyncInteractionOutline(Info, &NativeState);
+		TestEqual(TEXT("Close-range interaction uses selection green"), Interaction->CustomDepthStencilValue, 252);
+		TestEqual(TEXT("Instanced interaction also uses selection green"), InstancedInteraction->CustomDepthStencilValue, 252);
+		UHyperManageSelection::SyncInteractionOutline(Info, &NativeState);
+		TestEqual(TEXT("Repeated refresh retains both original colors"), Info.InteractionStencilValues.Num(), 2);
+		NativeState.OutlineProxies.Reset();
+		UHyperManageSelection::SyncInteractionOutline(Info, &NativeState);
+		TestEqual(TEXT("Losing interaction focus restores the native color"), Interaction->CustomDepthStencilValue, 1);
+		InstancedInteraction->SetCustomDepthStencilValue(5);
+		UHyperManageSelection::SyncInteractionOutline(Info, &NativeState);
 		Selection->HideHologram(Actor, Info);
+		TestEqual(TEXT("Deselect restores the latest native color"), InstancedInteraction->CustomDepthStencilValue, 5);
+		TestTrue(TEXT("Deselect releases interaction overrides"), Info.InteractionStencilValues.IsEmpty());
+		UHyperManageSelection::SyncInteractionOutline(Info, &NativeState);
+		InstancedInteraction->SetCustomDepthStencilValue(7);
+		UHyperManageSelection::SyncInteractionOutline(Info, nullptr);
+		TestEqual(TEXT("Cleanup preserves a newer externally assigned color"), InstancedInteraction->CustomDepthStencilValue, 7);
 		TestFalse(TEXT("Deselect unregisters owned highlight"), Highlight->IsRegistered());
 		TestTrue(TEXT("Deselect keeps original component registered"), Mesh->IsRegistered());
 		TestTrue(TEXT("Deselect releases owned highlight references"), Info.HighlightMeshes.IsEmpty());
@@ -484,7 +509,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.92")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.93")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
