@@ -22,7 +22,7 @@ private:
  static bool RefundCoversContents(const TArray<FInventoryStack>& Contents, const TArray<FInventoryStack>& Refund);
  static UFunction* FindNativeDispatch(UObject* State);
  static bool MatchesSnapshot(const TArray<AActor*>& Actors, const TMap<TWeakObjectPtr<AActor>, FTransform>& Snapshot);
- bool Preflight(TArray<AActor*>& Actors, FString& Error);
+ bool Preflight(TArray<AActor*>& Actors, FString& Error, FString* RefundSummary = nullptr);
  TMap<TWeakObjectPtr<AActor>, FTransform> Pending;
  struct FConfirmedInstance { FHyperManageLightweightRef Ref; TArray<FInstanceOwnerHandlePtr> Handles; };
  TMap<TWeakObjectPtr<AActor>, FConfirmedInstance> PendingInstances;

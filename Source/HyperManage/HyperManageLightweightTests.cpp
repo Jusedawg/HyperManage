@@ -19,6 +19,7 @@
 #include "Misc/AutomationTest.h"
 #include "HyperManageSelection.h"
 #include "Engine/StaticMeshActor.h"
+#include "Engine/StaticMesh.h"
 #include "Components/StaticMeshComponent.h"
 #include "Materials/Material.h"
 #include "Engine/World.h"
@@ -153,6 +154,27 @@ bool FHyperManageSelectionOverlayTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Deselecting restores the pre-existing overlay"), Mesh->GetOverlayMaterial() == PreviousOverlay);
 	TestTrue(TEXT("Deselecting preserves the original surface"), Mesh->GetMaterial(0) == Original);
 	TestFalse(TEXT("Outline reference cleared"), Info.Outline.IsValid());
+	Mesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")));
+	TestNotNull(TEXT("Source geometry loaded"), Mesh->GetStaticMesh().Get());
+	const bool OriginalVisibility = Mesh->IsVisible();
+	UHyperManageSelection::CreateStorageHighlight(Actor, Info);
+	TestEqual(TEXT("One independent highlight for one source mesh"), Info.HighlightMeshes.Num(), 1);
+	if (Info.HighlightMeshes.Num() == 1)
+	{
+		auto* Highlight = Info.HighlightMeshes[0].Get();
+		TestTrue(TEXT("Highlight follows source component"), Highlight->GetAttachParent() == Mesh);
+		TestFalse(TEXT("Highlight cannot cover original surfaces"), Highlight->bRenderInMainPass);
+		TestFalse(TEXT("Highlight cannot occlude the scene"), Highlight->bRenderInDepthPass);
+		TestTrue(TEXT("Highlight writes custom depth"), Highlight->bRenderCustomDepth);
+		TestEqual(TEXT("Highlight uses the green channel"), Highlight->CustomDepthStencilValue, 252);
+		TestTrue(TEXT("Original surface is unchanged"), Mesh->GetMaterial(0) == Original);
+		TestEqual(TEXT("Original visibility is unchanged"), Mesh->IsVisible(), OriginalVisibility);
+		Selection->HideHologram(Actor, Info);
+		TestFalse(TEXT("Deselect unregisters owned highlight"), Highlight->IsRegistered());
+		TestTrue(TEXT("Deselect keeps original component registered"), Mesh->IsRegistered());
+		TestTrue(TEXT("Deselect releases owned highlight references"), Info.HighlightMeshes.IsEmpty());
+	}
+
 	World->DestroyWorld(false);
 	return true;
 }
@@ -461,7 +483,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.90")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.91")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

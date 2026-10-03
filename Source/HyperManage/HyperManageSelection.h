@@ -15,6 +15,8 @@ struct HYPERMANAGE_API FSelectedActorInfo
 	uint8 PreviousOutlineColor = 0;
 	UPROPERTY(Transient)
 	uint8 SelectionOutlineColor = 0;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<class UStaticMeshComponent>> HighlightMeshes;
 };
 
 USTRUCT()
@@ -72,6 +74,7 @@ public:
 	void SetSelectedMaterial(TArray<UMaterialInterface*> Materials);
 
 	//
+	static void CreateStorageHighlight(AActor* Actor, FSelectedActorInfo& ActorInfo);
 	void ShowHologram(AActor* Actor, FSelectedActorInfo& ActorInfo);
 
 	//

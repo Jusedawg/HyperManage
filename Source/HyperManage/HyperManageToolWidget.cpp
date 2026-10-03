@@ -6,6 +6,7 @@
 #include "HyperManageDismantleReview.h"
 #include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
+#include "HyperManageUI.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
 #include "HyperManageAction.h"
@@ -249,7 +250,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.90")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.91")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();

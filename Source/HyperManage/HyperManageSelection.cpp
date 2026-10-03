@@ -14,6 +14,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
+#include "Buildables/FGBuildableStorage.h"
 #include "FGVehicle.h"
 #include "Buildables/FGBuildableWire.h"
 #include "WheeledVehicles/FGTargetPoint.h"
@@ -39,6 +40,35 @@ void UHyperManageSelection::SelectNextMaterial()
 	for (const auto& Elem : SelectedMap) ResetHologram(Elem.Key);
 }
 
+void UHyperManageSelection::CreateStorageHighlight(AActor* Actor, FSelectedActorInfo& ActorInfo)
+{
+	// Snapshot source geometry before registering our components. Never hide or de-instance the real container.
+	const TInlineComponentArray<UStaticMeshComponent*> Sources(Actor);
+	for (auto* Source : Sources)
+	{
+		if (!IsValid(Source) || !Source->GetStaticMesh()) continue;
+		auto* Mesh = NewObject<UStaticMeshComponent>(Actor, NAME_None, RF_Transient);
+		Mesh->SetMobility(EComponentMobility::Movable);
+		Mesh->SetupAttachment(Source);
+		Mesh->SetStaticMesh(Source->GetStaticMesh());
+		for (int32 Index = 0; Index < Source->GetNumMaterials(); ++Index)
+		{
+			Mesh->SetMaterial(Index, Source->GetMaterial(Index));
+		}
+		UFGOutlineMaterialOverrideIdentifier::ApplyOutlineMaterialOverrides(Mesh);
+		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Mesh->SetCanEverAffectNavigation(false);
+		Mesh->SetCastShadow(false);
+		Mesh->SetRenderInMainPass(false);
+		Mesh->SetRenderInDepthPass(false);
+		Mesh->SetRenderCustomDepth(true);
+		Mesh->SetCustomDepthStencilValue(252);
+		Actor->AddInstanceComponent(Mesh);
+		Mesh->RegisterComponent();
+		ActorInfo.HighlightMeshes.Add(Mesh);
+	}
+}
+
 void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
 {
 	if (!IsValid(Actor)) return;
@@ -61,6 +91,11 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
  }
  const EOutlineColor SelectionColor = IsValid(SelectionPostProcess) && SelectionPostProcess->IsRegistered() ?
   static_cast<EOutlineColor>(252) : EOutlineColor::OC_DISMANTLE;
+	if (Actor->IsA<AFGBuildableStorage>() && SelectionColor == static_cast<EOutlineColor>(252))
+	{
+		CreateStorageHighlight(Actor, ActorInfo);
+		return;
+	}
 	const EOutlineColor Color = Actor == TargetActor ? EOutlineColor::OC_RED :
 		Actor == AnchorActor ? EOutlineColor::OC_HOLOGRAM : SelectionColor;
 	ActorInfo.Outline = Outline;
@@ -81,6 +116,14 @@ void UHyperManageSelection::ShowHologram(AActor* Actor, FSelectedActorInfo& Acto
 
 void UHyperManageSelection::HideHologram(AActor* Actor, FSelectedActorInfo& ActorInfo)
 {
+	for (const auto& Mesh : ActorInfo.HighlightMeshes)
+	{
+		if (IsValid(Mesh))
+		{
+			Mesh->DestroyComponent();
+		}
+	}
+	ActorInfo.HighlightMeshes.Reset();
 	if (!IsValid(Actor)) return;
 	if (auto* Outline = ActorInfo.Outline.Get()) {
 		if (static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor)) == ActorInfo.SelectionOutlineColor) {

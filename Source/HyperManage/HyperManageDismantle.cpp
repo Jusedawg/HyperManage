@@ -6,6 +6,7 @@
 #include "HyperManageRefundCapacity.h"
 #include "FGCharacterPlayer.h"
 #include "FGInventoryComponent.h"
+#include "Resources/FGItemDescriptor.h"
 #include "FGFactoryConnectionComponent.h"
 #include "FGDismantleInterface.h"
 #include "Buildables/FGBuildableStorage.h"
@@ -170,7 +171,7 @@ bool UHyperManageDismantle::MatchesSnapshot(const TArray<AActor*>& Actors, const
  return true;
 }
 
-bool UHyperManageDismantle::Preflight(TArray<AActor*>& Actors, FString& Error)
+bool UHyperManageDismantle::Preflight(TArray<AActor*>& Actors, FString& Error, FString* RefundSummary)
 {
  if (!System || !System->Selection || System->Selection->HasPendingOperations()) { Error = TEXT("Wait for building edits to finish, then retry."); return false; }
  TArray<AActor*> Input; System->Selection->SelectedActorsNoTarget(Input);
@@ -206,6 +207,49 @@ bool UHyperManageDismantle::Preflight(TArray<AActor*>& Actors, FString& Error)
  if (Capacity != EHyperManageRefundCapacity::Fits && Capacity != EHyperManageRefundCapacity::NoRefund) {
   Error = TEXT("The complete refund must fit in your inventory. Free space or select fewer buildings; overflow handling is not enabled yet."); return false;
  }
+ if (RefundSummary)
+ {
+  TMap<TSubclassOf<UFGItemDescriptor>, int64> Totals;
+  auto AddStacks = [&Totals](const TArray<FInventoryStack>& Stacks)
+  {
+   for (const auto& Stack : Stacks)
+   {
+    if (Stack.NumItems > 0)
+    {
+     Totals.FindOrAdd(Stack.Item.GetItemClass()) += Stack.NumItems;
+    }
+   }
+  };
+  for (const auto& Entry : Review.Refunds.Actors)
+  {
+   AddStacks(Entry.Stacks);
+  }
+  for (const auto& Entry : Review.Refunds.Instances)
+  {
+   AddStacks(Entry.Stacks);
+  }
+  TArray<FString> Lines;
+  for (const auto& Entry : Totals)
+  {
+   Lines.Add(FString::Printf(TEXT("%s: %lld"), *UFGItemDescriptor::GetItemName(Entry.Key).ToString(), Entry.Value));
+  }
+  Lines.Sort();
+  // Keep the game's fixed-size confirmation readable; the drawer retains the complete item list.
+  const int32 Shown = FMath::Min(Lines.Num(), 6);
+  *RefundSummary = Review.Refunds.NoBuildCost ? TEXT("Expected refund (contents only):") : TEXT("Expected refund (materials + contents):");
+  for (int32 Index = 0; Index < Shown; ++Index)
+  {
+   *RefundSummary += TEXT("\n") + Lines[Index];
+  }
+  if (Lines.Num() > Shown)
+  {
+   *RefundSummary += FString::Printf(TEXT("\n+ %d more item types - full list in Refund review."), Lines.Num() - Shown);
+  }
+  if (Lines.IsEmpty())
+  {
+   *RefundSummary += TEXT("\nNo refundable items.");
+  }
+ }
  return true;
 }
 
@@ -229,8 +273,12 @@ bool UHyperManageDismantle::ConnectionsMatch(const FConnections& Before, const F
 void UHyperManageDismantle::Request()
 {
  if (AwaitingConfirmation || !System || !System->UI) return;
- FString Error; TArray<AActor*> Actors;
- if (!Preflight(Actors, Error)) { System->UI->ShowPopup(TEXT("Cannot dismantle selection"), Error); return; }
+ FString Error, RefundSummary; TArray<AActor*> Actors;
+ if (!Preflight(Actors, Error, &RefundSummary))
+ {
+  System->UI->ShowPopup(TEXT("Cannot dismantle selection"), Error);
+  return;
+ }
  Pending.Reset(); PendingInstances.Reset();
  auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
  for (auto* Actor : Actors) {
@@ -246,7 +294,11 @@ void UHyperManageDismantle::Request()
  PendingPlayer = System->GetLocalController()->GetPlayerState<AFGPlayerState>();
  PendingNoBuildCost = PendingPlayer->GetPlayerRules().NoBuildCost;
  PendingAt = System->GetWorld()->GetRealTimeSeconds(); AwaitingConfirmation = true;
- System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), FString::Printf(TEXT("Permanently dismantle %d supported buildings?\n\nThe target is excluded. The game handles removal and refunds. This cannot be undone, and HyperManage edit history will be cleared.\n\nSupports foundations, ramps, walls, beams, pillars, walkways, stairs and ladders within 20 m. Storage Containers and Industrial Storage Containers are also supported, including their contents. The game disconnects attached vanilla belts/lifts; those conveyors are not removed. Inventory must fit all refunds. Confirmation expires after 60 seconds."), Actors.Num()), this, TEXT("Confirm"));
+ const FString Message = FString::Printf(TEXT("Permanently dismantle %d buildings?\n\n%s\n\n")
+  TEXT("Amounts may change while contents move. Refunds and inventory space are checked again on confirmation.\n\n")
+  TEXT("The target and attached conveyors stay. This cannot be undone; edit history will be cleared. Confirmation expires after 60 seconds."),
+  Actors.Num(), *RefundSummary);
+ System->UI->ShowConfirm(TEXT("Dismantle selected buildings?"), Message, this, TEXT("Confirm"));
 }
 
 void UHyperManageDismantle::Confirm(bool Accepted)
