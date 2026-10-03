@@ -17,6 +17,8 @@ struct HYPERMANAGE_API FSelectedActorInfo
 	uint8 SelectionOutlineColor = 0;
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<class UStaticMeshComponent>> HighlightMeshes;
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> HighlightOwner;
 	TMap<TWeakObjectPtr<class UStaticMeshComponent>, int32> InteractionStencilValues;
 };
 

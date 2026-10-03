@@ -92,6 +92,11 @@ void UHyperManageSelection::RefreshInteractionHighlights()
 	for (auto& Entry : SelectedMap)
 	{
 		if (Entry.Value.HighlightMeshes.IsEmpty()) continue;
+		if (!IsValid(Entry.Key))
+		{
+			HideHologram(Entry.Key, Entry.Value);
+			continue;
+		}
 		const auto* State = IsValid(Entry.Key) && IsValid(Outline) ? Outline->GetImmutableOutlineStateForActor(Entry.Key) : nullptr;
 		SyncInteractionOutline(Entry.Value, State);
 	}
@@ -99,12 +104,19 @@ void UHyperManageSelection::RefreshInteractionHighlights()
 
 void UHyperManageSelection::CreateStorageHighlight(AActor* Actor, FSelectedActorInfo& ActorInfo)
 {
-	// Snapshot source geometry before registering our components. Never hide or de-instance the real container.
+	if (!IsValid(Actor) || !Actor->GetWorld() || IsValid(ActorInfo.HighlightOwner)) return;
+	// Keep selection components out of the container's component list: interaction cleanup may reset that entire list.
 	const TInlineComponentArray<UStaticMeshComponent*> Sources(Actor);
+	FActorSpawnParameters Parameters;
+	Parameters.ObjectFlags |= RF_Transient;
+	Parameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ActorInfo.HighlightOwner = Actor->GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity, Parameters);
+	if (!IsValid(ActorInfo.HighlightOwner)) return;
+	ActorInfo.HighlightOwner->SetActorEnableCollision(false);
 	for (auto* Source : Sources)
 	{
 		if (!IsValid(Source) || !Source->GetStaticMesh()) continue;
-		auto* Mesh = NewObject<UStaticMeshComponent>(Actor, NAME_None, RF_Transient);
+		auto* Mesh = NewObject<UStaticMeshComponent>(ActorInfo.HighlightOwner, NAME_None, RF_Transient);
 		Mesh->SetMobility(EComponentMobility::Movable);
 		Mesh->SetupAttachment(Source);
 		Mesh->SetStaticMesh(Source->GetStaticMesh());
@@ -120,7 +132,7 @@ void UHyperManageSelection::CreateStorageHighlight(AActor* Actor, FSelectedActor
 		Mesh->SetRenderInDepthPass(false);
 		Mesh->SetRenderCustomDepth(true);
 		Mesh->SetCustomDepthStencilValue(252);
-		Actor->AddInstanceComponent(Mesh);
+		ActorInfo.HighlightOwner->AddInstanceComponent(Mesh);
 		Mesh->RegisterComponent();
 		ActorInfo.HighlightMeshes.Add(Mesh);
 	}
@@ -183,6 +195,11 @@ void UHyperManageSelection::HideHologram(AActor* Actor, FSelectedActorInfo& Acto
 		}
 	}
 	ActorInfo.HighlightMeshes.Reset();
+	if (IsValid(ActorInfo.HighlightOwner))
+	{
+		ActorInfo.HighlightOwner->Destroy();
+	}
+	ActorInfo.HighlightOwner = nullptr;
 	if (!IsValid(Actor)) return;
 	if (auto* Outline = ActorInfo.Outline.Get()) {
 		if (static_cast<uint8>(Outline->GetOutlineStateColorForActor(Actor)) == ActorInfo.SelectionOutlineColor) {

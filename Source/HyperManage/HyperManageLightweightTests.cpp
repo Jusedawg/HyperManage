@@ -165,7 +165,24 @@ bool FHyperManageSelectionOverlayTest::RunTest(const FString& Parameters)
 	if (Info.HighlightMeshes.Num() == 1)
 	{
 		auto* Highlight = Info.HighlightMeshes[0].Get();
+		auto* HighlightOwner = Info.HighlightOwner.Get();
+		TestTrue(TEXT("Highlight has an independent transient owner"), IsValid(HighlightOwner) && HighlightOwner != Actor && HighlightOwner->HasAnyFlags(RF_Transient));
 		TestTrue(TEXT("Highlight follows source component"), Highlight->GetAttachParent() == Mesh);
+		TestTrue(TEXT("Highlight belongs to its helper actor"), Highlight->GetOwner() == HighlightOwner);
+		TestFalse(TEXT("Highlight is absent from the container component list"), TInlineComponentArray<UStaticMeshComponent*>(Actor).Contains(Highlight));
+		// Simulate interaction focus entering and leaving the container's component list.
+		for (auto* Component : TInlineComponentArray<UStaticMeshComponent*>(Actor))
+		{
+			Component->SetRenderCustomDepth(true);
+			Component->SetCustomDepthStencilValue(1);
+			Component->SetRenderCustomDepth(false);
+		}
+		TestTrue(TEXT("Interaction cleanup cannot disable selection depth"), Highlight->bRenderCustomDepth);
+		TestEqual(TEXT("Interaction cleanup cannot replace selection green"), Highlight->CustomDepthStencilValue, 252);
+		const FTransform Moved(FRotator(0, 35, 0), FVector(300, -200, 100), FVector(1.5));
+		Mesh->SetMobility(EComponentMobility::Movable);
+		Mesh->SetWorldTransform(Moved);
+		TestTrue(TEXT("Independent highlight follows translation rotation and scale"), Highlight->GetComponentTransform().Equals(Mesh->GetComponentTransform()));
 		TestFalse(TEXT("Highlight cannot cover original surfaces"), Highlight->bRenderInMainPass);
 		TestFalse(TEXT("Highlight cannot occlude the scene"), Highlight->bRenderInDepthPass);
 		TestTrue(TEXT("Highlight writes custom depth"), Highlight->bRenderCustomDepth);
@@ -199,6 +216,8 @@ bool FHyperManageSelectionOverlayTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("Deselect unregisters owned highlight"), Highlight->IsRegistered());
 		TestTrue(TEXT("Deselect keeps original component registered"), Mesh->IsRegistered());
 		TestTrue(TEXT("Deselect releases owned highlight references"), Info.HighlightMeshes.IsEmpty());
+		TestNull(TEXT("Deselect releases the helper actor reference"), Info.HighlightOwner.Get());
+		TestTrue(TEXT("Deselect destroys the temporary helper actor"), HighlightOwner->IsActorBeingDestroyed());
 	}
 
 	World->DestroyWorld(false);
@@ -509,7 +528,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.93")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.94")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
