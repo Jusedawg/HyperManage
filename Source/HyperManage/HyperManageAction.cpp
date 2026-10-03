@@ -139,28 +139,6 @@ void UHyperManageAction::MoveSelectionToTarget(bool IgnoreTranslation)
 	System->GetMMRCO()->RequestTransform(Actors, TransformData);
 }
 
-void UHyperManageAction::MakeActorsMovable(TArray<AActor*>& Actors)
-{
-	// process through all Actors removing any that are already movable prepared
-	TArray<AActor*> ActorsToPrepare;
-	for (const auto& Actor : Actors) {
-		if (Actor->IsA<AFGBuildable>()) {
-			for (const auto& SceneComp : Actor->GetRootComponent()->GetAttachChildren()) {
-				if (SceneComp->Mobility != EComponentMobility::Movable) {
-					ActorsToPrepare.Add(Actor);
-					break;
-				}
-			}
-		}
-	}
-
-	// prepare applicable actors on the server
-	for (int32 Start = 0; Start < ActorsToPrepare.Num(); Start += 64) {
-		TArray<AActor*> Batch; Batch.Append(ActorsToPrepare.GetData() + Start, FMath::Min(64, ActorsToPrepare.Num() - Start));
-		System->GetMMRCO()->ServerPrepareActors(Batch);
-	}
-}
-
 void UHyperManageAction::PerformMove(bool ConfirmClicked)
 {
 	if (ConfirmClicked) {
@@ -190,21 +168,12 @@ void UHyperManageAction::PrepareMove()
 	}
 }
 
-void UHyperManageAction::MakeActorMovable(AActor* Actor)
-{
-	TArray<AActor*> Actors;
-	Actors.Add(Actor);
-	MakeActorsMovable(Actors);
-}
-
 void UHyperManageAction::SelectActor(AActor* Actor, bool Select)
 {
 	const bool Changed = System->Selection->SelectActorWithHistory(Actor, Select);
  UE_LOG(LogTemp, Display, TEXT("HyperManage selection: select=%d actor=%s changed=%d count=%d pending=%d"),
   Select, *GetNameSafe(Actor), Changed, System->Selection->SelectCount(), System->Selection->HasPendingOperations());
- if (Changed && Select) {
-		MakeActorMovable(Actor);
-	}
+	// Selection must not re-register building components. Explicit transforms handle their own mobility.
 }
 
 void UHyperManageAction::MakeConnection(AActor* OutputActor, AActor* InputActor, FString& Title, FString& Body)

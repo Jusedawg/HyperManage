@@ -9,6 +9,7 @@
 #include "Serialization/MemoryReader.h"
 #include "FGPlayerController.h"
 #include "FGBuildableBeam.h"
+#include "FGColoredInstanceMeshProxy.h"
 #include "HyperManageRCO.h"
 #include "HyperManageAction.h"
 #include "MaterialDomain.h"
@@ -483,7 +484,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.91")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.92")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -1179,6 +1180,34 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 
 
 
+	Selection->ClearWithoutHistory(); History->ClearUndoStack();
+	System->Config->MMConfig.AutoAnchor = true;
+	auto* InstancedBuilding = World->SpawnActor<AFGBuildableBeam>();
+	auto* StaticRoot = NewObject<USceneComponent>(InstancedBuilding);
+	StaticRoot->SetMobility(EComponentMobility::Static);
+	InstancedBuilding->SetRootComponent(StaticRoot);
+	InstancedBuilding->AddInstanceComponent(StaticRoot); StaticRoot->RegisterComponent();
+	auto* InstanceMesh = NewObject<UFGColoredInstanceMeshProxy>(InstancedBuilding);
+	InstanceMesh->SetMobility(EComponentMobility::Static);
+	InstanceMesh->SetupAttachment(StaticRoot);
+	InstancedBuilding->AddInstanceComponent(InstanceMesh); InstanceMesh->RegisterComponent();
+	const auto BeforeSelection = InstancedBuilding->GetActorTransform();
+	// This fixture deliberately has no player controller or RCO: selecting must not request server-side preparation.
+	System->Action->SelectActor(InstancedBuilding, true);
+	TestTrue(TEXT("Static instanced building can be selected locally"), Selection->Contains(InstancedBuilding));
+	TestTrue(TEXT("Auto anchor needs no mobility preparation"), Selection->AnchorActor == InstancedBuilding);
+	TestTrue(TEXT("Selection preserves the building transform"), InstancedBuilding->GetActorTransform().Equals(BeforeSelection));
+	TestTrue(TEXT("Selection preserves root mobility"), StaticRoot->Mobility == EComponentMobility::Static);
+	TestTrue(TEXT("Selection preserves mesh mobility"), InstanceMesh->Mobility == EComponentMobility::Static);
+	TestFalse(TEXT("Selection preserves native instancing"), InstanceMesh->mBlockInstancing);
+	System->Action->SelectActor(InstancedBuilding, false);
+	TestFalse(TEXT("Deselecting static instance is also local"), Selection->Contains(InstancedBuilding));
+	Replay(false);
+	TestTrue(TEXT("Undo reselects without instance preparation"), Selection->Contains(InstancedBuilding));
+	Selection->ClearWithoutHistory();
+	TestTrue(TEXT("Pointed selection does not prepare mobility"), Selection->SelectPointedActorForTransform(InstancedBuilding));
+	TestTrue(TEXT("Pointed selection retains root mobility"), StaticRoot->Mobility == EComponentMobility::Static);
+	Selection->ClearWithoutHistory();
 	World->DestroyWorld(false);
 	return true;
 }

@@ -338,7 +338,6 @@ bool UHyperManageSelection::SelectPlacedBlueprint(AActor* Actor)
  System->Undo->PushUndoSelection(Added);
  for (auto* Member : Added) SelectActor(Member);
  if (AssignAnchor) SetAnchor(Actor);
- System->Action->MakeActorsMovable(Added);
  return true;
 }
 
@@ -346,7 +345,6 @@ bool UHyperManageSelection::SelectPointedActorForTransform(AActor* Actor)
 {
 	if (HasPendingOperations() || SelectCount() != 0 || !IsValidActor(Actor) || Actor == TargetActor) return false;
 	if (!SelectActorWithHistory(Actor, true)) return false;
-	System->Action->MakeActorMovable(Actor);
 	return true;
 }
 
@@ -474,7 +472,6 @@ void UHyperManageSelection::ChangeAnchorTargetBoxSelection(bool UseSides, bool R
 	for (const auto& Actor : AddedActors) {
 		SelectActor(Actor);
 	}
-	System->Action->MakeActorsMovable(AddedActors);
 
 	// Keep the anchor as the transform reference; the former target becomes an ordinary selected object.
 	SetTarget(nullptr);

@@ -2,7 +2,6 @@
 #include "HyperManageSystem.h"
 #include "HyperManageAction.h"
 #include "HyperManageSelection.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Buildables/FGBuildableWire.h"
 #include "FGFactoryConnectionComponent.h"
@@ -170,65 +169,6 @@ bool UHyperManageRCO::ServerUndoAction_Validate(const FUndoInfo& UndoInfo)
 		if (Item.Buildable && !IsEditableActor(Item.Buildable, GetWorld())) return false;
 	}
 	return true;
-}
-
-void UHyperManageRCO::ServerPrepareActors_Implementation(const TArray<AActor*>& Actors)
-{
-	if (!GetRequestEquipment()) return;
-	// make all characters fly
-	TArray<TTuple<ACharacter*, EMovementMode>> CharacterInfo;
-	for (FConstPlayerControllerIterator Iterator = UHyperManageSystem::GetForWorld(GetWorld())->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator) {
-		ACharacter* Character = Iterator->Get()->GetCharacter();
-		if (!IsValid(Character) || !Character->GetCharacterMovement()) continue;
-		UCharacterMovementComponent* CharacterMovement = Character->GetCharacterMovement();
-		auto MovementMode = CharacterMovement->MovementMode;
-		bool IsFlying = CharacterMovement->bCheatFlying;
-		if (!IsFlying) {
-			CharacterInfo.Emplace(Character, MovementMode);
-			CharacterMovement->bCheatFlying = true;
-			CharacterMovement->SetMovementMode(MOVE_Flying);
-		}
-	}
-
-	// process through all actors
-	for (const auto& Actor : Actors) {
-		if (!IsEditableActor(Actor, GetWorld()) || !Actor->GetRootComponent()) continue;
-		// save factory connections
-		TMap<UFGFactoryConnectionComponent*, UFGFactoryConnectionComponent*> FactoryConnections;
-		for (const auto& ActorComp : TInlineComponentArray<UFGFactoryConnectionComponent*>(Actor)) {
-			auto FactoryCxnComp = Cast<UFGFactoryConnectionComponent>(ActorComp);
-			if (FactoryCxnComp->IsConnected()) {
-				UFGFactoryConnectionComponent* Cxn = FactoryCxnComp->GetConnection();
-				FactoryConnections.Add(FactoryCxnComp, Cxn);
-			}
-		}
-
-		const auto PreviousMobility = Actor->GetRootComponent()->Mobility;
-		Actor->GetRootComponent()->SetMobility(EComponentMobility::Movable);
-		Actor->GetRootComponent()->SetMobility(PreviousMobility);
-
-		// reset factory connections
-		for (const auto& Elem : FactoryConnections) {
-			if (!Elem.Key->IsConnected()) {
-				Elem.Key->SetConnection(Elem.Value);
-			}
-		}
-	}
-
-	// set all characters back to original movement mode
-	for (const auto& CharMoveMode : CharacterInfo) {
-		UCharacterMovementComponent* CharacterMovement = CharMoveMode.Key->GetCharacterMovement();
-		CharacterMovement->bCheatFlying = false;
-		CharacterMovement->SetMovementMode(CharMoveMode.Value);
-	}
-
-	// multi-cast out to all characters to redraw any changed objects
-	GetRequestEquipment()->MulticastRefreshMaterials(Actors);
-}
-
-bool UHyperManageRCO::ServerPrepareActors_Validate(const TArray<AActor*>& Actors)
-{
-	return AreActorsValid(Actors, GetWorld());
 }
 
 void UHyperManageRCO::ServerPaintActors_Implementation(const TArray<AActor*>& Actors, const FFactoryCustomizationData& PaintData)

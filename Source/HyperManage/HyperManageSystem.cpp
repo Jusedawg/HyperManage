@@ -220,14 +220,10 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 			UI->ShowToolsUI();
 			break;
 		case EActionNameIdx::SetAnchor:
-			if (Selection->SetMarkerWithHistory(Selection->LineTraceFromPlayer(), true)) {
-				Action->MakeActorMovable(Selection->AnchorActor);
-			}
+			Selection->SetMarkerWithHistory(Selection->LineTraceFromPlayer(), true);
 			break;
 		case EActionNameIdx::SetTarget:
-			if (Selection->SetMarkerWithHistory(Selection->LineTraceFromPlayer(), false)) {
-				Action->MakeActorMovable(Selection->TargetActor);
-			}
+			Selection->SetMarkerWithHistory(Selection->LineTraceFromPlayer(), false);
 			break;
 
 		case EActionNameIdx::AlignLeft:

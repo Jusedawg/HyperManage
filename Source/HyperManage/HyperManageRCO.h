@@ -44,9 +44,6 @@ public:
 	void ServerUndoAction(const FUndoInfo& UndoInfo);
 
 	UFUNCTION(Reliable, Server, WithValidation, Category = "HyperManage")
-	void ServerPrepareActors(const TArray<AActor*>& Actors);
-
-	UFUNCTION(Reliable, Server, WithValidation, Category = "HyperManage")
 	void ServerPaintActors(const TArray<AActor*>& Actors, const FFactoryCustomizationData& PaintData);
 
 	UFUNCTION(Reliable, Server, WithValidation, Category = "HyperManage")

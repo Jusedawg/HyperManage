@@ -36,10 +36,6 @@ public:
 
 	void PrepareMove();
 
-	void MakeActorsMovable(TArray<AActor*>& Actors);
-
-	void MakeActorMovable(AActor* Actor);
-
 	void MakeConnection(AActor* OutputActor, AActor* InputActor, FString& Title, FString& Body);
 
 	void BreakConnection(AActor* OutputActor, AActor* InputActor, FString& Title, FString& Body);
