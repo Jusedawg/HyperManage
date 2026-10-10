@@ -7,13 +7,14 @@ One toolkit for precise placement, editing existing builds, and bulk factory ope
 ## What you can do
 
 - Move, rotate and scale selected objects.
+- Preview and place copies of supported lightweight foundations, ramps and walls in single-player.
 - Choose movement and rotation increments for fine adjustments or larger changes.
 - Snap selections to the world XY grid, snap rotation and level objects.
 - Use anchors and targets to align your builds.
 - Undo and redo edits and access controls from a panel that slides out from the right edge of the screen.
 - Keep a clipboard of keyboard shortcuts visible while you work.
 
-HyperManage is currently a preview for Satisfactory 1.2. Object coverage, save persistence and multiplayer support are still being tested. Hologram editing, bulk copy and fill, persistent selection groups and bulk machine settings are planned features.
+HyperManage is currently a preview for Satisfactory 1.2. Object coverage, save persistence and multiplayer support are still being tested. Copy placement currently supports a limited structural subset. Hologram editing, fill, persistent selection groups and bulk machine settings are planned features.
 
 ## Getting started
 
@@ -220,10 +221,16 @@ Before dismantling a Storage Container or Industrial Storage Container, make roo
 
 Storage containers can remain connected to vanilla conveyor belts or lifts. Connections must be valid in both directions; unsupported or inconsistent connections are rejected. The game handles disconnection during removal; attached conveyors are not automatically selected or removed. Changing a connection while confirmation is open cancels the request. Contents and player capacity are checked again when confirming; a busy input can cause a retry if contents change during the check. Space is checked before dispatch, not reserved—late changes are handled by the native game dismantle path. Live input/output cleanup and refund behavior still need verification.
 
-## Copy placement preview
+## Copy and place structures
 
-Expand **Copy preview (m)** in the tool panel. Select up to 50 vanilla foundations, ramps or walls, enter a world X/Y/Z offset, and click **Capture** (overlapping squares). The target is excluded. The initial offset is 8 m along X.
+Expand **Copy / place (m)** in the tool panel. Select up to 50 vanilla foundations, ramps or walls, enter a world X/Y/Z offset, and click **Capture** (overlapping squares). The target is excluded. The initial offset is 8 m along X.
 
 Close the panel to inspect the green preview. Reopen it and use **Update preview** to reposition the captured geometry; moving the originals does not move the snapshot. **Cancel preview**, clearing the selection, or unequipping the tool removes it. A failed capture keeps the previous preview.
 
-This single-player stage is visual only: it does not place buildings, validate construction clearance, charge materials, copy inventories or add undo records. Building placement and construction costs are not available yet.
+Click **Place copies** (the plus-in-a-square icon) to review the material total and confirm placement at the **applied preview offset**. Update the preview after changing the fields. Placement supports vanilla lightweight foundations, ramps and walls without special instance data; other captured geometry remains preview-only. Every destination must be within 100 m of you. Unlocked recipes and enough materials in your player inventory are required; Dimensional Depot materials are not used. No Build Cost is respected.
+
+Copies preserve captured position offsets, rotation, scale, recipe and customization. Original buildings remain unchanged. Inventories, connections and blueprint membership are not copied. Exact duplicate positions are rejected, but **other overlaps are allowed; there are no clearance checks**. Inspect the preview carefully.
+
+Confirmation expires after 60 seconds and is invalidated by changes to the preview, player, costs or build-cost rules. Costs and inventory are checked again before execution. If a piece fails, earlier completed copies remain, later pieces are not attempted, and the failed piece's deducted materials are returned. Refund overflow goes to a nearby crate. The completion message reports how many copies were placed. An execution attempt clears the preview, so recapture only the pieces still needed after a partial result.
+
+**Placement cannot be undone with HyperManage.** Use normal dismantling to remove unwanted copies. Existing edit history is preserved. In-game material counts, customization and save/reload behavior still need acceptance testing.

@@ -1,5 +1,6 @@
 #include "HyperManageSystem.h"
 #include "HyperManageCopyPreview.h"
+#include "HyperManageCopyPlacement.h"
 #include "HyperManageDismantle.h"
 #include "HyperManageUndo.h"
 #include "HyperManageConfig.h"
@@ -68,6 +69,7 @@ void UHyperManageSystem::Initialize(UGameInstance* GameInstance, UWorld* World)
  Dismantle = InitComponent<UHyperManageDismantle>(this);
 	Input = InitComponent<UHyperManageInput>(this);
 	CopyPreview = InitComponent<UHyperManageCopyPreview>(this);
+	CopyPlacement = InitComponent<UHyperManageCopyPlacement>(this);
 }
 
 UHyperManageRCO* UHyperManageSystem::GetMMRCO()

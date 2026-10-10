@@ -7,6 +7,7 @@
 #include "Resources/FGItemDescriptor.h"
 #include "HyperManageToolWidget.h"
 #include "HyperManageCopyPreview.h"
+#include "HyperManageCopyPlacement.h"
 #include "HyperManageUI.h"
 #include "HyperManageConfig.h"
 #include "HyperManageUndo.h"
@@ -251,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.95")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.96")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -371,7 +372,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
   Area->SetHeaderPadding(FMargin(0, 4)); Area->SetAreaPadding(FMargin(0, 2)); Rows->AddChildToVerticalBox(Area);
  };
 	auto* CopyHeading = WidgetTree->ConstructWidget<UTextBlock>();
-	CopyHeading->SetText(FText::FromString(TEXT("COPY PREVIEW (m)")));
+	CopyHeading->SetText(FText::FromString(TEXT("COPY / PLACE (m)")));
 	auto CopyFont = CopyHeading->GetFont(); CopyFont.Size = 14; CopyHeading->SetFont(CopyFont);
 	CopyHeading->SetColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.68f, 0.40f)));
 	auto* CopyBody = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -406,9 +407,10 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddCopyButton(TEXT("Capture"), TEXT("Capture selected foundations, ramps and walls, excluding the target. Replaces the previous preview only on success. Up to 50 pieces; single-player only. Nothing is built or charged."), 12)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CaptureCopyPreview);
 	AddCopyButton(TEXT("Update preview"), TEXT("Move the captured preview to this offset. Does not recapture changed source buildings or alter originals."), 14)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::UpdateCopyPreview);
 	AddCopyButton(TEXT("Cancel preview"), TEXT("Discard the preview. Original buildings, inventory and edit history are unchanged."), 7)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CancelCopyPreview);
+	AddCopyButton(TEXT("Place copies"), TEXT("Place the current preview after reviewing material costs. Update edited fields first. Lightweight foundations/ramps/walls only, single-player, within 100 m. No placement undo or clearance checks."), 9)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::PlaceCopyPreview);
 	CopyBody->AddChildToVerticalBox(CopyRow);
 	CopyStatus = WidgetTree->ConstructWidget<UTextBlock>(); CopyStatus->SetAutoWrapText(true);
-	CopyStatus->SetText(FText::FromString(Preview && Preview->GetCount() ? TEXT("Preview active. Update its offset or Cancel. Nothing is built.") : TEXT("Preview only: capture foundations, ramps or walls. Placement comes later.")));
+	CopyStatus->SetText(FText::FromString(Preview && Preview->GetCount() ? TEXT("Preview active. Update, Cancel, or Place after reviewing costs.") : TEXT("Capture foundations, ramps or walls; Place confirms costs.")));
 	CopyBody->AddChildToVerticalBox(CopyStatus);
 	AddCollapsedSection(CopyHeading, CopyBody);
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
@@ -1167,6 +1169,14 @@ void UHyperManageToolWidget::UpdateCopyPreview()
 	if (!System || !System->CopyPreview || !CopyStatus || !CopyX || !CopyY || !CopyZ) return;
 	const bool Updated = System->CopyPreview->SetOffset(FVector(CopyX->GetValue(), CopyY->GetValue(), CopyZ->GetValue()));
 	CopyStatus->SetText(FText::FromString(Updated ? TEXT("Preview moved. Close the panel to inspect; nothing is built.") : TEXT("Capture a preview first; offsets must be within 1,000 m per axis.")));
+}
+
+void UHyperManageToolWidget::PlaceCopyPreview()
+{
+	if (auto* System = UHyperManageSystem::Get(); System && System->CopyPlacement)
+	{
+		System->CopyPlacement->Request();
+	}
 }
 
 void UHyperManageToolWidget::CancelCopyPreview()

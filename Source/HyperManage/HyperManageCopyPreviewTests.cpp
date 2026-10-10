@@ -35,6 +35,7 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 	FString Message;
 	TestTrue(TEXT("Capture a supported source"), Preview->Capture({Source}, FVector(8, 0, 0), Message));
 	TestEqual(TEXT("One captured piece"), Preview->GetCount(), 1);
+	const uint64 CapturedRevision = Preview->GetRevision();
 	if (Preview->GetCount() == 1 && !Preview->Pieces[0].HighlightMeshes.IsEmpty())
 	{
 		auto* Ghost = Preview->Pieces[0].HighlightMeshes[0].Get();
@@ -47,6 +48,7 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		Source->SetActorLocation(FVector(9000));
 		TestTrue(TEXT("Source movement cannot move captured preview"), Ghost->GetComponentTransform().Equals(Expected));
 		TestTrue(TEXT("Preview accepts a new offset"), Preview->SetOffset(FVector(0, 0, 2)));
+		TestTrue(TEXT("Changing offset invalidates old confirmation revision"), Preview->GetRevision() != CapturedRevision);
 		Expected = Initial; Expected.AddToTranslation(FVector(0, 0, 200));
 		TestTrue(TEXT("Offsets are absolute from snapshot, not cumulative"), Ghost->GetComponentTransform().Equals(Expected));
 		TestFalse(TEXT("Nonfinite offset rejected"), Preview->SetOffset(FVector(std::numeric_limits<double>::infinity(), 0, 0)));

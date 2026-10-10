@@ -4,7 +4,18 @@
 #include "HyperManageSelection.h"
 #include "HyperManageCopyPreview.generated.h"
 
-// A local geometry snapshot only. No construction, inventory, recipe or connection state is duplicated.
+USTRUCT()
+struct FHyperManageCopySnapshot
+{
+	GENERATED_BODY()
+	UPROPERTY(Transient) TSubclassOf<AFGBuildable> Class;
+	UPROPERTY(Transient) TSubclassOf<UFGRecipe> Recipe;
+	UPROPERTY(Transient) FTransform Transform = FTransform::Identity;
+	UPROPERTY(Transient) FFactoryCustomizationData Customization;
+	UPROPERTY(Transient) bool CanPlace = false;
+};
+
+// Preview geometry and construction metadata only; inventories and connections are never captured.
 UCLASS()
 class HYPERMANAGE_API UHyperManageCopyPreview : public UHyperManageComponent
 {
@@ -14,10 +25,14 @@ public:
 	bool Capture(const TArray<AActor*>& Actors, const FVector& Meters, FString& Message);
 	bool SetOffset(const FVector& Meters);
 	void Clear();
+	uint64 GetRevision() const { return Revision; }
+	const TArray<FHyperManageCopySnapshot>& GetSnapshots() const { return Snapshots; }
 	int32 GetCount() const { return Pieces.Num(); }
 	FVector GetOffsetMeters() const { return OffsetCm / 100.; }
 private:
 	UPROPERTY(Transient) TArray<FSelectedActorInfo> Pieces;
 	TArray<FTransform> OriginalMeshTransforms;
 	FVector OffsetCm = FVector::ZeroVector;
+	UPROPERTY(Transient) TArray<FHyperManageCopySnapshot> Snapshots;
+	uint64 Revision = 0;
 };

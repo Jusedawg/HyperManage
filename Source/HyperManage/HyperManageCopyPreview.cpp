@@ -47,8 +47,24 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 	}
 	TArray<FSelectedActorInfo> Captured;
 	TArray<FTransform> Transforms;
+	TArray<FHyperManageCopySnapshot> Metadata;
 	for (auto* Actor : Actors)
 	{
+		auto& Snapshot = Metadata.AddDefaulted_GetRef();
+		Snapshot.Transform = Actor->GetActorTransform();
+		if (const auto* Proxy = Cast<AHyperManageLightweightProxy>(Actor))
+		{
+			auto* Subsystem = AFGLightweightBuildableSubsystem::Get(World);
+			const auto* Data = Subsystem ? Subsystem->GetRuntimeDataForBuildableClassAndIndex(Proxy->Ref.BuildableClass, Proxy->Ref.Index) : nullptr;
+			if (Proxy->Ref.Matches(Data))
+			{
+				Snapshot.Class = Proxy->Ref.BuildableClass;
+				Snapshot.Recipe = Data->BuiltWithRecipe;
+				Snapshot.Transform = Data->Transform;
+				Snapshot.Customization = Data->CustomizationData;
+				Snapshot.CanPlace = !Data->TypeSpecificData.IsValid();
+			}
+		}
 		auto& Piece = Captured.AddDefaulted_GetRef();
 		UHyperManageSelection::CreateStorageHighlight(Actor, Piece);
 		if (Piece.HighlightMeshes.IsEmpty())
@@ -65,9 +81,10 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 	}
 	Clear();
 	Pieces = MoveTemp(Captured);
+	Snapshots = MoveTemp(Metadata);
 	OriginalMeshTransforms = MoveTemp(Transforms);
 	SetOffset(Meters);
-	Message = FString::Printf(TEXT("%d pieces previewed. Close the panel to inspect. No buildings or costs; Cancel clears the preview."), Pieces.Num());
+	Message = FString::Printf(TEXT("%d pieces previewed. Close the panel to inspect. Place asks for confirmation and material costs."), Pieces.Num());
 	return true;
 }
 
@@ -75,6 +92,7 @@ bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 {
 	if (!ValidOffset(Meters) || Pieces.IsEmpty()) return false;
 	OffsetCm = Meters * 100.;
+	++Revision;
 	int32 Index = 0;
 	for (auto& Piece : Pieces)
 	{
@@ -95,5 +113,7 @@ void UHyperManageCopyPreview::Clear()
 {
 	DestroyPieces(Pieces);
 	OriginalMeshTransforms.Reset();
+	Snapshots.Reset();
+	++Revision;
 	OffsetCm = FVector::ZeroVector;
 }

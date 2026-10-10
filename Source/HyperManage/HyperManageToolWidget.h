@@ -57,6 +57,7 @@ protected:
 	UFUNCTION() void CaptureCopyPreview();
 	UFUNCTION() void UpdateCopyPreview();
 	UFUNCTION() void CancelCopyPreview();
+	UFUNCTION() void PlaceCopyPreview();
 	UPROPERTY(Transient) TObjectPtr<class UVerticalBox> QuickActionHost;
 	UPROPERTY(Transient) TObjectPtr<class UNamedSlot> DockedTray;
 	UPROPERTY(Transient) TObjectPtr<UButton> RemoveBoxEdgesButton;
