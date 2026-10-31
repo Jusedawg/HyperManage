@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.97")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.98")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -379,7 +379,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* CopyRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* PreviewSystem = UHyperManageSystem::Get();
 	const auto* Preview = PreviewSystem ? PreviewSystem->CopyPreview : nullptr;
-	const FVector PreviewMeters = Preview && Preview->GetCount() ? Preview->GetOffsetMeters() : FVector(8, 0, 0);
+	const FVector PreviewMeters = Preview ? Preview->GetPreferredOffsetMeters() : FVector(8, 0, 0);
 	auto AddCopyField = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Field, float Value)
 	{
 		auto* Label = WidgetTree->ConstructWidget<UTextBlock>();
@@ -409,6 +409,13 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddCopyButton(TEXT("Cancel preview"), TEXT("Discard the preview. Original buildings, inventory and edit history are unchanged."), 7)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CancelCopyPreview);
 	AddCopyButton(TEXT("Place copies"), TEXT("Place the current preview after reviewing material costs. Update edited fields first. Lightweight foundations/ramps/walls only, single-player, within 100 m. No placement undo or clearance checks."), 9)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::PlaceCopyPreview);
 	CopyBody->AddChildToVerticalBox(CopyRow);
+	auto* CopyKeys = WidgetTree->ConstructWidget<UTextBlock>();
+	CopyKeys->SetAutoWrapText(true);
+	if (PreviewSystem && PreviewSystem->Config)
+	{
+		CopyKeys->SetText(FText::FromString(PreviewSystem->Config->GetShortcutLabel(CopySelection) + TEXT(" Copy | ") + PreviewSystem->Config->GetShortcutLabel(PlaceCopy) + TEXT(" Place | ") + PreviewSystem->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel (panel closed)")));
+	}
+	CopyBody->AddChildToVerticalBox(CopyKeys);
 	auto* SelectCopies = WidgetTree->ConstructWidget<UCheckBox>();
 	SelectCopies->SetIsChecked(PreviewSystem && PreviewSystem->CopyPlacement && PreviewSystem->CopyPlacement->SelectAfterPlacement);
 	auto* SelectCopiesLabel = WidgetTree->ConstructWidget<UTextBlock>();

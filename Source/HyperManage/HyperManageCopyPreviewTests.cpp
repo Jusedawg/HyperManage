@@ -1,4 +1,6 @@
 #include "HyperManageCopyPreview.h"
+#include "HyperManageInput.h"
+#include "Components/InputComponent.h"
 #include "Buildables/FGBuildableFoundation.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -31,13 +33,21 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 	Mesh->RegisterComponent();
 	const FTransform Initial(FRotator(10, 35, 0), FVector(200, 300, 400), FVector(1.5));
 	Source->SetActorTransform(Initial);
-	auto* Preview = NewObject<UHyperManageCopyPreview>();
+	auto* System = NewObject<UHyperManageSystem>();
+	System->CopyPreview = InitComponent<UHyperManageCopyPreview>(System);
+	System->Input = InitComponent<UHyperManageInput>(System);
+	auto* Preview = System->CopyPreview;
+	auto* Input = System->Input;
+	Input->HyperManageInputComponent = NewObject<UInputComponent>();
+	Input->SetupKeyBinding(FHyperManageKeyConfig(CancelCopy, EKeys::Escape, false, false, false, false), IE_Pressed);
+	TestFalse(TEXT("Escape passes through without preview"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
 	FString Message;
 	TestTrue(TEXT("Capture a supported source"), Preview->Capture({Source}, FVector(8, 0, 0), Message));
 	TestEqual(TEXT("One captured piece"), Preview->GetCount(), 1);
 	const uint64 CapturedRevision = Preview->GetRevision();
 	if (Preview->GetCount() == 1 && !Preview->Pieces[0].HighlightMeshes.IsEmpty())
 	{
+		TestTrue(TEXT("Escape is consumed while preview exists"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
 		auto* Ghost = Preview->Pieces[0].HighlightMeshes[0].Get();
 		auto* Owner = Preview->Pieces[0].HighlightOwner.Get();
 		FTransform Expected = Initial; Expected.AddToTranslation(FVector(800, 0, 0));
@@ -62,6 +72,8 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
 		Preview->Clear();
 		TestEqual(TEXT("Cancel releases all pieces"), Preview->GetCount(), 0);
+		TestFalse(TEXT("Escape passes through after cancel"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
+		TestTrue(TEXT("Last applied offset survives cancellation"), Preview->GetPreferredOffsetMeters().Equals(FVector(0, 0, 2)));
 		TestTrue(TEXT("Cancel destroys preview owner"), Owner->IsActorBeingDestroyed());
 		TestFalse(TEXT("Cancel unregisters geometry"), Ghost->IsRegistered());
 		TestFalse(TEXT("Offset update without capture rejected"), Preview->SetOffset(FVector::ZeroVector));

@@ -223,6 +223,8 @@ Storage containers can remain connected to vanilla conveyor belts or lifts. Conn
 
 ## Copy and place structures
 
+With the tool equipped and the panel closed, **Ctrl+C** captures a preview of the selection using the last applied offset (initially 8 m along X). **Ctrl+V** reviews costs and asks before placing; it never places immediately. **Esc** cancels an active preview, keeping the originals. Without a preview, Esc retains its normal game behavior. With the panel open, Esc closes the panel first. Existing custom key mappings are preserved; the clipboard and Copy / place section show the configured shortcuts. These commands act once per key press.
+
 Expand **Copy / place (m)** in the tool panel. Select up to 50 vanilla foundations, ramps or walls, enter a world X/Y/Z offset, and click **Capture** (overlapping squares). The target is excluded. The initial offset is 8 m along X.
 
 Close the panel to inspect the green preview. Reopen it and use **Update preview** to reposition the captured geometry; moving the originals does not move the snapshot. **Cancel preview**, clearing the selection, or unequipping the tool removes it. A failed capture keeps the previous preview.

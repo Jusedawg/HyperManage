@@ -28,6 +28,33 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  auto* Input = NewObject<UHyperManageInput>();
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Repeat);
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Released);
+ for (const auto Action : {CopySelection, PlaceCopy, CancelCopy})
+ {
+  Input->PerformIndexedAction(EKeys::C, Action, IE_Repeat);
+  Input->PerformIndexedAction(EKeys::C, Action, IE_Released);
+ }
+ FHyperManageKeyConfigs CopyKeys;
+ CopyKeys.DoNotEditConfigFormatVersion = TEXT("1.1");
+ CopyKeys.ActionKeys.Add(FHyperManageKeyConfig(CopySelection, EKeys::Invalid, false, false, false, false));
+ UHyperManageConfiguration::UpgradeCopyBindings(CopyKeys);
+ TestEqual(TEXT("Copy actions are registered once"), CopyKeys.ActionKeys.Num(), 3);
+ TestTrue(TEXT("Old copy placeholder gains Ctrl+C"), CopyKeys.ActionKeys[0].Key == EKeys::C && CopyKeys.ActionKeys[0].Ctrl);
+ TestTrue(TEXT("Place defaults to Ctrl+V"), CopyKeys.ActionKeys[1].Key == EKeys::V && CopyKeys.ActionKeys[1].Ctrl);
+ TestTrue(TEXT("Cancel defaults to Escape"), CopyKeys.ActionKeys[2].Key == EKeys::Escape && !CopyKeys.ActionKeys[2].Ctrl);
+ CopyKeys.ActionKeys[0] = FHyperManageKeyConfig(CopySelection, EKeys::Invalid, false, false, false, false);
+ CopyKeys.ActionKeys[1] = FHyperManageKeyConfig(PlaceCopy, EKeys::P, true, false, true, true);
+ UHyperManageConfiguration::UpgradeDismantleBinding(CopyKeys);
+ UHyperManageConfiguration::UpgradeCopyBindings(CopyKeys);
+ TestTrue(TEXT("New-format explicit unbind survives reload migration"), CopyKeys.ActionKeys[0].Key == EKeys::Invalid);
+ TestTrue(TEXT("Custom paste mapping survives with repeats disabled"), CopyKeys.ActionKeys[1].Key == EKeys::P && CopyKeys.ActionKeys[1].Shift && !CopyKeys.ActionKeys[1].UseRepeats);
+ CopyKeys.DoNotEditConfigFormatVersion = TEXT("1.1");
+ CopyKeys.ActionKeys.Add(FHyperManageKeyConfig(Undo, EKeys::C, true, false, false, false));
+ UHyperManageConfiguration::UpgradeCopyBindings(CopyKeys);
+ TestTrue(TEXT("Existing Ctrl+C binding is not shadowed"), CopyKeys.ActionKeys[0].Key == EKeys::Invalid);
+ auto* Config = NewObject<UHyperManageConfiguration>();
+ Config->MMKeyConfigs = CopyKeys;
+ TestEqual(TEXT("Shortcut hint follows custom chord"), Config->GetShortcutLabel(PlaceCopy), FString(TEXT("Ctrl+Shift+P")));
+ TestEqual(TEXT("Shortcut hint reflects unbinding"), Config->GetShortcutLabel(CopySelection), FString(TEXT("Unbound")));
  return true;
 }
 #endif

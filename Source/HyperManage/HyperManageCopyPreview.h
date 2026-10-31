@@ -24,6 +24,8 @@ class HYPERMANAGE_API UHyperManageCopyPreview : public UHyperManageComponent
 public:
 	bool Capture(const TArray<AActor*>& Actors, const FVector& Meters, FString& Message);
 	bool SetOffset(const FVector& Meters);
+	void CaptureSelection();
+	FVector GetPreferredOffsetMeters() const { return PreferredOffsetMeters; }
 	void Clear();
 	uint64 GetRevision() const { return Revision; }
 	const TArray<FHyperManageCopySnapshot>& GetSnapshots() const { return Snapshots; }
@@ -33,6 +35,7 @@ private:
 	UPROPERTY(Transient) TArray<FSelectedActorInfo> Pieces;
 	TArray<FTransform> OriginalMeshTransforms;
 	FVector OffsetCm = FVector::ZeroVector;
+	FVector PreferredOffsetMeters = FVector(8, 0, 0);
 	UPROPERTY(Transient) TArray<FHyperManageCopySnapshot> Snapshots;
 	uint64 Revision = 0;
 };

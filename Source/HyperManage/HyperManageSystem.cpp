@@ -317,7 +317,22 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 			Action->PrepareMove();
 			break;
 		case EActionNameIdx::CopySelection:
-			UI->ComingSoon();
+			if (CopyPreview)
+			{
+				CopyPreview->CaptureSelection();
+			}
+			break;
+		case EActionNameIdx::PlaceCopy:
+			if (CopyPlacement)
+			{
+				CopyPlacement->Request();
+			}
+			break;
+		case EActionNameIdx::CancelCopy:
+			if (CopyPreview && CopyPreview->GetCount() > 0)
+			{
+				CopyPreview->Clear();
+			}
 			break;
 		case EActionNameIdx::NewSelection:
 			UI->ShowConfirm(TITLE_START_NEW_SELECTION, BODY_START_NEW_SELECTION, Selection, "SelectClear");

@@ -1,4 +1,5 @@
 #include "TimerManager.h"
+#include "HyperManageCopyPreview.h"
 #include "HyperManageInput.h"
 #include "HyperManageEquip.h"
 #include "FGInputLibrary.h"
@@ -45,6 +46,11 @@ void UHyperManageInput::SetupKeyBinding(FHyperManageKeyConfig KeyConfig, EInputE
 		});
 	}
 	HyperManageInputComponent->KeyBindings.Add(KeyBinding);
+	if (KeyConfig.ActionIndex == CancelCopy && InputEvent == IE_Pressed)
+	{
+		CancelBindingIndex = HyperManageInputComponent->KeyBindings.Num() - 1;
+		RefreshPreviewBinding();
+	}
 }
 
 void UHyperManageInput::SetupInputComponent()
@@ -75,7 +81,7 @@ void UHyperManageInput::SetupInputComponent()
 void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionIndex, EInputEvent InputEvent)
 {
 	// Destructive actions run once per press, regardless of configured repeat behavior.
-	if (ActionIndex == DeleteSelection && InputEvent != IE_Pressed) return;
+	if ((ActionIndex == DeleteSelection || ActionIndex == CopySelection || ActionIndex == PlaceCopy || ActionIndex == CancelCopy) && InputEvent != IE_Pressed) return;
 
 	// remove timer if the key has been released
 	if (InputEvent == EInputEvent::IE_Released) {
@@ -101,6 +107,14 @@ void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionInde
  System->ExecuteAction(ActionIndex);
 }
 
+void UHyperManageInput::RefreshPreviewBinding()
+{
+	if (HyperManageInputComponent && HyperManageInputComponent->KeyBindings.IsValidIndex(CancelBindingIndex))
+	{
+		HyperManageInputComponent->KeyBindings[CancelBindingIndex].bConsumeInput = System && System->CopyPreview && System->CopyPreview->GetCount() > 0;
+	}
+}
+
 void UHyperManageInput::Attach(AHyperManageEquip* Equipment)
 {
 	if (Equip == Equipment) return;
@@ -116,5 +130,6 @@ void UHyperManageInput::Detach()
 	if (HyperManageInputComponent && System->GetLocalController()) System->GetLocalController()->PopInputComponent(HyperManageInputComponent);
 	if (IsValid(HyperManageInputComponent)) HyperManageInputComponent->DestroyComponent();
 	HyperManageInputComponent = nullptr;
+	CancelBindingIndex = INDEX_NONE;
 	Equip = nullptr;
 }

@@ -24,5 +24,6 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> ScaleText;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> NotesText;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> DismantleText;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> CopyHintsText;
 	void UpdateReference(const class UHyperManageConfiguration& Configuration, int32 Count);
 };

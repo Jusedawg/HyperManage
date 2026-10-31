@@ -12,6 +12,7 @@ class HYPERMANAGE_API UHyperManageInput : public UHyperManageComponent
 
 private:
 	friend class FHyperManageDismantleHotkeyTest;
+	friend class FHyperManageCopyPreviewTest;
 	TMap<FKey, FTimerHandle> KeyTimerHandleMap;
 
 	UPROPERTY(Transient)
@@ -32,6 +33,9 @@ public:
 	void Attach(AHyperManageEquip* Equipment);
 
 	void Detach();
+	void RefreshPreviewBinding();
+private:
+	int32 CancelBindingIndex = INDEX_NONE;
 
 public:
 };

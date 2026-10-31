@@ -1,4 +1,6 @@
 #include "HyperManageCopyPreview.h"
+#include "HyperManageInput.h"
+#include "HyperManageUI.h"
 #include "Buildables/FGBuildableFoundation.h"
 #include "Buildables/FGBuildableWall.h"
 #include "Components/StaticMeshComponent.h"
@@ -20,6 +22,23 @@ namespace
 			}
 		}
 		Pieces.Reset();
+	}
+}
+
+void UHyperManageCopyPreview::CaptureSelection()
+{
+	if (!System || !System->Selection || !System->UI) return;
+	if (System->Selection->HasPendingOperations())
+	{
+		System->UI->ShowPopup(TEXT("Copy preview"), TEXT("Wait for pending edits before copying."));
+		return;
+	}
+	TArray<AActor*> Actors;
+	System->Selection->SelectedActorsNoTarget(Actors);
+	FString Message;
+	if (!Capture(Actors, PreferredOffsetMeters, Message))
+	{
+		System->UI->ShowPopup(TEXT("Cannot copy selection"), Message);
 	}
 }
 
@@ -92,6 +111,11 @@ bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 {
 	if (!ValidOffset(Meters) || Pieces.IsEmpty()) return false;
 	OffsetCm = Meters * 100.;
+	PreferredOffsetMeters = Meters;
+	if (System && System->Input)
+	{
+		System->Input->RefreshPreviewBinding();
+	}
 	++Revision;
 	int32 Index = 0;
 	for (auto& Piece : Pieces)
@@ -116,4 +140,8 @@ void UHyperManageCopyPreview::Clear()
 	Snapshots.Reset();
 	++Revision;
 	OffsetCm = FVector::ZeroVector;
+	if (System && System->Input)
+	{
+		System->Input->RefreshPreviewBinding();
+	}
 }

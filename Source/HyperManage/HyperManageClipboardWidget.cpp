@@ -1,5 +1,6 @@
 #include "HyperManageClipboardWidget.h"
 #include "HyperManageSystem.h"
+#include "HyperManageCopyPreview.h"
 #include "HyperManageConfig.h"
 #include "HyperManageSelection.h"
 #include "Blueprint/WidgetTree.h"
@@ -52,7 +53,7 @@ TSharedRef<SWidget> UHyperManageClipboardWidget::RebuildWidget()
 		CountText = AddText(TEXT("Selected: 0"), 220, 218, 126, 24, 11);
 		UndoText = AddText(TEXT("Ctrl+Z  Undo"), 56, 246, 142, 24, 11);
 		RedoText = AddText(TEXT("Ctrl+Y  Redo"), 215, 246, 134, 24, 11);
-		AddText(TEXT("Default movement keys"), 56, 274, 250, 20, 9);
+		CopyHintsText = AddText(TEXT("Movement keys below | Ctrl+C Copy"), 56, 274, 296, 20, 9);
 		for (int32 Index = 0; Index < 3; ++Index) {
 			const TCHAR* Modifiers[] = {TEXT("Ctrl +\nkeys"), TEXT("Alt +\nkeys"), TEXT("Shift +\nkeys")};
 			const TCHAR* Captions[] = {TEXT("Up / down\nSpin"), TEXT("Back / forth\nLeft / right"), TEXT("Roll\nPitch")};
@@ -82,6 +83,12 @@ void UHyperManageClipboardWidget::NativeTick(const FGeometry& Geometry, float De
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;
 	UpdateReference(*System->Config, System->Selection->SelectCount());
+	if (System->CopyPreview && System->CopyPreview->GetCount() > 0)
+	{
+		CopyHintsText->SetText(FText::FromString(System->Config->GetShortcutLabel(PlaceCopy) + TEXT(" Place | ") + System->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel preview")));
+		const FVector Offset = System->CopyPreview->GetOffsetMeters();
+		StatusText->SetText(FText::FromString(FString::Printf(TEXT("Copy preview: %d pieces\nOffset: X %gm  Y %gm  Z %gm\n%s: edit offset | Originals unchanged"), System->CopyPreview->GetCount(), Offset.X, Offset.Y, Offset.Z, *System->Config->GetShortcutLabel(ShowTools))));
+	}
 }
 
 void UHyperManageClipboardWidget::UpdateReference(const UHyperManageConfiguration& Configuration, int32 Count)
@@ -93,6 +100,7 @@ void UHyperManageClipboardWidget::UpdateReference(const UHyperManageConfiguratio
 		if (Label && Label->GetText().ToString() != Text) Label->SetText(FText::FromString(Text));
 	};
 	Set(CountText, FString::Printf(TEXT("Selected: %d"), Count));
+	Set(CopyHintsText, TEXT("Movement keys below | ") + Configuration.GetShortcutLabel(CopySelection) + TEXT(" Copy"));
 	auto Binding = [&](EActionNameIdx Action) {
 		for (const auto& Key : Configuration.MMKeyConfigs.ActionKeys) {
 			if (Key.ActionIndex != Action) continue;

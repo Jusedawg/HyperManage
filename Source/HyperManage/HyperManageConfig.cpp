@@ -202,7 +202,7 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 		AlignTop, AlignTBCenter, AlignBottom, SpaceTB, StackTB, LockScaleTB,
 		AlignFront,AlignFBCenter, AlignBack, SpaceFB, StackFB, LockScaleFB,
 		SameRotation, SameScale, SamePaint,
-		SelectBoxSides, SelectBoxPivot, MoveSelection, CopySelection, NewSelection, DeleteSelection, SaveSelection, LoadSelection,
+		SelectBoxSides, SelectBoxPivot, MoveSelection, CopySelection, PlaceCopy, CancelCopy, NewSelection, DeleteSelection, SaveSelection, LoadSelection,
 		ClearUndo, EActionNameIdx::IsGrouped, EActionNameIdx::IsViewBased, NextHologram, Settings };
 	TArray<EActionNameIdx> InvalidKeyActions;
 	InvalidKeyActions.Append(Actions, UE_ARRAY_COUNT(Actions));
@@ -210,6 +210,7 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 		CheckKeyConfigSettings(FHyperManageKeyConfig(ActionIdx, EKeys::Invalid, NoCtrl, NoAlt, NoShift, NoRepeat));
 	}
 	UpgradeDismantleBinding(MMKeyConfigs);
+	UpgradeCopyBindings(MMKeyConfigs);
 }
 
 void UHyperManageConfiguration::UpgradeDismantleBinding(FHyperManageKeyConfigs& Keys)
@@ -222,7 +223,57 @@ void UHyperManageConfiguration::UpgradeDismantleBinding(FHyperManageKeyConfigs& 
   if (OldFormat && Key.Key == EKeys::Invalid && !DeleteInUse) Key = FHyperManageKeyConfig(DeleteSelection, EKeys::Delete, false, false, false, false);
   Key.UseRepeats = false;
  }
- Keys.DoNotEditConfigFormatVersion = TEXT("1.1");
+ if (OldFormat)
+ {
+  Keys.DoNotEditConfigFormatVersion = TEXT("1.1");
+ }
+}
+
+void UHyperManageConfiguration::UpgradeCopyBindings(FHyperManageKeyConfigs& Keys)
+{
+	const bool OldFormat = Keys.DoNotEditConfigFormatVersion == TEXT("1.0") || Keys.DoNotEditConfigFormatVersion == TEXT("1.1");
+	for (const auto& Default : {FHyperManageKeyConfig(CopySelection, EKeys::C, true, false, false, false), FHyperManageKeyConfig(PlaceCopy, EKeys::V, true, false, false, false), FHyperManageKeyConfig(CancelCopy, EKeys::Escape, false, false, false, false)})
+	{
+		auto* Existing = Keys.ActionKeys.FindByPredicate([&](const FHyperManageKeyConfig& Key) { return Key.ActionIndex == Default.ActionIndex; });
+		const bool InUse = Keys.ActionKeys.ContainsByPredicate([&](const FHyperManageKeyConfig& Key) { return Key.ActionIndex != Default.ActionIndex && Key.Key == Default.Key && Key.Ctrl == Default.Ctrl && Key.Alt == Default.Alt && Key.Shift == Default.Shift; });
+		if (!Existing)
+		{
+			Keys.ActionKeys.Add(InUse ? FHyperManageKeyConfig(Default.ActionIndex, EKeys::Invalid, false, false, false, false) : Default);
+		}
+		else
+		{
+			if (OldFormat && Existing->Key == EKeys::Invalid && !InUse)
+			{
+				*Existing = Default;
+			}
+			Existing->UseRepeats = false;
+		}
+	}
+	Keys.DoNotEditConfigFormatVersion = TEXT("1.2");
+}
+
+FString UHyperManageConfiguration::GetShortcutLabel(EActionNameIdx ActionIndex) const
+{
+	for (const auto& Key : MMKeyConfigs.ActionKeys)
+	{
+		if (Key.ActionIndex != ActionIndex) continue;
+		if (!Key.Key.IsValid()) return TEXT("Unbound");
+		FString Name = Key.Key.GetFName().ToString();
+		if (Key.Key == EKeys::LeftMouseButton)
+		{
+			Name = TEXT("LMB");
+		}
+		else if (Key.Key == EKeys::RightMouseButton)
+		{
+			Name = TEXT("RMB");
+		}
+		else if (Key.Key == EKeys::Escape)
+		{
+			Name = TEXT("Esc");
+		}
+		return FString(Key.Ctrl ? TEXT("Ctrl+") : TEXT("")) + (Key.Shift ? TEXT("Shift+") : TEXT("")) + (Key.Alt ? TEXT("Alt+") : TEXT("")) + Name;
+	}
+	return TEXT("Unbound");
 }
 
 void UHyperManageConfiguration::NextIncrementSize()
