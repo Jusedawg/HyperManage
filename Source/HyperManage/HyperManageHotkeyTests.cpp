@@ -78,6 +78,9 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("Explicit wheel unbinding survives reload"), WheelKeys.ActionKeys[2].Key == EKeys::Invalid);
  UHyperManageConfiguration::UpgradePlacementBindings(WheelKeys);
  TestEqual(TEXT("Placement migration preserves newer format"), WheelKeys.DoNotEditConfigFormatVersion, FString(TEXT("1.4")));
+ TestTrue(TEXT("Wheel rotation uses enhanced axis handling"), UHyperManageInput::IsPreviewWheelKey(FHyperManageKeyConfig(RotateCopyRight, EKeys::MouseScrollUp, false, false, false, false)));
+ TestFalse(TEXT("Keyboard remapping keeps normal key handling"), UHyperManageInput::IsPreviewWheelKey(FHyperManageKeyConfig(RotateCopyRight, EKeys::R, false, false, false, false)));
+ TestFalse(TEXT("Other actions keep their custom wheel binding"), UHyperManageInput::IsPreviewWheelKey(FHyperManageKeyConfig(Undo, EKeys::MouseScrollUp, false, false, false, false)));
  return true;
 }
 #endif

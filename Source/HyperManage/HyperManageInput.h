@@ -36,6 +36,13 @@ public:
 	void RefreshPreviewBinding();
 private:
 	TArray<int32> PreviewBindingIndices;
+	UPROPERTY(Transient) TObjectPtr<class UInputMappingContext> PreviewWheelContext;
+	UPROPERTY(Transient) TObjectPtr<class UInputAction> PreviewWheelAction;
+	TWeakObjectPtr<class UEnhancedInputLocalPlayerSubsystem> PreviewWheelSubsystem;
+	void RefreshPreviewWheel();
+	void RemovePreviewWheel();
+	void HandlePreviewWheel(const struct FInputActionValue& Value);
+	static bool IsPreviewWheelKey(const FHyperManageKeyConfig& Key);
 
 public:
 };

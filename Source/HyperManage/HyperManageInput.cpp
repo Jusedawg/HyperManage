@@ -1,4 +1,10 @@
 #include "TimerManager.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputAction.h"
+#include "InputActionValue.h"
+#include "InputMappingContext.h"
+#include "Engine/LocalPlayer.h"
 #include "HyperManageCopyPreview.h"
 #include "HyperManageInput.h"
 #include "HyperManageEquip.h"
@@ -58,13 +64,22 @@ void UHyperManageInput::SetupInputComponent()
 	if (HyperManageInputComponent) {
 		return;
 	}
-	HyperManageInputComponent = NewObject<UInputComponent>(Equip);
+	auto* EnhancedComponent = NewObject<UEnhancedInputComponent>(Equip);
+	HyperManageInputComponent = EnhancedComponent;
+	PreviewWheelAction = NewObject<UInputAction>(this);
+	PreviewWheelAction->ValueType = EInputActionValueType::Axis1D;
+	PreviewWheelAction->bConsumeInput = true;
+	PreviewWheelContext = NewObject<UInputMappingContext>(this);
+	PreviewWheelContext->MapKey(PreviewWheelAction, EKeys::MouseWheelAxis);
+	EnhancedComponent->BindAction(PreviewWheelAction, ETriggerEvent::Triggered, this, &UHyperManageInput::HandlePreviewWheel);
 	HyperManageInputComponent->RegisterComponent();
 
 	for (const auto& ThisKey : System->Config->MMKeyConfigs.ActionKeys) {
 		if (ThisKey.Key == EKeys::Invalid) {
 			continue;
 		}
+		// Wheel rotation is handled by Enhanced Input so the game's equipment axis is consumed.
+		if (IsPreviewWheelKey(ThisKey)) continue;
 		SetupKeyBinding(ThisKey, EInputEvent::IE_Pressed);
 		if (ThisKey.UseRepeats) {
 			if ((ThisKey.Key == EKeys::LeftMouseButton) || (ThisKey.Key == EKeys::MiddleMouseButton) ||
@@ -107,8 +122,63 @@ void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionInde
  System->ExecuteAction(ActionIndex);
 }
 
+bool UHyperManageInput::IsPreviewWheelKey(const FHyperManageKeyConfig& Key)
+{
+	return (Key.ActionIndex == RotateCopyRight || Key.ActionIndex == RotateCopyLeft) && (Key.Key == EKeys::MouseScrollUp || Key.Key == EKeys::MouseScrollDown);
+}
+
+void UHyperManageInput::RemovePreviewWheel()
+{
+	if (auto* Subsystem = PreviewWheelSubsystem.Get())
+	{
+		Subsystem->RemoveMappingContext(PreviewWheelContext);
+	}
+	PreviewWheelSubsystem.Reset();
+}
+
+void UHyperManageInput::RefreshPreviewWheel()
+{
+	const bool Active = IsValid(Equip) && System && System->CopyPreview && System->CopyPreview->GetCount() > 0 && System->Config && System->Config->MMKeyConfigs.ActionKeys.ContainsByPredicate(IsPreviewWheelKey);
+	if (!Active)
+	{
+		RemovePreviewWheel();
+		return;
+	}
+	if (!PreviewWheelContext || PreviewWheelSubsystem.IsValid() || !System->GetWorld()) return;
+	auto* Controller = System->GetLocalController();
+	auto* LocalPlayer = Controller ? Controller->GetLocalPlayer() : nullptr;
+	auto* Subsystem = LocalPlayer ? LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>() : nullptr;
+	if (Subsystem)
+	{
+		Subsystem->AddMappingContext(PreviewWheelContext, 1000);
+		PreviewWheelSubsystem = Subsystem;
+	}
+}
+
+void UHyperManageInput::HandlePreviewWheel(const FInputActionValue& Value)
+{
+	if (!IsValid(Equip) || !System || !System->GetWorld() || !System->CopyPreview || System->CopyPreview->GetCount() == 0 || !System->Config) return;
+	auto* Controller = System->GetLocalController();
+	if (!Controller || Controller->bShowMouseCursor || Controller->IsLookInputIgnored()) return;
+	const float Delta = Value.Get<float>();
+	if (!FMath::IsFinite(Delta) || FMath::IsNearlyZero(Delta)) return;
+	const FKey Direction = Delta > 0 ? EKeys::MouseScrollUp : EKeys::MouseScrollDown;
+	const bool Ctrl = Controller->IsInputKeyDown(EKeys::LeftControl) || Controller->IsInputKeyDown(EKeys::RightControl);
+	const bool Alt = Controller->IsInputKeyDown(EKeys::LeftAlt) || Controller->IsInputKeyDown(EKeys::RightAlt);
+	const bool Shift = Controller->IsInputKeyDown(EKeys::LeftShift) || Controller->IsInputKeyDown(EKeys::RightShift);
+	for (const auto& Key : System->Config->MMKeyConfigs.ActionKeys)
+	{
+		if (IsPreviewWheelKey(Key) && Key.Key == Direction && Key.Ctrl == Ctrl && Key.Alt == Alt && Key.Shift == Shift)
+		{
+			System->ExecuteAction(Key.ActionIndex);
+			return;
+		}
+	}
+}
+
 void UHyperManageInput::RefreshPreviewBinding()
 {
+	RefreshPreviewWheel();
 	if (!HyperManageInputComponent) return;
 	for (int32 Index : PreviewBindingIndices)
 	{
@@ -126,14 +196,18 @@ void UHyperManageInput::Attach(AHyperManageEquip* Equipment)
 	Equip = Equipment;
 	SetupInputComponent();
 	System->GetLocalController()->PushInputComponent(HyperManageInputComponent);
+	RefreshPreviewWheel();
 }
 
 void UHyperManageInput::Detach()
 {
+	RemovePreviewWheel();
 	ClearAllKeyTimers();
 	if (HyperManageInputComponent && System->GetLocalController()) System->GetLocalController()->PopInputComponent(HyperManageInputComponent);
 	if (IsValid(HyperManageInputComponent)) HyperManageInputComponent->DestroyComponent();
 	HyperManageInputComponent = nullptr;
 	PreviewBindingIndices.Reset();
+	PreviewWheelContext = nullptr;
+	PreviewWheelAction = nullptr;
 	Equip = nullptr;
 }
