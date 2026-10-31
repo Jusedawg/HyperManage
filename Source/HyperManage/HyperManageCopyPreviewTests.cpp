@@ -4,6 +4,7 @@
 #include "Buildables/FGBuildableFoundation.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
 #include <limits>
@@ -61,6 +62,9 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		auto* Owner = Preview->Pieces[0].HighlightOwner.Get();
 		FTransform Expected = Initial; Expected.AddToTranslation(FVector(800, 0, 0));
 		TestTrue(TEXT("Offset preserves snapshot rotation and scale"), Ghost->GetComponentTransform().Equals(Expected));
+		TestTrue(TEXT("Preview draws its actual mesh"), Ghost->bRenderInMainPass);
+		TestFalse(TEXT("Preview does not depend on selection outline"), Ghost->bRenderCustomDepth);
+		TestTrue(TEXT("Preview uses construction hologram material"), Ghost->GetMaterial(0) && Ghost->GetMaterial(0)->GetPathName().Contains(TEXT("Hologram_Blue_Inst")));
 		TestNull(TEXT("Snapshot detached from live source"), Ghost->GetAttachParent());
 		TestFalse(TEXT("Preview has no gameplay collision"), Owner->GetActorEnableCollision());
 		TestTrue(TEXT("Capture leaves source untouched"), Source->GetActorTransform().Equals(Initial));
@@ -78,11 +82,18 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("Duplicate source rejected"), Preview->Capture({Source, Source}, FVector::ZeroVector, Message));
 		TestTrue(TEXT("Failed replacement keeps existing preview"), IsValid(Owner) && Ghost->GetComponentTransform().Equals(Expected));
 		TestFalse(TEXT("Explicit offset switches to exact mode"), Preview->IsFollowingMouse());
+		Preview->PlacementRotation = FRotator(0, 90, 0).Quaternion();
+		const FTransform Neighbor(FRotator(0, 15, 0), Initial.GetLocation() + FVector(800, 0, 0), FVector(2));
+		const FTransform Placed = Preview->GetPlacementTransform(Neighbor);
+		TestTrue(TEXT("Snapped group rotates spacing around reference"), Placed.GetLocation().Equals(Initial.GetLocation() + FVector(0, 800, 200), 0.01));
+		TestTrue(TEXT("Snapped group preserves local scale"), Placed.GetScale3D().Equals(FVector(2)));
+		TestTrue(TEXT("Snapped group rotates each piece consistently"), Placed.GetRotation().Equals(FRotator(0, 105, 0).Quaternion(), 0.001));
 		const FVector FixedOffset = Preview->GetOffsetMeters();
 		Preview->SetFollowMouse(true);
 		TestFalse(TEXT("Mouse mode requires a fresh surface before placement"), Preview->IsPlacementReady());
 		Preview->SetFollowMouse(false);
 		TestTrue(TEXT("Switch to exact mode preserves preview position"), Preview->GetOffsetMeters().Equals(FixedOffset) && Preview->IsPlacementReady());
+		TestTrue(TEXT("Exact mode keeps snapped rotation"), Preview->HasPlacementRotation());
 		Source->Destroy();
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
 		Preview->Clear();

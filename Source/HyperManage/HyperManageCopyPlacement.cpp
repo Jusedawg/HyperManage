@@ -83,7 +83,7 @@ bool UHyperManageCopyPlacement::Preflight(TArray<TArray<FItemAmount>>& Costs, TA
 		return Fail(TEXT("Capture 1-50 pieces before placing."));
 	if (System->Selection->HasPendingOperations()) return Fail(TEXT("Wait for pending edits before placing copies."));
 	const FVector Offset = System->CopyPreview->GetOffsetMeters() * 100.;
-	if (Offset.IsNearlyZero()) return Fail(TEXT("Move the preview away from its captured position before placing copies."));
+	if (Offset.IsNearlyZero() && !System->CopyPreview->HasPlacementRotation()) return Fail(TEXT("Move the preview away from its captured position before placing copies."));
 	const bool NoCost = Inventory->GetNoBuildCost();
 	TArray<FTransform> Destinations;
 	for (const auto& Snapshot : Snapshots)
@@ -97,7 +97,7 @@ bool UHyperManageCopyPlacement::Preflight(TArray<TArray<FItemAmount>>& Costs, TA
 		if (Products.Num() != 1 || Products[0].Amount != 1 || !Products[0].ItemClass || !Products[0].ItemClass->IsChildOf(UFGBuildingDescriptor::StaticClass())
 			|| UFGBuildingDescriptor::GetBuildableClass(*Products[0].ItemClass) != Snapshot.Class)
 			return Fail(TEXT("A captured recipe does not match its building class. Recapture the selection."));
-		FTransform Destination = Snapshot.Transform; Destination.AddToTranslation(Offset);
+		const FTransform Destination = System->CopyPreview->GetPlacementTransform(Snapshot.Transform);
 		if (!HyperManageLightweight::IsValidTransform(Destination) || FVector::DistSquared(Destination.GetLocation(), Character->GetActorLocation()) > FMath::Square(10000.))
 			return Fail(TEXT("Every copy must be within 100 m of the player and have a valid transform."));
 		for (int32 Index = 0; Index < Destinations.Num(); ++Index)
@@ -197,7 +197,6 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 	}
 	Executing = true;
 	const auto Snapshots = System->CopyPreview->GetSnapshots();
-	const FVector Offset = System->CopyPreview->GetOffsetMeters() * 100.;
 	auto* Inventory = Character->GetInventory();
 	auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
 	bool DroppedRefund = false;
@@ -225,7 +224,7 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 	{
 		const auto& Snapshot = Snapshots[Index];
 		FRuntimeBuildableInstanceData Data;
-		Data.Transform = Snapshot.Transform; Data.Transform.AddToTranslation(Offset);
+		Data.Transform = System->CopyPreview->GetPlacementTransform(Snapshot.Transform);
 		Data.BuiltWithRecipe = Snapshot.Recipe;
 		Data.CustomizationData = Snapshot.Customization;
 		if (auto* Player = Controller->GetPlayerState<AFGPlayerState>())

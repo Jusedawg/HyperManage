@@ -26,6 +26,8 @@ public:
 	bool SetOffset(const FVector& Meters);
 	void CaptureSelection();
 	void TickPlacement();
+	FTransform GetPlacementTransform(const FTransform& Source) const;
+	bool HasPlacementRotation() const { return !PlacementRotation.Equals(FQuat::Identity); }
 	void SetFollowMouse(bool Enabled);
 	bool IsFollowingMouse() const { return FollowMouse; }
 	bool IsPlacementReady() const { return !FollowMouse || SurfaceValid; }
@@ -46,6 +48,9 @@ private:
 	FBox CapturedBounds = FBox(ForceInit);
 	bool FollowMouse = true;
 	bool SurfaceValid = false;
+	FQuat PlacementRotation = FQuat::Identity;
+	UPROPERTY(Transient) TObjectPtr<class AFGHologram> SnapHologram;
+	bool TryNativeSnap(const FHitResult& Hit, FTransform& Pose);
 	bool ApplyOffset(const FVector& Meters, bool Remember);
 	void ShowPreview(bool Visible);
 };

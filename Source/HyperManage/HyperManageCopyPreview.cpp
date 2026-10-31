@@ -7,6 +7,9 @@
 #include "Buildables/FGBuildableWall.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "Hologram/FGHologram.h"
+#include "Hologram/FGFoundationHologram.h"
+#include "Materials/MaterialInterface.h"
 
 namespace
 {
@@ -66,11 +69,26 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 		const FString Package = Class->GetOutermost()->GetName();
 		if (!Package.StartsWith(TEXT("/Game/FactoryGame/")) && Package != TEXT("/Script/FactoryGame")) return false;
 	}
+	auto* HologramMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/FactoryGame/Equipment/BuildGun/Material/Hologram_Blue_Inst.Hologram_Blue_Inst"));
+	if (!HologramMaterial)
+	{
+		Message = TEXT("The construction hologram material is unavailable. The previous preview is unchanged.");
+		return false;
+	}
+	TArray<AActor*> Ordered = Actors;
+	if (System && System->Selection)
+	{
+		const int32 AnchorIndex = Ordered.IndexOfByKey(System->Selection->AnchorActor);
+		if (AnchorIndex > 0)
+		{
+			Ordered.Swap(0, AnchorIndex);
+		}
+	}
 	TArray<FSelectedActorInfo> Captured;
 	TArray<FTransform> Transforms;
 	TArray<FHyperManageCopySnapshot> Metadata;
 	FBox Bounds(ForceInit);
-	for (auto* Actor : Actors)
+	for (auto* Actor : Ordered)
 	{
 		auto& Snapshot = Metadata.AddDefaulted_GetRef();
 		Snapshot.Transform = Actor->GetActorTransform();
@@ -97,6 +115,13 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 		}
 		for (const auto& Mesh : Piece.HighlightMeshes)
 		{
+			Mesh->SetRenderInMainPass(true);
+			Mesh->SetRenderInDepthPass(true);
+			Mesh->SetRenderCustomDepth(false);
+			for (int32 Slot = 0; Slot < Mesh->GetNumMaterials(); ++Slot)
+			{
+				Mesh->SetMaterial(Slot, HologramMaterial);
+			}
 			Mesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			Transforms.Add(Mesh->GetComponentTransform());
 			Bounds += Mesh->Bounds.GetBox();
@@ -138,8 +163,7 @@ bool UHyperManageCopyPreview::ApplyOffset(const FVector& Meters, bool Remember)
 	{
 		for (const auto& Mesh : Piece.HighlightMeshes)
 		{
-			FTransform Pose = OriginalMeshTransforms[Index++];
-			Pose.AddToTranslation(OffsetCm);
+			const FTransform Pose = GetPlacementTransform(OriginalMeshTransforms[Index++]);
 			if (IsValid(Mesh))
 			{
 				Mesh->SetWorldTransform(Pose);
@@ -182,6 +206,57 @@ void UHyperManageCopyPreview::SetFollowMouse(bool Enabled)
 	ShowPreview(!Enabled);
 }
 
+FTransform UHyperManageCopyPreview::GetPlacementTransform(const FTransform& Source) const
+{
+	const FVector Pivot = Snapshots.IsEmpty() ? FVector::ZeroVector : Snapshots[0].Transform.GetLocation();
+	return FTransform((PlacementRotation * Source.GetRotation()).GetNormalized(), Pivot + OffsetCm + PlacementRotation.RotateVector(Source.GetLocation() - Pivot), Source.GetScale3D());
+}
+
+bool UHyperManageCopyPreview::TryNativeSnap(const FHitResult& Hit, FTransform& Pose)
+{
+	if (Snapshots.IsEmpty() || !System) return false;
+	const auto& Reference = Snapshots[0];
+	if (!Reference.Recipe || !Reference.Class || !Reference.Class->IsChildOf(AFGBuildableFoundation::StaticClass()) || !Reference.Transform.GetScale3D().Equals(FVector::OneVector)) return false;
+	auto* Controller = System->GetLocalController();
+	APawn* Pawn = Controller ? Controller->GetPawn().Get() : nullptr;
+	if (!Pawn) return false;
+	if (!IsValid(SnapHologram))
+	{
+		SnapHologram = AFGHologram::SpawnHologramFromRecipe(Reference.Recipe, Pawn, Reference.Transform.GetLocation(), Pawn, [](AFGHologram* Hologram)
+		{
+			Hologram->SetFlags(RF_Transient);
+			Hologram->SetReplicates(false);
+		});
+		if (!IsValid(SnapHologram)) return false;
+		SnapHologram->SetActorEnableCollision(false);
+		SnapHologram->SetActorTickEnabled(false);
+		SnapHologram->SetActorHiddenInGame(true);
+	}
+	if (!SnapHologram->IsA<AFGFoundationHologram>()) return false;
+	FHitResult SnapHit = Hit;
+	FInstanceHandle Handle;
+	if (auto* Manager = AAbstractInstanceManager::GetInstanceManager(System->GetWorld()); Manager && Manager->ResolveHit(Hit, Handle))
+	{
+		FLightweightBuildableInstanceRef Instance;
+		if (AFGLightweightBuildableSubsystem::ResolveLightweightInstance(Handle, Instance))
+		{
+			if (auto* Target = Instance.SpawnTemporaryBuildable())
+			{
+				SnapHit = FHitResult(Target, Cast<UPrimitiveComponent>(Target->GetRootComponent()), Hit.ImpactPoint, Hit.ImpactNormal);
+				SnapHit.TraceStart = Hit.TraceStart; SnapHit.TraceEnd = Hit.TraceEnd;
+				SnapHit.bBlockingHit = true; SnapHit.Distance = Hit.Distance;
+			}
+		}
+	}
+	// Seed the captured orientation, then let the native hologram choose the snapped pose.
+	SnapHologram->SetActorTransform(Reference.Transform);
+	SnapHologram->UpdateRotationValuesFromTransform();
+	const bool Snapped = SnapHologram->TrySnapToActor(SnapHit);
+	Pose = SnapHologram->GetActorTransform();
+	SnapHologram->SetActorHiddenInGame(true);
+	return Snapped && HyperManageLightweight::IsValidTransform(Pose);
+}
+
 void UHyperManageCopyPreview::TickPlacement()
 {
 	if (!FollowMouse || Pieces.IsEmpty() || !System || !System->GetWorld()) return;
@@ -192,6 +267,7 @@ void UHyperManageCopyPreview::TickPlacement()
 	const FVector End = Start + Controller->PlayerCameraManager->GetCameraRotation().Vector() * 10000.;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(HyperManageCopyPlacement), true);
 	Params.AddIgnoredActor(Controller->GetPawn());
+	Params.AddIgnoredActor(SnapHologram);
 	for (const auto& Piece : Pieces)
 	{
 		Params.AddIgnoredActor(Piece.HighlightOwner);
@@ -199,9 +275,24 @@ void UHyperManageCopyPreview::TickPlacement()
 	FHitResult Hit;
 	FVector Meters;
 	const bool HitSurface = System->GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit && !Hit.bStartPenetrating;
-	const bool Ready = HitSurface && SurfaceOffset(CapturedBounds, Hit.ImpactPoint, Hit.ImpactNormal, Meters);
-	if (Ready && !GetOffsetMeters().Equals(Meters, 0.0001))
+	FTransform SnappedPose;
+	const bool Snapped = HitSurface && TryNativeSnap(Hit, SnappedPose);
+	FQuat Rotation = FQuat::Identity;
+	bool Ready = false;
+	if (Snapped)
 	{
+		Meters = (SnappedPose.GetLocation() - Snapshots[0].Transform.GetLocation()) / 100.;
+		Rotation = (SnappedPose.GetRotation() * Snapshots[0].Transform.GetRotation().Inverse()).GetNormalized();
+		Ready = ValidOffset(Meters);
+	}
+	else
+	{
+		Ready = HitSurface && SurfaceOffset(CapturedBounds, Hit.ImpactPoint, Hit.ImpactNormal, Meters);
+	}
+	const bool RotationChanged = !PlacementRotation.Equals(Rotation);
+	if (Ready && (RotationChanged || !GetOffsetMeters().Equals(Meters, 0.0001)))
+	{
+		PlacementRotation = Rotation;
 		ApplyOffset(Meters, false);
 	}
 	if (Ready != SurfaceValid)
@@ -214,6 +305,12 @@ void UHyperManageCopyPreview::TickPlacement()
 
 void UHyperManageCopyPreview::Clear()
 {
+	if (IsValid(SnapHologram))
+	{
+		SnapHologram->Destroy();
+	}
+	SnapHologram = nullptr;
+	PlacementRotation = FQuat::Identity;
 	DestroyPieces(Pieces);
 	OriginalMeshTransforms.Reset();
 	Snapshots.Reset();

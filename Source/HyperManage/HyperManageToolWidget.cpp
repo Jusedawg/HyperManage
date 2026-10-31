@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.99")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.100")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -384,7 +384,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* FollowLabel = WidgetTree->ConstructWidget<UTextBlock>();
 	FollowLabel->SetText(FText::FromString(TEXT("Follow mouse (off: exact offset)")));
 	CopyFollowMouse->SetContent(FollowLabel);
-	CopyFollowMouse->SetToolTipText(FText::FromString(TEXT("Aim at terrain or a building to position the group against its surface. Middle-click switches modes while previewing. Turning this off freezes the current position for precise offset edits. Rotation and spacing are preserved; this does not use vanilla connector snapping.")));
+	CopyFollowMouse->SetToolTipText(FText::FromString(TEXT("Aim at terrain or a building to position the group against its surface. Middle-click switches modes while previewing. Turning this off freezes the current position for precise offset edits. A normal-size foundation anchor uses native foundation snapping; the whole group follows its snapped rotation. Other reference pieces use surface placement.")));
 	CopyFollowMouse->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeCopyFollowMouse);
 	CopyBody->AddChildToVerticalBox(CopyFollowMouse);
 	const FVector PreviewMeters = Preview ? Preview->GetPreferredOffsetMeters() : FVector(8, 0, 0);
