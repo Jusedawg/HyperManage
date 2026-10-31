@@ -25,6 +25,11 @@ public:
 	bool Capture(const TArray<AActor*>& Actors, const FVector& Meters, FString& Message);
 	bool SetOffset(const FVector& Meters);
 	void CaptureSelection();
+	void TickPlacement();
+	void SetFollowMouse(bool Enabled);
+	bool IsFollowingMouse() const { return FollowMouse; }
+	bool IsPlacementReady() const { return !FollowMouse || SurfaceValid; }
+	static bool SurfaceOffset(const FBox& Bounds, const FVector& Point, const FVector& Normal, FVector& Meters);
 	FVector GetPreferredOffsetMeters() const { return PreferredOffsetMeters; }
 	void Clear();
 	uint64 GetRevision() const { return Revision; }
@@ -38,4 +43,9 @@ private:
 	FVector PreferredOffsetMeters = FVector(8, 0, 0);
 	UPROPERTY(Transient) TArray<FHyperManageCopySnapshot> Snapshots;
 	uint64 Revision = 0;
+	FBox CapturedBounds = FBox(ForceInit);
+	bool FollowMouse = true;
+	bool SurfaceValid = false;
+	bool ApplyOffset(const FVector& Meters, bool Remember);
+	void ShowPreview(bool Visible);
 };

@@ -322,10 +322,19 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 				CopyPreview->CaptureSelection();
 			}
 			break;
+		case EActionNameIdx::ClickPlaceCopy:
+			if (!CopyPreview || CopyPreview->GetCount() == 0) return;
+			[[fallthrough]];
 		case EActionNameIdx::PlaceCopy:
 			if (CopyPlacement)
 			{
 				CopyPlacement->Request();
+			}
+			break;
+		case EActionNameIdx::ToggleCopyMode:
+			if (CopyPreview && CopyPreview->GetCount() > 0)
+			{
+				CopyPreview->SetFollowMouse(!CopyPreview->IsFollowingMouse());
 			}
 			break;
 		case EActionNameIdx::CancelCopy:

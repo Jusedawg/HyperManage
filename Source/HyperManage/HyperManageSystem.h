@@ -96,7 +96,9 @@ enum EActionNameIdx
 	SnapWorldZ UMETA(DisplayName = "Snap To Height Grid"),
 	SelectPlacedBlueprint UMETA(DisplayName = "Select Placed Blueprint"),
 	PlaceCopy UMETA(DisplayName = "Place Copy Preview"),
-	CancelCopy UMETA(DisplayName = "Cancel Copy Preview")
+	CancelCopy UMETA(DisplayName = "Cancel Copy Preview"),
+	ToggleCopyMode UMETA(DisplayName = "Toggle Copy Placement Mode"),
+	ClickPlaceCopy UMETA(DisplayName = "Click Place Copy Preview")
 };
 
 class AHyperManageEquip;

@@ -41,6 +41,15 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 	Input->HyperManageInputComponent = NewObject<UInputComponent>();
 	Input->SetupKeyBinding(FHyperManageKeyConfig(CancelCopy, EKeys::Escape, false, false, false, false), IE_Pressed);
 	TestFalse(TEXT("Escape passes through without preview"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
+	FVector SurfaceMeters;
+	const FBox Bounds(FVector(-100), FVector(100));
+	TestTrue(TEXT("Surface positioning accepts floor"), UHyperManageCopyPreview::SurfaceOffset(Bounds, FVector(1000, 2000, 0), FVector::UpVector, SurfaceMeters));
+	TestTrue(TEXT("Group bottom rests on floor"), SurfaceMeters.Equals(FVector(10, 20, 1)));
+	TestTrue(TEXT("Surface positioning accepts wall"), UHyperManageCopyPreview::SurfaceOffset(Bounds, FVector(1000, 2000, 0), FVector::ForwardVector, SurfaceMeters));
+	TestTrue(TEXT("Group rests outside wall"), SurfaceMeters.Equals(FVector(11, 20, 0)));
+	TestFalse(TEXT("Invalid surface normal is rejected"), UHyperManageCopyPreview::SurfaceOffset(Bounds, FVector::ZeroVector, FVector::ZeroVector, SurfaceMeters));
+	TestFalse(TEXT("Missing geometry bounds rejected"), UHyperManageCopyPreview::SurfaceOffset(FBox(ForceInit), FVector::ZeroVector, FVector::UpVector, SurfaceMeters));
+	TestTrue(TEXT("Mouse following is default"), Preview->IsFollowingMouse());
 	FString Message;
 	TestTrue(TEXT("Capture a supported source"), Preview->Capture({Source}, FVector(8, 0, 0), Message));
 	TestEqual(TEXT("One captured piece"), Preview->GetCount(), 1);
@@ -68,6 +77,12 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("Unsupported mixed capture rejected"), Preview->Capture({Source, Unsupported}, FVector::ZeroVector, Message));
 		TestFalse(TEXT("Duplicate source rejected"), Preview->Capture({Source, Source}, FVector::ZeroVector, Message));
 		TestTrue(TEXT("Failed replacement keeps existing preview"), IsValid(Owner) && Ghost->GetComponentTransform().Equals(Expected));
+		TestFalse(TEXT("Explicit offset switches to exact mode"), Preview->IsFollowingMouse());
+		const FVector FixedOffset = Preview->GetOffsetMeters();
+		Preview->SetFollowMouse(true);
+		TestFalse(TEXT("Mouse mode requires a fresh surface before placement"), Preview->IsPlacementReady());
+		Preview->SetFollowMouse(false);
+		TestTrue(TEXT("Switch to exact mode preserves preview position"), Preview->GetOffsetMeters().Equals(FixedOffset) && Preview->IsPlacementReady());
 		Source->Destroy();
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
 		Preview->Clear();

@@ -28,7 +28,7 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  auto* Input = NewObject<UHyperManageInput>();
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Repeat);
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Released);
- for (const auto Action : {CopySelection, PlaceCopy, CancelCopy})
+ for (const auto Action : {CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy})
  {
   Input->PerformIndexedAction(EKeys::C, Action, IE_Repeat);
   Input->PerformIndexedAction(EKeys::C, Action, IE_Released);
@@ -55,6 +55,18 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  Config->MMKeyConfigs = CopyKeys;
  TestEqual(TEXT("Shortcut hint follows custom chord"), Config->GetShortcutLabel(PlaceCopy), FString(TEXT("Ctrl+Shift+P")));
  TestEqual(TEXT("Shortcut hint reflects unbinding"), Config->GetShortcutLabel(CopySelection), FString(TEXT("Unbound")));
+ FHyperManageKeyConfigs MouseKeys;
+ MouseKeys.DoNotEditConfigFormatVersion = TEXT("1.2");
+ MouseKeys.ActionKeys.Add(FHyperManageKeyConfig(Undo, EKeys::LeftMouseButton, false, false, false, false));
+ UHyperManageConfiguration::UpgradePlacementBindings(MouseKeys);
+ TestTrue(TEXT("Middle click switches copy placement mode"), MouseKeys.ActionKeys[1].Key == EKeys::MiddleMouseButton);
+ TestTrue(TEXT("Custom left click is not shadowed"), MouseKeys.ActionKeys[2].Key == EKeys::Invalid);
+ MouseKeys.ActionKeys[1] = FHyperManageKeyConfig(ToggleCopyMode, EKeys::Invalid, false, false, false, false);
+ UHyperManageConfiguration::UpgradeCopyBindings(MouseKeys);
+ TestEqual(TEXT("Old migration cannot downgrade new format"), MouseKeys.DoNotEditConfigFormatVersion, FString(TEXT("1.3")));
+ UHyperManageConfiguration::UpgradePlacementBindings(MouseKeys);
+ TestTrue(TEXT("Unbound free middle click is not reassigned"), MouseKeys.ActionKeys[1].Key == EKeys::Invalid);
+ TestTrue(TEXT("Explicit unbinding survives placement migration"), MouseKeys.ActionKeys[2].Key == EKeys::Invalid);
  return true;
 }
 #endif

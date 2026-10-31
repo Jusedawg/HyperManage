@@ -35,7 +35,7 @@ public:
 	void Detach();
 	void RefreshPreviewBinding();
 private:
-	int32 CancelBindingIndex = INDEX_NONE;
+	TArray<int32> PreviewBindingIndices;
 
 public:
 };

@@ -4,6 +4,7 @@
 #include "HyperManageSystem.h"
 #include "HyperManageUI.h"
 #include "HyperManageInput.h"
+#include "HyperManageCopyPreview.h"
 #include "Components/SceneComponent.h"
 
 AHyperManageEquip::AHyperManageEquip()
@@ -50,6 +51,10 @@ void AHyperManageEquip::Tick(float DeltaTime)
 	if (IsLocal && ManagerEquipped && IsValid(System) && IsValid(System->Selection))
 	{
 		System->Selection->RefreshInteractionHighlights();
+		if (System->CopyPreview)
+		{
+			System->CopyPreview->TickPlacement();
+		}
 	}
 }
 

@@ -1,5 +1,7 @@
 #include "HyperManageCopyPreview.h"
 #include "HyperManageInput.h"
+#include "HyperManageCopyPlacement.h"
+#include "Camera/PlayerCameraManager.h"
 #include "HyperManageUI.h"
 #include "Buildables/FGBuildableFoundation.h"
 #include "Buildables/FGBuildableWall.h"
@@ -67,6 +69,7 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 	TArray<FSelectedActorInfo> Captured;
 	TArray<FTransform> Transforms;
 	TArray<FHyperManageCopySnapshot> Metadata;
+	FBox Bounds(ForceInit);
 	for (auto* Actor : Actors)
 	{
 		auto& Snapshot = Metadata.AddDefaulted_GetRef();
@@ -96,13 +99,16 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 		{
 			Mesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			Transforms.Add(Mesh->GetComponentTransform());
+			Bounds += Mesh->Bounds.GetBox();
 		}
 	}
 	Clear();
 	Pieces = MoveTemp(Captured);
 	Snapshots = MoveTemp(Metadata);
 	OriginalMeshTransforms = MoveTemp(Transforms);
-	SetOffset(Meters);
+	CapturedBounds = Bounds;
+	ApplyOffset(Meters, true);
+	ShowPreview(!FollowMouse);
 	Message = FString::Printf(TEXT("%d pieces previewed. Close the panel to inspect. Place asks for confirmation and material costs."), Pieces.Num());
 	return true;
 }
@@ -110,8 +116,18 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 {
 	if (!ValidOffset(Meters) || Pieces.IsEmpty()) return false;
+	SetFollowMouse(false);
+	return ApplyOffset(Meters, true);
+}
+
+bool UHyperManageCopyPreview::ApplyOffset(const FVector& Meters, bool Remember)
+{
+	if (!ValidOffset(Meters) || Pieces.IsEmpty()) return false;
 	OffsetCm = Meters * 100.;
-	PreferredOffsetMeters = Meters;
+	if (Remember)
+	{
+		PreferredOffsetMeters = Meters;
+	}
 	if (System && System->Input)
 	{
 		System->Input->RefreshPreviewBinding();
@@ -133,11 +149,76 @@ bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 	return true;
 }
 
+bool UHyperManageCopyPreview::SurfaceOffset(const FBox& Bounds, const FVector& Point, const FVector& Normal, FVector& Meters)
+{
+	if (!Bounds.IsValid || Point.ContainsNaN() || Normal.ContainsNaN() || Normal.IsNearlyZero()) return false;
+	const FVector Direction = Normal.GetSafeNormal();
+	const double Radius = FVector::DotProduct(Bounds.GetExtent(), Direction.GetAbs());
+	Meters = (Point + Direction * Radius - Bounds.GetCenter()) / 100.;
+	return ValidOffset(Meters);
+}
+
+void UHyperManageCopyPreview::ShowPreview(bool Visible)
+{
+	for (auto& Piece : Pieces)
+	{
+		if (IsValid(Piece.HighlightOwner))
+		{
+			Piece.HighlightOwner->SetActorHiddenInGame(!Visible);
+		}
+	}
+}
+
+void UHyperManageCopyPreview::SetFollowMouse(bool Enabled)
+{
+	if (FollowMouse == Enabled) return;
+	FollowMouse = Enabled;
+	SurfaceValid = false;
+	++Revision;
+	if (!Enabled && !Pieces.IsEmpty())
+	{
+		PreferredOffsetMeters = GetOffsetMeters();
+	}
+	ShowPreview(!Enabled);
+}
+
+void UHyperManageCopyPreview::TickPlacement()
+{
+	if (!FollowMouse || Pieces.IsEmpty() || !System || !System->GetWorld()) return;
+	auto* Controller = System->GetLocalController();
+	if (!Controller || !Controller->PlayerCameraManager || Controller->bShowMouseCursor || Controller->IsLookInputIgnored() || System->GetWorld()->IsPaused()) return;
+	if (System->CopyPlacement && System->CopyPlacement->IsAwaitingConfirmation()) return;
+	const FVector Start = Controller->PlayerCameraManager->GetCameraLocation();
+	const FVector End = Start + Controller->PlayerCameraManager->GetCameraRotation().Vector() * 10000.;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(HyperManageCopyPlacement), true);
+	Params.AddIgnoredActor(Controller->GetPawn());
+	for (const auto& Piece : Pieces)
+	{
+		Params.AddIgnoredActor(Piece.HighlightOwner);
+	}
+	FHitResult Hit;
+	FVector Meters;
+	const bool HitSurface = System->GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit && !Hit.bStartPenetrating;
+	const bool Ready = HitSurface && SurfaceOffset(CapturedBounds, Hit.ImpactPoint, Hit.ImpactNormal, Meters);
+	if (Ready && !GetOffsetMeters().Equals(Meters, 0.0001))
+	{
+		ApplyOffset(Meters, false);
+	}
+	if (Ready != SurfaceValid)
+	{
+		++Revision;
+	}
+	SurfaceValid = Ready;
+	ShowPreview(Ready);
+}
+
 void UHyperManageCopyPreview::Clear()
 {
 	DestroyPieces(Pieces);
 	OriginalMeshTransforms.Reset();
 	Snapshots.Reset();
+	CapturedBounds = FBox(ForceInit);
+	SurfaceValid = false;
 	++Revision;
 	OffsetCm = FVector::ZeroVector;
 	if (System && System->Input)

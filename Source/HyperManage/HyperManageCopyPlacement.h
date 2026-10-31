@@ -17,6 +17,7 @@ class HYPERMANAGE_API UHyperManageCopyPlacement : public UHyperManageComponent
 	GENERATED_BODY()
 public:
 	void Request();
+	bool IsAwaitingConfirmation() const { return AwaitingConfirmation || Executing; }
 	bool SelectAfterPlacement = false;
 	UFUNCTION() void Confirm(bool Accepted);
 	static bool AccumulateCost(const TArray<FItemAmount>& Costs, TArray<FItemAmount>& Total);

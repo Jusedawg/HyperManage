@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.98")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.99")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -379,6 +379,14 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* CopyRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* PreviewSystem = UHyperManageSystem::Get();
 	const auto* Preview = PreviewSystem ? PreviewSystem->CopyPreview : nullptr;
+	CopyFollowMouse = WidgetTree->ConstructWidget<UCheckBox>();
+	CopyFollowMouse->SetIsChecked(!Preview || Preview->IsFollowingMouse());
+	auto* FollowLabel = WidgetTree->ConstructWidget<UTextBlock>();
+	FollowLabel->SetText(FText::FromString(TEXT("Follow mouse (off: exact offset)")));
+	CopyFollowMouse->SetContent(FollowLabel);
+	CopyFollowMouse->SetToolTipText(FText::FromString(TEXT("Aim at terrain or a building to position the group against its surface. Middle-click switches modes while previewing. Turning this off freezes the current position for precise offset edits. Rotation and spacing are preserved; this does not use vanilla connector snapping.")));
+	CopyFollowMouse->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeCopyFollowMouse);
+	CopyBody->AddChildToVerticalBox(CopyFollowMouse);
 	const FVector PreviewMeters = Preview ? Preview->GetPreferredOffsetMeters() : FVector(8, 0, 0);
 	auto AddCopyField = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Field, float Value)
 	{
@@ -879,6 +887,16 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
   UpdateRefundDrawer(DeltaTime, Width > 0.f ? Width : 1920.f);
  }
 	auto* System = UHyperManageSystem::Get();
+	if (System && System->CopyPreview && CopyFollowMouse && CopyX && CopyY && CopyZ)
+	{
+		const bool Follow = System->CopyPreview->IsFollowingMouse();
+		CopyFollowMouse->SetIsChecked(Follow);
+		CopyX->SetIsEnabled(!Follow); CopyY->SetIsEnabled(!Follow); CopyZ->SetIsEnabled(!Follow);
+		if (System->CopyPreview->GetCount() > 0 && CopyStatus)
+		{
+			CopyStatus->SetText(FText::FromString(Follow ? TEXT("Mouse follow: close the panel and aim at a surface. Left-click places; middle-click switches mode.") : TEXT("Exact offset: edit X/Y/Z and Update. Left-click or Ctrl+V places; middle-click switches mode.")));
+		}
+	}
  if (TrackRefundSelection && System && System->Selection) {
   TArray<AActor*> Actors;
   System->Selection->SelectedActorsNoTarget(Actors);
@@ -1183,8 +1201,22 @@ void UHyperManageToolWidget::UpdateCopyPreview()
 {
 	auto* System = UHyperManageSystem::Get();
 	if (!System || !System->CopyPreview || !CopyStatus || !CopyX || !CopyY || !CopyZ) return;
+	if (System->CopyPreview->IsFollowingMouse()) return;
 	const bool Updated = System->CopyPreview->SetOffset(FVector(CopyX->GetValue(), CopyY->GetValue(), CopyZ->GetValue()));
 	CopyStatus->SetText(FText::FromString(Updated ? TEXT("Preview moved. Close the panel to inspect; nothing is built.") : TEXT("Capture a preview first; offsets must be within 1,000 m per axis.")));
+}
+
+void UHyperManageToolWidget::ChangeCopyFollowMouse(bool Enabled)
+{
+	if (auto* System = UHyperManageSystem::Get(); System && System->CopyPreview)
+	{
+		System->CopyPreview->SetFollowMouse(Enabled);
+		if (!Enabled && CopyX && CopyY && CopyZ)
+		{
+			const FVector Offset = System->CopyPreview->GetPreferredOffsetMeters();
+			CopyX->SetValue(Offset.X); CopyY->SetValue(Offset.Y); CopyZ->SetValue(Offset.Z);
+		}
+	}
 }
 
 void UHyperManageToolWidget::ChangeSelectAfterCopy(bool Enabled)

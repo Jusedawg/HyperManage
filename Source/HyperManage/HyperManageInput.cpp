@@ -46,9 +46,9 @@ void UHyperManageInput::SetupKeyBinding(FHyperManageKeyConfig KeyConfig, EInputE
 		});
 	}
 	HyperManageInputComponent->KeyBindings.Add(KeyBinding);
-	if (KeyConfig.ActionIndex == CancelCopy && InputEvent == IE_Pressed)
+	if ((KeyConfig.ActionIndex == CancelCopy || KeyConfig.ActionIndex == ToggleCopyMode || KeyConfig.ActionIndex == ClickPlaceCopy) && InputEvent == IE_Pressed)
 	{
-		CancelBindingIndex = HyperManageInputComponent->KeyBindings.Num() - 1;
+		PreviewBindingIndices.Add(HyperManageInputComponent->KeyBindings.Num() - 1);
 		RefreshPreviewBinding();
 	}
 }
@@ -81,7 +81,7 @@ void UHyperManageInput::SetupInputComponent()
 void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionIndex, EInputEvent InputEvent)
 {
 	// Destructive actions run once per press, regardless of configured repeat behavior.
-	if ((ActionIndex == DeleteSelection || ActionIndex == CopySelection || ActionIndex == PlaceCopy || ActionIndex == CancelCopy) && InputEvent != IE_Pressed) return;
+	if ((ActionIndex == DeleteSelection || ActionIndex == CopySelection || ActionIndex == PlaceCopy || ActionIndex == CancelCopy || ActionIndex == ToggleCopyMode || ActionIndex == ClickPlaceCopy) && InputEvent != IE_Pressed) return;
 
 	// remove timer if the key has been released
 	if (InputEvent == EInputEvent::IE_Released) {
@@ -109,9 +109,13 @@ void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionInde
 
 void UHyperManageInput::RefreshPreviewBinding()
 {
-	if (HyperManageInputComponent && HyperManageInputComponent->KeyBindings.IsValidIndex(CancelBindingIndex))
+	if (!HyperManageInputComponent) return;
+	for (int32 Index : PreviewBindingIndices)
 	{
-		HyperManageInputComponent->KeyBindings[CancelBindingIndex].bConsumeInput = System && System->CopyPreview && System->CopyPreview->GetCount() > 0;
+		if (HyperManageInputComponent->KeyBindings.IsValidIndex(Index))
+		{
+			HyperManageInputComponent->KeyBindings[Index].bConsumeInput = System && System->CopyPreview && System->CopyPreview->GetCount() > 0;
+		}
 	}
 }
 
@@ -130,6 +134,6 @@ void UHyperManageInput::Detach()
 	if (HyperManageInputComponent && System->GetLocalController()) System->GetLocalController()->PopInputComponent(HyperManageInputComponent);
 	if (IsValid(HyperManageInputComponent)) HyperManageInputComponent->DestroyComponent();
 	HyperManageInputComponent = nullptr;
-	CancelBindingIndex = INDEX_NONE;
+	PreviewBindingIndices.Reset();
 	Equip = nullptr;
 }

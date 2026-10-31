@@ -77,6 +77,7 @@ bool UHyperManageCopyPlacement::Preflight(TArray<TArray<FItemAmount>>& Costs, TA
 	auto* Recipes = AFGRecipeManager::Get(System->GetWorld());
 	if (!IsValid(Character) || !Character->HasAuthority() || !IsValid(Inventory) || !IsValid(Subsystem) || !Subsystem->HasAuthority() || !Recipes)
 		return Fail(TEXT("The player inventory or construction system is unavailable."));
+	if (!System->CopyPreview->IsPlacementReady()) return Fail(TEXT("Aim at a surface within 100 m, or switch to exact offset mode."));
 	const auto& Snapshots = System->CopyPreview->GetSnapshots();
 	if (Snapshots.IsEmpty() || Snapshots.Num() > 50 || Snapshots.Num() != System->CopyPreview->GetCount())
 		return Fail(TEXT("Capture 1-50 pieces before placing."));
