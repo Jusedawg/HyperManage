@@ -26,6 +26,7 @@ public:
 	bool SetOffset(const FVector& Meters);
 	void CaptureSelection();
 	void TickPlacement();
+	bool RotatePreview(int32 Degrees);
 	FTransform GetPlacementTransform(const FTransform& Source) const;
 	bool HasPlacementRotation() const { return !PlacementRotation.Equals(FQuat::Identity); }
 	void SetFollowMouse(bool Enabled);
@@ -48,6 +49,7 @@ private:
 	FBox CapturedBounds = FBox(ForceInit);
 	bool FollowMouse = true;
 	bool SurfaceValid = false;
+	int32 RotationDegrees = 0;
 	FQuat PlacementRotation = FQuat::Identity;
 	UPROPERTY(Transient) TObjectPtr<class AFGHologram> SnapHologram;
 	bool TryNativeSnap(const FHitResult& Hit, FTransform& Pose);

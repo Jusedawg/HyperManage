@@ -28,7 +28,7 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  auto* Input = NewObject<UHyperManageInput>();
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Repeat);
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Released);
- for (const auto Action : {CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy})
+ for (const auto Action : {CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy, RotateCopyRight, RotateCopyLeft})
  {
   Input->PerformIndexedAction(EKeys::C, Action, IE_Repeat);
   Input->PerformIndexedAction(EKeys::C, Action, IE_Released);
@@ -67,6 +67,17 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  UHyperManageConfiguration::UpgradePlacementBindings(MouseKeys);
  TestTrue(TEXT("Unbound free middle click is not reassigned"), MouseKeys.ActionKeys[1].Key == EKeys::Invalid);
  TestTrue(TEXT("Explicit unbinding survives placement migration"), MouseKeys.ActionKeys[2].Key == EKeys::Invalid);
+ FHyperManageKeyConfigs WheelKeys;
+ WheelKeys.DoNotEditConfigFormatVersion = TEXT("1.3");
+ WheelKeys.ActionKeys.Add(FHyperManageKeyConfig(Undo, EKeys::MouseScrollUp, false, false, false, false));
+ UHyperManageConfiguration::UpgradeCopyRotationBindings(WheelKeys);
+ TestTrue(TEXT("Existing wheel mapping is not shadowed"), WheelKeys.ActionKeys[1].Key == EKeys::Invalid);
+ TestTrue(TEXT("Free wheel direction receives rotation"), WheelKeys.ActionKeys[2].Key == EKeys::MouseScrollDown);
+ WheelKeys.ActionKeys[2] = FHyperManageKeyConfig(RotateCopyLeft, EKeys::Invalid, false, false, false, false);
+ UHyperManageConfiguration::UpgradeCopyRotationBindings(WheelKeys);
+ TestTrue(TEXT("Explicit wheel unbinding survives reload"), WheelKeys.ActionKeys[2].Key == EKeys::Invalid);
+ UHyperManageConfiguration::UpgradePlacementBindings(WheelKeys);
+ TestEqual(TEXT("Placement migration preserves newer format"), WheelKeys.DoNotEditConfigFormatVersion, FString(TEXT("1.4")));
  return true;
 }
 #endif

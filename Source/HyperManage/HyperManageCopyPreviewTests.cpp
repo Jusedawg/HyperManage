@@ -82,7 +82,14 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("Duplicate source rejected"), Preview->Capture({Source, Source}, FVector::ZeroVector, Message));
 		TestTrue(TEXT("Failed replacement keeps existing preview"), IsValid(Owner) && Ghost->GetComponentTransform().Equals(Expected));
 		TestFalse(TEXT("Explicit offset switches to exact mode"), Preview->IsFollowingMouse());
-		Preview->PlacementRotation = FRotator(0, 90, 0).Quaternion();
+		const uint64 BeforeRotation = Preview->GetRevision();
+		TestTrue(TEXT("Quarter turn accepts clockwise wheel"), Preview->RotatePreview(90));
+		TestTrue(TEXT("Rotation invalidates prior confirmation"), Preview->GetRevision() > BeforeRotation);
+		TestTrue(TEXT("Rotation preserves exact offset"), Preview->GetOffsetMeters().Equals(FVector(0, 0, 2)));
+		TestTrue(TEXT("Counterclockwise reverses turn"), Preview->RotatePreview(-90) && !Preview->HasPlacementRotation());
+		TestFalse(TEXT("Unsupported wheel step rejected"), Preview->RotatePreview(45));
+		TestTrue(TEXT("Quarter turn can be reapplied"), Preview->RotatePreview(90));
+		TestTrue(TEXT("Preview turn leaves source unchanged"), Source->GetActorLocation().Equals(FVector(9000)));
 		const FTransform Neighbor(FRotator(0, 15, 0), Initial.GetLocation() + FVector(800, 0, 0), FVector(2));
 		const FTransform Placed = Preview->GetPlacementTransform(Neighbor);
 		TestTrue(TEXT("Snapped group rotates spacing around reference"), Placed.GetLocation().Equals(Initial.GetLocation() + FVector(0, 800, 200), 0.01));
@@ -97,6 +104,7 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		Source->Destroy();
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
 		Preview->Clear();
+		TestFalse(TEXT("Empty preview cannot rotate"), Preview->RotatePreview(90));
 		TestEqual(TEXT("Cancel releases all pieces"), Preview->GetCount(), 0);
 		TestFalse(TEXT("Escape passes through after cancel"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
 		TestTrue(TEXT("Last applied offset survives cancellation"), Preview->GetPreferredOffsetMeters().Equals(FVector(0, 0, 2)));

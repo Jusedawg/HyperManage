@@ -46,7 +46,7 @@ void UHyperManageInput::SetupKeyBinding(FHyperManageKeyConfig KeyConfig, EInputE
 		});
 	}
 	HyperManageInputComponent->KeyBindings.Add(KeyBinding);
-	if ((KeyConfig.ActionIndex == CancelCopy || KeyConfig.ActionIndex == ToggleCopyMode || KeyConfig.ActionIndex == ClickPlaceCopy) && InputEvent == IE_Pressed)
+	if ((KeyConfig.ActionIndex == CancelCopy || KeyConfig.ActionIndex == ToggleCopyMode || KeyConfig.ActionIndex == ClickPlaceCopy || KeyConfig.ActionIndex == RotateCopyRight || KeyConfig.ActionIndex == RotateCopyLeft) && InputEvent == IE_Pressed)
 	{
 		PreviewBindingIndices.Add(HyperManageInputComponent->KeyBindings.Num() - 1);
 		RefreshPreviewBinding();
@@ -81,7 +81,7 @@ void UHyperManageInput::SetupInputComponent()
 void UHyperManageInput::PerformIndexedAction(FKey Key, EActionNameIdx ActionIndex, EInputEvent InputEvent)
 {
 	// Destructive actions run once per press, regardless of configured repeat behavior.
-	if ((ActionIndex == DeleteSelection || ActionIndex == CopySelection || ActionIndex == PlaceCopy || ActionIndex == CancelCopy || ActionIndex == ToggleCopyMode || ActionIndex == ClickPlaceCopy) && InputEvent != IE_Pressed) return;
+	if ((ActionIndex == DeleteSelection || ActionIndex == CopySelection || ActionIndex == PlaceCopy || ActionIndex == CancelCopy || ActionIndex == ToggleCopyMode || ActionIndex == ClickPlaceCopy || ActionIndex == RotateCopyRight || ActionIndex == RotateCopyLeft) && InputEvent != IE_Pressed) return;
 
 	// remove timer if the key has been released
 	if (InputEvent == EInputEvent::IE_Released) {

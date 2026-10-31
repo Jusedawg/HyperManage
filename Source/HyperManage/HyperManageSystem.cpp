@@ -331,6 +331,13 @@ void UHyperManageSystem::ExecuteAction(EActionNameIdx ActionIndex)
 				CopyPlacement->Request();
 			}
 			break;
+		case EActionNameIdx::RotateCopyRight:
+		case EActionNameIdx::RotateCopyLeft:
+			if (CopyPreview)
+			{
+				CopyPreview->RotatePreview(ActionIndex == RotateCopyRight ? 90 : -90);
+			}
+			break;
 		case EActionNameIdx::ToggleCopyMode:
 			if (CopyPreview && CopyPreview->GetCount() > 0)
 			{

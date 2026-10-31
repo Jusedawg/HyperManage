@@ -145,6 +145,27 @@ bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 	return ApplyOffset(Meters, true);
 }
 
+bool UHyperManageCopyPreview::RotatePreview(int32 Degrees)
+{
+	if (Pieces.IsEmpty() || (Degrees != 90 && Degrees != -90)) return false;
+	if (System && System->CopyPlacement && System->CopyPlacement->IsAwaitingConfirmation()) return false;
+	if (System && System->GetWorld() && System->GetLocalController())
+	{
+		auto* Controller = System->GetLocalController();
+		if (Controller->bShowMouseCursor || Controller->IsLookInputIgnored()) return false;
+	}
+	RotationDegrees = (RotationDegrees + Degrees + 360) % 360;
+	PlacementRotation = (FRotator(0, Degrees, 0).Quaternion() * PlacementRotation).GetNormalized();
+	ApplyOffset(GetOffsetMeters(), false);
+	if (FollowMouse)
+	{
+		SurfaceValid = false;
+		ShowPreview(false);
+		TickPlacement();
+	}
+	return true;
+}
+
 bool UHyperManageCopyPreview::ApplyOffset(const FVector& Meters, bool Remember)
 {
 	if (!ValidOffset(Meters) || Pieces.IsEmpty()) return false;
@@ -251,6 +272,7 @@ bool UHyperManageCopyPreview::TryNativeSnap(const FHitResult& Hit, FTransform& P
 	// Seed the captured orientation, then let the native hologram choose the snapped pose.
 	SnapHologram->SetActorTransform(Reference.Transform);
 	SnapHologram->UpdateRotationValuesFromTransform();
+	SnapHologram->ScrollRotate(RotationDegrees / 90, 90);
 	const bool Snapped = SnapHologram->TrySnapToActor(SnapHit);
 	Pose = SnapHologram->GetActorTransform();
 	SnapHologram->SetActorHiddenInGame(true);
@@ -277,7 +299,7 @@ void UHyperManageCopyPreview::TickPlacement()
 	const bool HitSurface = System->GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit && !Hit.bStartPenetrating;
 	FTransform SnappedPose;
 	const bool Snapped = HitSurface && TryNativeSnap(Hit, SnappedPose);
-	FQuat Rotation = FQuat::Identity;
+	FQuat Rotation = FRotator(0, RotationDegrees, 0).Quaternion();
 	bool Ready = false;
 	if (Snapped)
 	{
@@ -287,7 +309,9 @@ void UHyperManageCopyPreview::TickPlacement()
 	}
 	else
 	{
-		Ready = HitSurface && SurfaceOffset(CapturedBounds, Hit.ImpactPoint, Hit.ImpactNormal, Meters);
+		const FVector Pivot = Snapshots[0].Transform.GetLocation();
+		const FTransform BoundsRotation(Rotation, Pivot - Rotation.RotateVector(Pivot));
+		Ready = HitSurface && SurfaceOffset(CapturedBounds.TransformBy(BoundsRotation), Hit.ImpactPoint, Hit.ImpactNormal, Meters);
 	}
 	const bool RotationChanged = !PlacementRotation.Equals(Rotation);
 	if (Ready && (RotationChanged || !GetOffsetMeters().Equals(Meters, 0.0001)))
@@ -311,6 +335,7 @@ void UHyperManageCopyPreview::Clear()
 	}
 	SnapHologram = nullptr;
 	PlacementRotation = FQuat::Identity;
+	RotationDegrees = 0;
 	DestroyPieces(Pieces);
 	OriginalMeshTransforms.Reset();
 	Snapshots.Reset();

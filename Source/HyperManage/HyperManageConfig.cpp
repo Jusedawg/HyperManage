@@ -202,7 +202,7 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 		AlignTop, AlignTBCenter, AlignBottom, SpaceTB, StackTB, LockScaleTB,
 		AlignFront,AlignFBCenter, AlignBack, SpaceFB, StackFB, LockScaleFB,
 		SameRotation, SameScale, SamePaint,
-		SelectBoxSides, SelectBoxPivot, MoveSelection, CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy, NewSelection, DeleteSelection, SaveSelection, LoadSelection,
+		SelectBoxSides, SelectBoxPivot, MoveSelection, CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy, RotateCopyRight, RotateCopyLeft, NewSelection, DeleteSelection, SaveSelection, LoadSelection,
 		ClearUndo, EActionNameIdx::IsGrouped, EActionNameIdx::IsViewBased, NextHologram, Settings };
 	TArray<EActionNameIdx> InvalidKeyActions;
 	InvalidKeyActions.Append(Actions, UE_ARRAY_COUNT(Actions));
@@ -212,6 +212,7 @@ void UHyperManageConfiguration::LoadKeyConfigs()
 	UpgradeDismantleBinding(MMKeyConfigs);
 	UpgradeCopyBindings(MMKeyConfigs);
 	UpgradePlacementBindings(MMKeyConfigs);
+	UpgradeCopyRotationBindings(MMKeyConfigs);
 }
 
 void UHyperManageConfiguration::UpgradeDismantleBinding(FHyperManageKeyConfigs& Keys)
@@ -279,6 +280,32 @@ void UHyperManageConfiguration::UpgradePlacementBindings(FHyperManageKeyConfigs&
 	if (OldFormat)
 	{
 		Keys.DoNotEditConfigFormatVersion = TEXT("1.3");
+	}
+}
+
+void UHyperManageConfiguration::UpgradeCopyRotationBindings(FHyperManageKeyConfigs& Keys)
+{
+	const bool OldFormat = Keys.DoNotEditConfigFormatVersion == TEXT("1.0") || Keys.DoNotEditConfigFormatVersion == TEXT("1.1") || Keys.DoNotEditConfigFormatVersion == TEXT("1.2") || Keys.DoNotEditConfigFormatVersion == TEXT("1.3");
+	for (const auto& Default : {FHyperManageKeyConfig(RotateCopyRight, EKeys::MouseScrollUp, false, false, false, false), FHyperManageKeyConfig(RotateCopyLeft, EKeys::MouseScrollDown, false, false, false, false)})
+	{
+		auto* Existing = Keys.ActionKeys.FindByPredicate([&](const FHyperManageKeyConfig& Key) { return Key.ActionIndex == Default.ActionIndex; });
+		const bool InUse = Keys.ActionKeys.ContainsByPredicate([&](const FHyperManageKeyConfig& Key) { return Key.ActionIndex != Default.ActionIndex && Key.Key == Default.Key && Key.Ctrl == Default.Ctrl && Key.Alt == Default.Alt && Key.Shift == Default.Shift; });
+		if (!Existing)
+		{
+			Keys.ActionKeys.Add(InUse ? FHyperManageKeyConfig(Default.ActionIndex, EKeys::Invalid, false, false, false, false) : Default);
+		}
+		else
+		{
+			if (OldFormat && Existing->Key == EKeys::Invalid && !InUse)
+			{
+				*Existing = Default;
+			}
+			Existing->UseRepeats = false;
+		}
+	}
+	if (OldFormat)
+	{
+		Keys.DoNotEditConfigFormatVersion = TEXT("1.4");
 	}
 }
 

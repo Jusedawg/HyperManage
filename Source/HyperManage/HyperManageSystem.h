@@ -98,7 +98,9 @@ enum EActionNameIdx
 	PlaceCopy UMETA(DisplayName = "Place Copy Preview"),
 	CancelCopy UMETA(DisplayName = "Cancel Copy Preview"),
 	ToggleCopyMode UMETA(DisplayName = "Toggle Copy Placement Mode"),
-	ClickPlaceCopy UMETA(DisplayName = "Click Place Copy Preview")
+	ClickPlaceCopy UMETA(DisplayName = "Click Place Copy Preview"),
+	RotateCopyRight UMETA(DisplayName = "Rotate Copy Clockwise"),
+	RotateCopyLeft UMETA(DisplayName = "Rotate Copy Counterclockwise")
 };
 
 class AHyperManageEquip;
