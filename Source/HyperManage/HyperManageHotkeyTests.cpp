@@ -28,7 +28,7 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  auto* Input = NewObject<UHyperManageInput>();
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Repeat);
  Input->PerformIndexedAction(EKeys::Delete, DeleteSelection, IE_Released);
- for (const auto Action : {CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy, RotateCopyRight, RotateCopyLeft})
+ for (const auto Action : {CopySelection, PlaceCopy, CancelCopy, ToggleCopyMode, ClickPlaceCopy, RotateCopyRight, RotateCopyLeft, ResetCopyRotation})
  {
   Input->PerformIndexedAction(EKeys::C, Action, IE_Repeat);
   Input->PerformIndexedAction(EKeys::C, Action, IE_Released);
@@ -81,6 +81,18 @@ bool FHyperManageDismantleHotkeyTest::RunTest(const FString& Parameters)
  TestTrue(TEXT("Wheel rotation uses enhanced axis handling"), UHyperManageInput::IsPreviewWheelKey(FHyperManageKeyConfig(RotateCopyRight, EKeys::MouseScrollUp, false, false, false, false)));
  TestFalse(TEXT("Keyboard remapping keeps normal key handling"), UHyperManageInput::IsPreviewWheelKey(FHyperManageKeyConfig(RotateCopyRight, EKeys::R, false, false, false, false)));
  TestFalse(TEXT("Other actions keep their custom wheel binding"), UHyperManageInput::IsPreviewWheelKey(FHyperManageKeyConfig(Undo, EKeys::MouseScrollUp, false, false, false, false)));
+ FHyperManageKeyConfigs ResetKeys;
+ ResetKeys.DoNotEditConfigFormatVersion = TEXT("1.4");
+ ResetKeys.ActionKeys.Add(FHyperManageKeyConfig(ResetCopyRotation, EKeys::Invalid, false, false, false, false));
+ UHyperManageConfiguration::UpgradeCopyResetBinding(ResetKeys);
+ TestTrue(TEXT("Old reset placeholder gains R"), ResetKeys.ActionKeys[0].Key == EKeys::R);
+ ResetKeys.ActionKeys[0] = FHyperManageKeyConfig(ResetCopyRotation, EKeys::Invalid, false, false, false, false);
+ UHyperManageConfiguration::UpgradeCopyResetBinding(ResetKeys);
+ TestTrue(TEXT("Explicit reset unbinding survives reload"), ResetKeys.ActionKeys[0].Key == EKeys::Invalid);
+ ResetKeys.DoNotEditConfigFormatVersion = TEXT("1.4");
+ ResetKeys.ActionKeys.Add(FHyperManageKeyConfig(Undo, EKeys::R, false, false, false, false));
+ UHyperManageConfiguration::UpgradeCopyResetBinding(ResetKeys);
+ TestTrue(TEXT("Custom R binding is not shadowed"), ResetKeys.ActionKeys[0].Key == EKeys::Invalid);
  return true;
 }
 #endif

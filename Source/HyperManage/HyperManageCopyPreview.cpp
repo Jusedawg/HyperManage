@@ -145,6 +145,22 @@ bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 	return ApplyOffset(Meters, true);
 }
 
+bool UHyperManageCopyPreview::ResetRotation()
+{
+	if (Pieces.IsEmpty()) return false;
+	if (System && System->CopyPlacement && System->CopyPlacement->IsAwaitingConfirmation()) return false;
+	RotationDegrees = 0;
+	PlacementRotation = FQuat::Identity;
+	ApplyOffset(GetOffsetMeters(), false);
+	if (FollowMouse)
+	{
+		SurfaceValid = false;
+		ShowPreview(false);
+		TickPlacement();
+	}
+	return true;
+}
+
 bool UHyperManageCopyPreview::RotatePreview(int32 Degrees)
 {
 	if (Pieces.IsEmpty() || (Degrees != 90 && Degrees != -90)) return false;

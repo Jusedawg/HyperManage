@@ -85,7 +85,7 @@ void UHyperManageClipboardWidget::NativeTick(const FGeometry& Geometry, float De
 	UpdateReference(*System->Config, System->Selection->SelectCount());
 	if (System->CopyPreview && System->CopyPreview->GetCount() > 0)
 	{
-		CopyHintsText->SetText(FText::FromString(System->Config->GetShortcutLabel(ClickPlaceCopy) + TEXT(" Place | ") + System->Config->GetShortcutLabel(ToggleCopyMode) + TEXT(" Mode | ") + System->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel")));
+		CopyHintsText->SetText(FText::FromString(System->Config->GetShortcutLabel(ClickPlaceCopy) + TEXT(" Place | ") + System->Config->GetShortcutLabel(ToggleCopyMode) + TEXT(" Mode | ") + System->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel | ") + System->Config->GetShortcutLabel(ResetCopyRotation) + TEXT(" Reset")));
 		const FVector Offset = System->CopyPreview->GetOffsetMeters();
 		StatusText->SetText(FText::FromString(FString::Printf(TEXT("%s: %d pieces\nOffset: X %gm  Y %gm  Z %gm\n%s"), System->CopyPreview->IsFollowingMouse() ? TEXT("Mouse follow") : TEXT("Exact offset"), System->CopyPreview->GetCount(), Offset.X, Offset.Y, Offset.Z, System->CopyPreview->IsPlacementReady() ? TEXT("Wheel: rotate 90 deg | Place reviews costs") : TEXT("Aim at a surface within 100 m"))));
 	}

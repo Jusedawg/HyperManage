@@ -27,6 +27,7 @@ public:
 	void CaptureSelection();
 	void TickPlacement();
 	bool RotatePreview(int32 Degrees);
+	bool ResetRotation();
 	FTransform GetPlacementTransform(const FTransform& Source) const;
 	bool HasPlacementRotation() const { return !PlacementRotation.Equals(FQuat::Identity); }
 	void SetFollowMouse(bool Enabled);

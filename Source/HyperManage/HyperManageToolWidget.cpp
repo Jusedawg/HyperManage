@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.102")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.103")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -386,7 +386,16 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	CopyFollowMouse->SetContent(FollowLabel);
 	CopyFollowMouse->SetToolTipText(FText::FromString(TEXT("Aim at terrain or a building to position the group against its surface. Mouse wheel rotates the preview in 90-degree steps. Middle-click switches modes while previewing. Turning this off freezes the current position for precise offset edits. A normal-size foundation anchor uses native foundation snapping; the whole group follows its snapped rotation. Other reference pieces use surface placement.")));
 	CopyFollowMouse->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeCopyFollowMouse);
-	CopyBody->AddChildToVerticalBox(CopyFollowMouse);
+	auto* CopyModeRow = WidgetTree->ConstructWidget<UHorizontalBox>();
+	CopyModeRow->AddChildToHorizontalBox(CopyFollowMouse)->SetVerticalAlignment(VAlign_Center);
+	auto* ResetCopyButton = WidgetTree->ConstructWidget<UButton>();
+	auto* ResetCopyLabel = WidgetTree->ConstructWidget<UTextBlock>();
+	ResetCopyLabel->SetText(FText::FromString(TEXT("Reset rotation")));
+	AddFieldIcon(WidgetTree, ResetCopyButton, ResetCopyLabel, 11); CompactApplyButton(ResetCopyButton);
+	ResetCopyButton->SetToolTipText(FText::FromString(TEXT("Reset preview turns without recapturing or moving the originals. Exact mode restores captured orientation; mouse mode still follows native snap alignment.")));
+	ResetCopyButton->OnClicked.AddDynamic(this, &UHyperManageToolWidget::ResetCopyPreviewRotation);
+	CopyModeRow->AddChildToHorizontalBox(ResetCopyButton)->SetPadding(FMargin(4, 0));
+	CopyBody->AddChildToVerticalBox(CopyModeRow);
 	const FVector PreviewMeters = Preview ? Preview->GetPreferredOffsetMeters() : FVector(8, 0, 0);
 	auto AddCopyField = [&](const TCHAR* Axis, TObjectPtr<USpinBox>& Field, float Value)
 	{
@@ -421,7 +430,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	CopyKeys->SetAutoWrapText(true);
 	if (PreviewSystem && PreviewSystem->Config)
 	{
-		CopyKeys->SetText(FText::FromString(PreviewSystem->Config->GetShortcutLabel(CopySelection) + TEXT(" Copy | ") + PreviewSystem->Config->GetShortcutLabel(PlaceCopy) + TEXT(" Place | ") + PreviewSystem->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel (panel closed)")));
+		CopyKeys->SetText(FText::FromString(PreviewSystem->Config->GetShortcutLabel(CopySelection) + TEXT(" Copy | ") + PreviewSystem->Config->GetShortcutLabel(PlaceCopy) + TEXT(" Place | ") + PreviewSystem->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel | ") + PreviewSystem->Config->GetShortcutLabel(ResetCopyRotation) + TEXT(" Reset turns (panel closed)")));
 	}
 	CopyBody->AddChildToVerticalBox(CopyKeys);
 	auto* SelectCopies = WidgetTree->ConstructWidget<UCheckBox>();
@@ -1232,6 +1241,14 @@ void UHyperManageToolWidget::PlaceCopyPreview()
 	if (auto* System = UHyperManageSystem::Get(); System && System->CopyPlacement)
 	{
 		System->CopyPlacement->Request();
+	}
+}
+
+void UHyperManageToolWidget::ResetCopyPreviewRotation()
+{
+	if (auto* System = UHyperManageSystem::Get(); System && System->CopyPreview)
+	{
+		System->CopyPreview->ResetRotation();
 	}
 }
 

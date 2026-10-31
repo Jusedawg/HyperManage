@@ -168,6 +168,7 @@ private:
 	static void UpgradeCopyBindings(FHyperManageKeyConfigs& Keys);
 	static void UpgradePlacementBindings(FHyperManageKeyConfigs& Keys);
 	static void UpgradeCopyRotationBindings(FHyperManageKeyConfigs& Keys);
+	static void UpgradeCopyResetBinding(FHyperManageKeyConfigs& Keys);
 	void WriteStructToConfig(const FString& ConfigName, void* PtrToStruct, UScriptStruct* ScriptStruct);
 
 	void ReadConfigIntoStruct(const FString& ConfigName, void* StructPtr, UScriptStruct* ScriptStruct);

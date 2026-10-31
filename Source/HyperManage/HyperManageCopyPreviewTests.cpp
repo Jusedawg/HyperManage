@@ -101,9 +101,17 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		Preview->SetFollowMouse(false);
 		TestTrue(TEXT("Switch to exact mode preserves preview position"), Preview->GetOffsetMeters().Equals(FixedOffset) && Preview->IsPlacementReady());
 		TestTrue(TEXT("Exact mode keeps snapped rotation"), Preview->HasPlacementRotation());
+		const uint64 BeforeReset = Preview->GetRevision();
+		TestTrue(TEXT("Reset rotation succeeds for active preview"), Preview->ResetRotation());
+		TestFalse(TEXT("Reset removes manual and snapped rotation in exact mode"), Preview->HasPlacementRotation());
+		TestTrue(TEXT("Reset preserves preview offset"), Preview->GetOffsetMeters().Equals(FixedOffset));
+		TestTrue(TEXT("Reset updates visible mesh orientation"), Ghost->GetComponentQuat().Equals(Initial.GetRotation(), 0.001));
+		TestTrue(TEXT("Reset invalidates prior confirmation revision"), Preview->GetRevision() > BeforeReset);
+		TestEqual(TEXT("Reset clears wheel accumulator"), Preview->RotationDegrees, 0);
 		Source->Destroy();
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
 		Preview->Clear();
+		TestFalse(TEXT("Empty preview cannot reset rotation"), Preview->ResetRotation());
 		TestFalse(TEXT("Empty preview cannot rotate"), Preview->RotatePreview(90));
 		TestEqual(TEXT("Cancel releases all pieces"), Preview->GetCount(), 0);
 		TestFalse(TEXT("Escape passes through after cancel"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
