@@ -528,7 +528,7 @@ bool FHyperManageToolbarLayoutTest::RunTest(const FString& Parameters)
  TestFalse(TEXT("Failed refresh replaces previous totals"), Tools->RefundReviewText->GetText().ToString().Contains(TEXT("Refund row")));
 	TestTrue(TEXT("Read-only refund review is visible"), Labels.Contains(TEXT("Refund review")));
 	TestTrue(TEXT("Review tooltip explains no dismantle"), Tips.ContainsByPredicate([](const FString& Tip) { return Tip.Contains(TEXT("Read-only single-player refund estimate")); }));
-	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.96")));
+	TestTrue(TEXT("Version label identifies the repaired menu"), Labels.Contains(TEXT("HyperManage | dev.97")));
 	return true;
 }
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageClipboardLayoutTest, "HyperManage.UI.OriginalClipboard", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -882,6 +882,22 @@ bool FHyperManageSelectionHistoryTest::RunTest(const FString& Parameters)
 	Replay(true);
 	Selection->LoadSelection();
 	TestEqual(TEXT("Recalling identical selection adds no history"), History->GetUndoCount(), 1);
+	const int32 BeforeCopies = History->GetUndoCount();
+	TestFalse(TEXT("Empty copy result keeps selection"), Selection->SelectPlacedCopies({}));
+	TestFalse(TEXT("Invalid copy result keeps selection"), Selection->SelectPlacedCopies({C, nullptr}));
+	TestTrue(TEXT("Rejected copy selection retains markers"), Selection->AnchorActor == A && Selection->TargetActor == B);
+	TestEqual(TEXT("Rejected copy selection adds no history"), History->GetUndoCount(), BeforeCopies);
+	TestTrue(TEXT("Completed copies replace selection"), Selection->SelectPlacedCopies({C, C}));
+	TestEqual(TEXT("Duplicate copy handles select once"), Selection->SelectCount(), 1);
+	TestTrue(TEXT("Only copies selected"), Selection->Contains(C) && !Selection->Contains(A) && !Selection->Contains(B));
+	TestNull(TEXT("Old target is cleared"), Selection->TargetActor);
+	TestEqual(TEXT("Copy selection is one undo step"), History->GetUndoCount(), BeforeCopies + 1);
+	Replay(false);
+	TestTrue(TEXT("Undo copy selection restores originals and markers"), Selection->Contains(A) && Selection->Contains(B) && !Selection->Contains(C) && Selection->AnchorActor == A && Selection->TargetActor == B);
+	TestTrue(TEXT("Undo selection does not destroy copied actor"), IsValid(C));
+	Replay(true);
+	TestTrue(TEXT("Redo selects copies again"), Selection->Contains(C) && !Selection->Contains(A));
+	Replay(false);
 	System->Transform = InitComponent<UHyperManageTransform>(System);
 	auto* Root = NewObject<USceneComponent>(C); C->SetRootComponent(Root); C->AddInstanceComponent(Root); Root->RegisterComponent();
 	auto* DetachedPart = NewObject<USceneComponent>(C); C->AddInstanceComponent(DetachedPart); DetachedPart->RegisterComponent();

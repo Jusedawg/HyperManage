@@ -590,6 +590,37 @@ void UHyperManageSelection::ClearWithoutHistory()
 	if (IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 }
 
+bool UHyperManageSelection::SelectPlacedCopies(const TArray<AActor*>& Copies)
+{
+	if (Copies.IsEmpty() || HasPendingOperations()) return false;
+	TArray<AActor*> Unique;
+	for (auto* Actor : Copies)
+	{
+		if (!IsValidActor(Actor)) return false;
+		Unique.AddUnique(Actor);
+	}
+	TArray<AActor*> Affected;
+	SelectedActors(Affected);
+	for (auto* Actor : Unique)
+	{
+		Affected.AddUnique(Actor);
+	}
+	if (System->Undo)
+	{
+		System->Undo->PushUndoSelection(Affected);
+	}
+	ClearWithoutHistory();
+	for (auto* Actor : Unique)
+	{
+		SelectActor(Actor);
+	}
+	if (System->Config && System->Config->MMConfig.AutoAnchor)
+	{
+		SetAnchor(Unique[0]);
+	}
+	return true;
+}
+
 void UHyperManageSelection::SelectClear(bool ConfirmClicked)
 {
 	if (!ConfirmClicked || HasPendingOperations()) return;

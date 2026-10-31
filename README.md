@@ -227,6 +227,8 @@ Expand **Copy / place (m)** in the tool panel. Select up to 50 vanilla foundatio
 
 Close the panel to inspect the green preview. Reopen it and use **Update preview** to reposition the captured geometry; moving the originals does not move the snapshot. **Cancel preview**, clearing the selection, or unequipping the tool removes it. A failed capture keeps the previous preview.
 
+**Select copies after placement** replaces your selection with the successfully built copies, including completed pieces if a batch stops early. It starts off and is remembered while the tool system remains active. Auto anchor applies; the old target is cleared. Undo restores the previous selection only—it does not remove copied buildings. If no pieces are built, your selection stays unchanged.
+
 Click **Place copies** (the plus-in-a-square icon) to review the material total and confirm placement at the **applied preview offset**. Update the preview after changing the fields. Placement supports vanilla lightweight foundations, ramps and walls without special instance data; other captured geometry remains preview-only. Every destination must be within 100 m of you. Unlocked recipes and enough materials in your player inventory are required; Dimensional Depot materials are not used. No Build Cost is respected.
 
 Copies preserve captured position offsets, rotation, scale, recipe and customization. Original buildings remain unchanged. Inventories, connections and blueprint membership are not copied. Exact duplicate positions are rejected, but **other overlaps are allowed; there are no clearance checks**. Inspect the preview carefully.

@@ -17,6 +17,7 @@ class HYPERMANAGE_API UHyperManageCopyPlacement : public UHyperManageComponent
 	GENERATED_BODY()
 public:
 	void Request();
+	bool SelectAfterPlacement = false;
 	UFUNCTION() void Confirm(bool Accepted);
 	static bool AccumulateCost(const TArray<FItemAmount>& Costs, TArray<FItemAmount>& Total);
 	using FDebit = TFunctionRef<bool(const TArray<FItemAmount>&, TArray<FItemAmount>&)>;
@@ -30,6 +31,7 @@ private:
 	uint64 ConfirmedRevision = 0;
 	double ConfirmedAt = 0;
 	bool ConfirmedNoCost = false;
+	bool ConfirmedSelectAfterPlacement = false;
 	bool AwaitingConfirmation = false;
 	bool Executing = false;
 };

@@ -145,6 +145,7 @@ void UHyperManageCopyPlacement::Request()
 	ConfirmedCharacter = Character;
 	ConfirmedNoCost = Character->GetInventory()->GetNoBuildCost();
 	ConfirmedCosts = Total;
+	ConfirmedSelectAfterPlacement = SelectAfterPlacement;
 	ConfirmedRevision = System->CopyPreview->GetRevision();
 	ConfirmedAt = System->GetWorld()->GetRealTimeSeconds();
 	AwaitingConfirmation = true;
@@ -153,9 +154,10 @@ void UHyperManageCopyPlacement::Request()
 	{
 		Materials += FString::Printf(TEXT("\n%s x %d"), *UFGItemDescriptor::GetItemName(Cost.ItemClass).ToString(), Cost.Amount);
 	}
-	const FString Message = FString::Printf(TEXT("Place %d copies at the current preview positions?\n\n%s\n\n")
+	FString Message = FString::Printf(TEXT("Place %d copies at the current preview positions?\n\n%s\n\n")
 		TEXT("No clearance checks: overlapping builds are allowed. No inventories, connections or blueprint membership are copied. Placement cannot be undone here. ")
 		TEXT("If a piece fails, earlier copies stay and only completed copies are charged. The preview is cleared after an attempt. Confirmation expires after 60 seconds."), Costs.Num(), *Materials);
+	Message += ConfirmedSelectAfterPlacement ? TEXT(" Successful copies will replace your selection. Undo restores selection only, not construction.") : TEXT(" Your current selection will be kept.");
 	System->UI->ShowConfirm(TEXT("Place copied structures?"), Message, this, TEXT("Confirm"));
 }
 
@@ -198,6 +200,8 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 	auto* Inventory = Character->GetInventory();
 	auto* Subsystem = AFGLightweightBuildableSubsystem::Get(System->GetWorld());
 	bool DroppedRefund = false;
+	TArray<AActor*> PlacedCopies;
+	bool CopySelectionAvailable = true;
 	const auto Result = RunBatch(Costs, [&](const TArray<FItemAmount>& Price, TArray<FItemAmount>& Paid)
 	{
 		for (const auto& Cost : Price)
@@ -230,7 +234,22 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 		const int32 CreatedIndex = Subsystem->AddFromBuildableInstanceData(Snapshot.Class, Data);
 		if (CreatedIndex == INDEX_NONE) return false;
 		const auto* Created = Subsystem->GetRuntimeDataForBuildableClassAndIndex(Snapshot.Class, CreatedIndex);
-		if (Created && Created->IsValid() && Created->BuiltWithRecipe == Snapshot.Recipe && Created->Transform.Equals(Data.Transform, 0.01)) return true;
+		if (Created && Created->IsValid() && Created->BuiltWithRecipe == Snapshot.Recipe && Created->Transform.Equals(Data.Transform, 0.01))
+		{
+			if (ConfirmedSelectAfterPlacement)
+			{
+				auto* Proxy = System->Selection->GetLightweightProxy(Snapshot.Class, CreatedIndex, *Created);
+				if (Proxy)
+				{
+					PlacedCopies.Add(Proxy);
+				}
+				else
+				{
+					CopySelectionAvailable = false;
+				}
+			}
+			return true;
+		}
 		Subsystem->RemoveByInstanceIndex(Snapshot.Class, CreatedIndex);
 		return false;
 	}, [&](const TArray<FItemAmount>& Paid)
@@ -254,6 +273,11 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 	Executing = false;
 	System->CopyPreview->Clear();
 	FString Message = FString::Printf(TEXT("Placed %d of %d copies. Originals are unchanged. Placement has no HyperManage undo."), Result.Completed, Snapshots.Num());
+	if (ConfirmedSelectAfterPlacement && Result.Completed > 0)
+	{
+		const bool Selected = CopySelectionAvailable && PlacedCopies.Num() == Result.Completed && System->Selection->SelectPlacedCopies(PlacedCopies);
+		Message += Selected ? TEXT(" Completed copies are selected. Undo restores the previous selection; it does not remove the copies.") : TEXT(" Copies were built, but could not all be selected. Your previous selection was kept.");
+	}
 	if (Result.Failed)
 	{
 		Message += TEXT(" The batch stopped at the first failure; later copies were not attempted. Recapture only the pieces still needed.");

@@ -139,6 +139,7 @@ public:
 	bool SelectPlacedBlueprint(AActor* Actor);
 	bool SetMarkerWithHistory(AActor* Actor, bool Anchor);
 	void ClearWithoutHistory();
+	bool SelectPlacedCopies(const TArray<AActor*>& Copies);
 	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
  bool ForgetSelectionSlot();

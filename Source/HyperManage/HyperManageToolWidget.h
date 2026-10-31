@@ -65,6 +65,7 @@ protected:
 	UFUNCTION() void RemoveBoxEdges();
 	UFUNCTION() void RemoveBoxCenters();
  UFUNCTION() void ChangeAutoAnchor(bool Enabled);
+ UFUNCTION() void ChangeSelectAfterCopy(bool Enabled);
 	UPROPERTY(Transient) TObjectPtr<UComboBoxString> SelectionSlotPicker;
 	UPROPERTY(Transient) TObjectPtr<class UEditableTextBox> SlotNameField;
 	int32 EditingSlotName = 0;
