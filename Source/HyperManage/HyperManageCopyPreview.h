@@ -35,6 +35,7 @@ public:
 	bool IsPlacementReady() const { return !FollowMouse || SurfaceValid; }
 	static bool SurfaceOffset(const FBox& Bounds, const FVector& Point, const FVector& Normal, FVector& Meters);
 	FVector GetPreferredOffsetMeters() const { return PreferredOffsetMeters; }
+	static FVector EdgeSnapOffset(const TArray<FVector>& GroupPoints, const TArray<FVector>& ReferencePoints, const FQuat& Rotation, const FVector& Direction);
 	void Clear();
 	uint64 GetRevision() const { return Revision; }
 	const TArray<FHyperManageCopySnapshot>& GetSnapshots() const { return Snapshots; }
@@ -47,6 +48,8 @@ private:
 	FVector PreferredOffsetMeters = FVector(8, 0, 0);
 	UPROPERTY(Transient) TArray<FHyperManageCopySnapshot> Snapshots;
 	uint64 Revision = 0;
+	TArray<FVector> CapturedEdgePoints;
+	TArray<FVector> ReferenceEdgePoints;
 	FBox CapturedBounds = FBox(ForceInit);
 	bool FollowMouse = true;
 	bool SurfaceValid = false;

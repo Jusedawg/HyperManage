@@ -44,6 +44,15 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 	Input->HyperManageInputComponent = NewObject<UInputComponent>();
 	Input->SetupKeyBinding(FHyperManageKeyConfig(CancelCopy, EKeys::Escape, false, false, false, false), IE_Pressed);
 	TestFalse(TEXT("Escape passes through without preview"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
+	const TArray<FVector> ReferencePoints = {FVector(-400, -400, 0), FVector(400, 400, 0)};
+	const TArray<FVector> GroupPoints = {FVector(-1200, -400, 0), FVector(1200, 400, 0)};
+	TestTrue(TEXT("Centered three-piece group moves outward to meet its near edge"), UHyperManageCopyPreview::EdgeSnapOffset(GroupPoints, ReferencePoints, FQuat::Identity, FVector::ForwardVector).Equals(FVector(800, 0, 0)));
+	TestTrue(TEXT("Opposite edge shifts in the opposite direction"), UHyperManageCopyPreview::EdgeSnapOffset(GroupPoints, ReferencePoints, FQuat::Identity, -FVector::ForwardVector).Equals(FVector(-800, 0, 0)));
+	TestTrue(TEXT("Single piece retains native snap location"), UHyperManageCopyPreview::EdgeSnapOffset(ReferencePoints, ReferencePoints, FQuat::Identity, FVector::ForwardVector).IsNearlyZero());
+	TestTrue(TEXT("Quarter-turned group uses its rotated edge"), UHyperManageCopyPreview::EdgeSnapOffset(GroupPoints, ReferencePoints, FRotator(0, 90, 0).Quaternion(), FVector::RightVector).Equals(FVector(0, 800, 0), 0.001));
+	const FQuat Diagonal = FRotator(0, 37, 0).Quaternion();
+	TestTrue(TEXT("Diagonal foundations preserve edge distance"), UHyperManageCopyPreview::EdgeSnapOffset(GroupPoints, ReferencePoints, Diagonal, Diagonal.RotateVector(FVector::ForwardVector)).Equals(Diagonal.RotateVector(FVector(800, 0, 0)), 0.001));
+	TestTrue(TEXT("Missing edge geometry does not offset preview"), UHyperManageCopyPreview::EdgeSnapOffset({}, ReferencePoints, FQuat::Identity, FVector::ForwardVector).IsNearlyZero());
 	FVector SurfaceMeters;
 	const FBox Bounds(FVector(-100), FVector(100));
 	TestTrue(TEXT("Surface positioning accepts floor"), UHyperManageCopyPreview::SurfaceOffset(Bounds, FVector(1000, 2000, 0), FVector::UpVector, SurfaceMeters));

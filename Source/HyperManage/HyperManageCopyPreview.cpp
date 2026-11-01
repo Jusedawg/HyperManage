@@ -7,6 +7,7 @@
 #include "Buildables/FGBuildableWall.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "Engine/StaticMesh.h"
 #include "Hologram/FGHologram.h"
 #include "Hologram/FGFoundationHologram.h"
 #include "Materials/MaterialInterface.h"
@@ -87,6 +88,8 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 	TArray<FSelectedActorInfo> Captured;
 	TArray<FTransform> Transforms;
 	TArray<FHyperManageCopySnapshot> Metadata;
+	TArray<FVector> EdgePoints;
+	TArray<FVector> FirstEdgePoints;
 	FBox Bounds(ForceInit);
 	for (auto* Actor : Ordered)
 	{
@@ -113,6 +116,7 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 			Message = TEXT("A piece has no available preview geometry. The previous preview is unchanged.");
 			return false;
 		}
+		TArray<FVector> PiecePoints;
 		for (const auto& Mesh : Piece.HighlightMeshes)
 		{
 			Mesh->SetRenderInMainPass(true);
@@ -125,9 +129,33 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 			Mesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			Transforms.Add(Mesh->GetComponentTransform());
 			Bounds += Mesh->Bounds.GetBox();
+			const FBox MeshBox = Mesh->GetStaticMesh()->GetBoundingBox();
+			for (int32 Corner = 0; Corner < 8; ++Corner)
+			{
+				const FVector Point(Corner & 1 ? MeshBox.Max.X : MeshBox.Min.X, Corner & 2 ? MeshBox.Max.Y : MeshBox.Min.Y, Corner & 4 ? MeshBox.Max.Z : MeshBox.Min.Z);
+				PiecePoints.Add(Mesh->GetComponentTransform().TransformPosition(Point));
+			}
+		}
+		// Foundation dimensions describe the mating edges, without decorative mesh overhangs.
+		const auto* Foundation = Snapshot.Class ? Cast<AFGBuildableFoundation>(Snapshot.Class->GetDefaultObject()) : Cast<AFGBuildableFoundation>(Actor);
+		if (Foundation && Foundation->mWidth > 0 && Foundation->mDepth > 0 && FMath::IsNearlyZero(Foundation->mElevation))
+		{
+			PiecePoints.Reset();
+			for (int32 Corner = 0; Corner < 8; ++Corner)
+			{
+				const FVector Point((Corner & 1 ? 0.5 : -0.5) * Foundation->mWidth, (Corner & 2 ? 0.5 : -0.5) * Foundation->mDepth, (Corner & 4 ? 0.5 : -0.5) * Foundation->mHeight);
+				PiecePoints.Add(Snapshot.Transform.TransformPosition(Point));
+			}
+		}
+		EdgePoints.Append(PiecePoints);
+		if (Metadata.Num() == 1)
+		{
+			FirstEdgePoints = PiecePoints;
 		}
 	}
 	Clear();
+	CapturedEdgePoints = MoveTemp(EdgePoints);
+	ReferenceEdgePoints = MoveTemp(FirstEdgePoints);
 	Pieces = MoveTemp(Captured);
 	Snapshots = MoveTemp(Metadata);
 	OriginalMeshTransforms = MoveTemp(Transforms);
@@ -249,6 +277,23 @@ FTransform UHyperManageCopyPreview::GetPlacementTransform(const FTransform& Sour
 	return FTransform((PlacementRotation * Source.GetRotation()).GetNormalized(), Pivot + OffsetCm + PlacementRotation.RotateVector(Source.GetLocation() - Pivot), Source.GetScale3D());
 }
 
+FVector UHyperManageCopyPreview::EdgeSnapOffset(const TArray<FVector>& GroupPoints, const TArray<FVector>& ReferencePoints, const FQuat& Rotation, const FVector& Direction)
+{
+	if (GroupPoints.IsEmpty() || ReferencePoints.IsEmpty() || Rotation.ContainsNaN() || Direction.ContainsNaN() || Direction.IsNearlyZero()) return FVector::ZeroVector;
+	const FVector Normal = Direction.GetSafeNormal();
+	auto MinimumProjection = [&](const TArray<FVector>& Points)
+	{
+		double Minimum = TNumericLimits<double>::Max();
+		for (const FVector& Point : Points)
+		{
+			Minimum = FMath::Min(Minimum, FVector::DotProduct(Rotation.RotateVector(Point), Normal));
+		}
+		return Minimum;
+	};
+	const double Distance = MinimumProjection(ReferencePoints) - MinimumProjection(GroupPoints);
+	return FMath::IsFinite(Distance) ? Normal * Distance : FVector::ZeroVector;
+}
+
 bool UHyperManageCopyPreview::TryNativeSnap(const FHitResult& Hit, FTransform& Pose)
 {
 	if (Snapshots.IsEmpty() || !System) return false;
@@ -291,6 +336,28 @@ bool UHyperManageCopyPreview::TryNativeSnap(const FHitResult& Hit, FTransform& P
 	SnapHologram->ScrollRotate(RotationDegrees / 90, 90);
 	const bool Snapped = SnapHologram->TrySnapToActor(SnapHit);
 	Pose = SnapHologram->GetActorTransform();
+	const auto* TargetFoundation = Cast<AFGBuildableFoundation>(SnapHit.GetActor());
+	const auto* ReferenceFoundation = Cast<AFGBuildableFoundation>(Reference.Class->GetDefaultObject());
+	if (Snapped && TargetFoundation && ReferenceFoundation && FMath::IsNearlyZero(TargetFoundation->mElevation) && FMath::IsNearlyZero(ReferenceFoundation->mElevation))
+	{
+		const FTransform TargetTransform = TargetFoundation->GetActorTransform();
+		const FVector Delta = TargetTransform.InverseTransformPosition(Pose.GetLocation());
+		FVector Side = FVector::ZeroVector;
+		if (TargetFoundation->mWidth > 0 && FMath::Abs(Delta.X) > TargetFoundation->mWidth * 0.5 && FMath::Abs(Delta.X) >= FMath::Abs(Delta.Y))
+		{
+			Side.X = FMath::Sign(Delta.X);
+		}
+		else if (TargetFoundation->mDepth > 0 && FMath::Abs(Delta.Y) > TargetFoundation->mDepth * 0.5)
+		{
+			Side.Y = FMath::Sign(Delta.Y);
+		}
+		if (!Side.IsNearlyZero())
+		{
+			const FVector Direction = TargetTransform.TransformVectorNoScale(Side).GetSafeNormal();
+			const FQuat GroupRotation = (Pose.GetRotation() * Reference.Transform.GetRotation().Inverse()).GetNormalized();
+			Pose.AddToTranslation(EdgeSnapOffset(CapturedEdgePoints, ReferenceEdgePoints, GroupRotation, Direction));
+		}
+	}
 	SnapHologram->SetActorHiddenInGame(true);
 	return Snapped && HyperManageLightweight::IsValidTransform(Pose);
 }
@@ -356,6 +423,8 @@ void UHyperManageCopyPreview::Clear()
 	OriginalMeshTransforms.Reset();
 	Snapshots.Reset();
 	CapturedBounds = FBox(ForceInit);
+	CapturedEdgePoints.Reset();
+	ReferenceEdgePoints.Reset();
 	SurfaceValid = false;
 	++Revision;
 	OffsetCm = FVector::ZeroVector;

@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.104")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.105")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -384,7 +384,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* FollowLabel = WidgetTree->ConstructWidget<UTextBlock>();
 	FollowLabel->SetText(FText::FromString(TEXT("Follow mouse (off: exact offset)")));
 	CopyFollowMouse->SetContent(FollowLabel);
-	CopyFollowMouse->SetToolTipText(FText::FromString(TEXT("Aim at terrain or a building to position the group against its surface. Mouse wheel rotates the preview in 90-degree steps. Middle-click switches modes while previewing. Turning this off freezes the current position for precise offset edits. A normal-size foundation anchor uses native foundation snapping; the whole group follows its snapped rotation. Other reference pieces use surface placement.")));
+	CopyFollowMouse->SetToolTipText(FText::FromString(TEXT("Aim at terrain or a building to position the group against its surface. Mouse wheel rotates the preview in 90-degree steps. Middle-click switches modes while previewing. Turning this off freezes the current position for precise offset edits. A normal-size foundation anchor uses native foundation snapping; the whole group follows its snapped rotation. Side snaps between flat foundations align the outer edge of the group to the join. Other reference pieces use surface placement.")));
 	CopyFollowMouse->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeCopyFollowMouse);
 	auto* CopyModeRow = WidgetTree->ConstructWidget<UHorizontalBox>();
 	CopyModeRow->AddChildToHorizontalBox(CopyFollowMouse)->SetVerticalAlignment(VAlign_Center);
