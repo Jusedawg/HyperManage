@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.103")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.104")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -424,7 +424,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	AddCopyButton(TEXT("Capture"), TEXT("Capture selected foundations, ramps and walls, excluding the target. Replaces the previous preview only on success. Up to 50 pieces; single-player only. Nothing is built or charged."), 12)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CaptureCopyPreview);
 	AddCopyButton(TEXT("Update preview"), TEXT("Move the captured preview to this offset. Does not recapture changed source buildings or alter originals."), 14)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::UpdateCopyPreview);
 	AddCopyButton(TEXT("Cancel preview"), TEXT("Discard the preview. Original buildings, inventory and edit history are unchanged."), 7)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::CancelCopyPreview);
-	AddCopyButton(TEXT("Place copies"), TEXT("Place the current preview after reviewing material costs. Update edited fields first. Lightweight foundations/ramps/walls only, single-player, within 100 m. No placement undo or clearance checks."), 9)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::PlaceCopyPreview);
+	AddCopyButton(TEXT("Place copies"), TEXT("Build the current preview immediately using available inventory materials. Update edited fields first. Lightweight foundations/ramps/walls only, single-player, within 100 m. No placement undo or clearance checks."), 9)->OnClicked.AddDynamic(this, &UHyperManageToolWidget::PlaceCopyPreview);
 	CopyBody->AddChildToVerticalBox(CopyRow);
 	auto* CopyKeys = WidgetTree->ConstructWidget<UTextBlock>();
 	CopyKeys->SetAutoWrapText(true);
@@ -443,7 +443,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	SelectCopies->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeSelectAfterCopy);
 	CopyBody->AddChildToVerticalBox(SelectCopies);
 	CopyStatus = WidgetTree->ConstructWidget<UTextBlock>(); CopyStatus->SetAutoWrapText(true);
-	CopyStatus->SetText(FText::FromString(Preview && Preview->GetCount() ? TEXT("Preview active. Update, Cancel, or Place after reviewing costs.") : TEXT("Capture foundations, ramps or walls; Place confirms costs.")));
+	CopyStatus->SetText(FText::FromString(Preview && Preview->GetCount() ? TEXT("Preview active. Place builds immediately.") : TEXT("Capture foundations, ramps or walls; Place builds immediately.")));
 	CopyBody->AddChildToVerticalBox(CopyStatus);
 	AddCollapsedSection(CopyHeading, CopyBody);
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();

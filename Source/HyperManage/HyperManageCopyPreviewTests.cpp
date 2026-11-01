@@ -1,5 +1,7 @@
 #include "HyperManageCopyPreview.h"
 #include "HyperManageInput.h"
+#include "HyperManageEquip.h"
+#include "FGPlayerController.h"
 #include "Components/InputComponent.h"
 #include "Buildables/FGBuildableFoundation.h"
 #include "Components/StaticMeshComponent.h"
@@ -108,11 +110,32 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Reset updates visible mesh orientation"), Ghost->GetComponentQuat().Equals(Initial.GetRotation(), 0.001));
 		TestTrue(TEXT("Reset invalidates prior confirmation revision"), Preview->GetRevision() > BeforeReset);
 		TestEqual(TEXT("Reset clears wheel accumulator"), Preview->RotationDegrees, 0);
+		System->CurrentWorld = World;
+		System->LocalController = World->SpawnActor<AFGPlayerController>();
+		System->Selection = InitComponent<UHyperManageSelection>(System);
+		System->Config = NewObject<UHyperManageConfiguration>(System);
+		System->Config->MMKeyConfigs.ActionKeys = {FHyperManageKeyConfig(RotateCopyRight, EKeys::MouseScrollUp, false, false, false, false), FHyperManageKeyConfig(RotateCopyLeft, EKeys::MouseScrollDown, false, false, false, false)};
+		Input->Equip = World->SpawnActor<AHyperManageEquip>();
+		Input->RefreshPreviewBinding();
+		TestTrue(TEXT("Active preview registers wheel interception"), Input->PreviewWheelProcessor.IsValid());
+		if (TestNotNull(TEXT("Wheel test controller"), System->LocalController))
+		{
+			System->LocalController->bShowMouseCursor = false;
+			TestTrue(TEXT("Preview consumes wheel before equipment switching"), Input->HandlePreviewWheel(1.f, false, false, false));
+			TestTrue(TEXT("Consumed wheel rotates preview"), Preview->HasPlacementRotation());
+			TestFalse(TEXT("Unmapped modifier chord passes through"), Input->HandlePreviewWheel(1.f, true, false, false));
+			System->LocalController->bShowMouseCursor = true;
+			TestFalse(TEXT("Open panel keeps wheel scrolling"), Input->HandlePreviewWheel(-1.f, false, false, false));
+			System->LocalController->bShowMouseCursor = false;
+			TestTrue(TEXT("Opposite wheel reverses preview turn"), Input->HandlePreviewWheel(-1.f, false, false, false) && !Preview->HasPlacementRotation());
+		}
 		Source->Destroy();
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
 		Preview->Clear();
 		TestFalse(TEXT("Empty preview cannot reset rotation"), Preview->ResetRotation());
 		TestFalse(TEXT("Empty preview cannot rotate"), Preview->RotatePreview(90));
+		TestFalse(TEXT("Cancel unregisters wheel interception"), Input->PreviewWheelProcessor.IsValid());
+		TestFalse(TEXT("No preview leaves equipment wheel alone"), Input->HandlePreviewWheel(1.f, false, false, false));
 		TestEqual(TEXT("Cancel releases all pieces"), Preview->GetCount(), 0);
 		TestFalse(TEXT("Escape passes through after cancel"), Input->HyperManageInputComponent->KeyBindings[0].bConsumeInput);
 		TestTrue(TEXT("Last applied offset survives cancellation"), Preview->GetPreferredOffsetMeters().Equals(FVector(0, 0, 2)));

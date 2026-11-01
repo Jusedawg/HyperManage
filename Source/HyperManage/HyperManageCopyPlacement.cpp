@@ -135,66 +135,16 @@ bool UHyperManageCopyPlacement::Preflight(TArray<TArray<FItemAmount>>& Costs, TA
 
 void UHyperManageCopyPlacement::Request()
 {
-	if (Executing || AwaitingConfirmation || !System || !System->UI) return;
+	if (Executing || !System || !System->UI) return;
 	FString Error; TArray<TArray<FItemAmount>> Costs; TArray<FItemAmount> Total;
 	if (!Preflight(Costs, Total, Error))
 	{
 		System->UI->ShowPopup(TEXT("Cannot place copies"), Error);
 		return;
 	}
-	auto* Character = Cast<AFGCharacterPlayer>(System->GetLocalController()->GetPawn());
-	ConfirmedCharacter = Character;
-	ConfirmedNoCost = Character->GetInventory()->GetNoBuildCost();
-	ConfirmedCosts = Total;
-	ConfirmedSelectAfterPlacement = SelectAfterPlacement;
-	ConfirmedRevision = System->CopyPreview->GetRevision();
-	ConfirmedAt = System->GetWorld()->GetRealTimeSeconds();
-	AwaitingConfirmation = true;
-	FString Materials = ConfirmedNoCost ? TEXT("No build cost is enabled.") : TEXT("Materials from your inventory:");
-	for (const auto& Cost : Total)
-	{
-		Materials += FString::Printf(TEXT("\n%s x %d"), *UFGItemDescriptor::GetItemName(Cost.ItemClass).ToString(), Cost.Amount);
-	}
-	FString Message = FString::Printf(TEXT("Place %d copies at the current preview positions?\n\n%s\n\n")
-		TEXT("No clearance checks: overlapping builds are allowed. No inventories, connections or blueprint membership are copied. Placement cannot be undone here. ")
-		TEXT("If a piece fails, earlier copies stay and only completed copies are charged. The preview is cleared after an attempt. Confirmation expires after 60 seconds."), Costs.Num(), *Materials);
-	Message += ConfirmedSelectAfterPlacement ? TEXT(" Successful copies will replace your selection. Undo restores selection only, not construction.") : TEXT(" Your current selection will be kept.");
-	System->UI->ShowConfirm(TEXT("Place copied structures?"), Message, this, TEXT("Confirm"));
-}
-
-void UHyperManageCopyPlacement::Confirm(bool Accepted)
-{
-	if (!AwaitingConfirmation || Executing) return;
-	AwaitingConfirmation = false;
-	if (!Accepted || !System || !System->UI || !System->CopyPreview || !System->GetWorld()) return;
-	auto Fail = [&](const FString& Error) { System->UI->ShowPopup(TEXT("Copy placement cancelled"), Error); };
 	auto* Controller = System->GetLocalController();
-	auto* Character = Controller ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
-	if (!ConfirmedCharacter.IsValid() || Character != ConfirmedCharacter.Get() || System->CopyPreview->GetRevision() != ConfirmedRevision
-		|| System->GetWorld()->GetRealTimeSeconds() - ConfirmedAt > 60 || !IsValid(Character->GetInventory()) || Character->GetInventory()->GetNoBuildCost() != ConfirmedNoCost)
-	{
-		Fail(TEXT("The preview, player or rules changed, or confirmation expired. Review the preview and try again."));
-		return;
-	}
-	FString Error; TArray<TArray<FItemAmount>> Costs; TArray<FItemAmount> Total;
-	if (!Preflight(Costs, Total, Error))
-	{
-		Fail(Error);
-		return;
-	}
-	if (Total.Num() != ConfirmedCosts.Num())
-	{
-		Fail(TEXT("Construction costs changed. Confirm again."));
-		return;
-	}
-	for (int32 Index = 0; Index < Total.Num(); ++Index)
-	{
-		if (Total[Index].ItemClass != ConfirmedCosts[Index].ItemClass || Total[Index].Amount != ConfirmedCosts[Index].Amount)
-		{
-			Fail(TEXT("Construction costs changed. Confirm again."));
-			return;
-		}
-	}
+	auto* Character = Cast<AFGCharacterPlayer>(Controller->GetPawn());
+	const bool SelectCompleted = SelectAfterPlacement;
 	Executing = true;
 	const auto Snapshots = System->CopyPreview->GetSnapshots();
 	auto* Inventory = Character->GetInventory();
@@ -236,7 +186,7 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 		const auto* Created = Subsystem->GetRuntimeDataForBuildableClassAndIndex(Snapshot.Class, CreatedIndex);
 		if (Created && Created->IsValid() && Created->BuiltWithRecipe == Snapshot.Recipe && Created->Transform.Equals(Data.Transform, 0.01))
 		{
-			if (ConfirmedSelectAfterPlacement)
+			if (SelectCompleted)
 			{
 				auto* Proxy = System->Selection->GetLightweightProxy(Snapshot.Class, CreatedIndex, *Created);
 				if (Proxy)
@@ -273,7 +223,7 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 	Executing = false;
 	System->CopyPreview->Clear();
 	FString Message = FString::Printf(TEXT("Placed %d of %d copies. Originals are unchanged. Placement has no HyperManage undo."), Result.Completed, Snapshots.Num());
-	if (ConfirmedSelectAfterPlacement && Result.Completed > 0)
+	if (SelectCompleted && Result.Completed > 0)
 	{
 		const bool Selected = CopySelectionAvailable && PlacedCopies.Num() == Result.Completed && System->Selection->SelectPlacedCopies(PlacedCopies);
 		Message += Selected ? TEXT(" Completed copies are selected. Undo restores the previous selection; it does not remove the copies.") : TEXT(" Copies were built, but could not all be selected. Your previous selection was kept.");
@@ -290,5 +240,8 @@ void UHyperManageCopyPlacement::Confirm(bool Accepted)
 	{
 		Message += TEXT(" Material recovery failed. Do not repeat the operation; restore your previous save to recover those materials.");
 	}
-	System->UI->ShowPopup(Result.Failed ? TEXT("Copy placement stopped") : TEXT("Copies placed"), Message);
+	if (Result.Failed || DroppedRefund || (SelectCompleted && !CopySelectionAvailable))
+	{
+		System->UI->ShowPopup(TEXT("Copy placement notice"), Message);
+	}
 }

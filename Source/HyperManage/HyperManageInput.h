@@ -34,14 +34,12 @@ public:
 
 	void Detach();
 	void RefreshPreviewBinding();
+	bool HandlePreviewWheel(float Delta, bool Ctrl, bool Alt, bool Shift);
 private:
 	TArray<int32> PreviewBindingIndices;
-	UPROPERTY(Transient) TObjectPtr<class UInputMappingContext> PreviewWheelContext;
-	UPROPERTY(Transient) TObjectPtr<class UInputAction> PreviewWheelAction;
-	TWeakObjectPtr<class UEnhancedInputLocalPlayerSubsystem> PreviewWheelSubsystem;
+	TSharedPtr<class IInputProcessor> PreviewWheelProcessor;
 	void RefreshPreviewWheel();
 	void RemovePreviewWheel();
-	void HandlePreviewWheel(const struct FInputActionValue& Value);
 	static bool IsPreviewWheelKey(const FHyperManageKeyConfig& Key);
 
 public:

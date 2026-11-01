@@ -113,6 +113,7 @@ UCLASS(BlueprintType)
 class HYPERMANAGE_API UHyperManageSystem : public UObject
 {
 	friend class FHyperManageSelectionHistoryTest;
+	friend class FHyperManageCopyPreviewTest;
 	GENERATED_BODY()
 
 private:

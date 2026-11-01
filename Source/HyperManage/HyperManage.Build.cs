@@ -6,7 +6,7 @@ public class HyperManage : ModuleRules
     {
         PCHUsage = PCHUsageMode.NoPCHs;
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "FactoryGame", "SML", "UMG", "AbstractInstance" });
-        PrivateDependencyModuleNames.AddRange(new string[] { "EnhancedInput", "Slate", "SlateCore", "Json", "JsonUtilities", "Projects" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Json", "JsonUtilities", "Projects" });
         RuntimeDependencies.Add("$(PluginDir)/Config/DefaultHyperManage.ini", StagedFileType.NonUFS);
         RuntimeDependencies.Add("$(PluginDir)/LICENSE", StagedFileType.NonUFS);
         RuntimeDependencies.Add("$(PluginDir)/Resources/Icon128.png", StagedFileType.NonUFS);

@@ -134,7 +134,7 @@ bool UHyperManageCopyPreview::Capture(const TArray<AActor*>& Actors, const FVect
 	CapturedBounds = Bounds;
 	ApplyOffset(Meters, true);
 	ShowPreview(!FollowMouse);
-	Message = FString::Printf(TEXT("%d pieces previewed. Close the panel to inspect. Place asks for confirmation and material costs."), Pieces.Num());
+	Message = FString::Printf(TEXT("%d pieces previewed. Close the panel to inspect. Place builds immediately using available materials."), Pieces.Num());
 	return true;
 }
 
@@ -148,7 +148,7 @@ bool UHyperManageCopyPreview::SetOffset(const FVector& Meters)
 bool UHyperManageCopyPreview::ResetRotation()
 {
 	if (Pieces.IsEmpty()) return false;
-	if (System && System->CopyPlacement && System->CopyPlacement->IsAwaitingConfirmation()) return false;
+	if (System && System->CopyPlacement && System->CopyPlacement->IsExecuting()) return false;
 	RotationDegrees = 0;
 	PlacementRotation = FQuat::Identity;
 	ApplyOffset(GetOffsetMeters(), false);
@@ -164,7 +164,7 @@ bool UHyperManageCopyPreview::ResetRotation()
 bool UHyperManageCopyPreview::RotatePreview(int32 Degrees)
 {
 	if (Pieces.IsEmpty() || (Degrees != 90 && Degrees != -90)) return false;
-	if (System && System->CopyPlacement && System->CopyPlacement->IsAwaitingConfirmation()) return false;
+	if (System && System->CopyPlacement && System->CopyPlacement->IsExecuting()) return false;
 	if (System && System->GetWorld() && System->GetLocalController())
 	{
 		auto* Controller = System->GetLocalController();
@@ -300,7 +300,7 @@ void UHyperManageCopyPreview::TickPlacement()
 	if (!FollowMouse || Pieces.IsEmpty() || !System || !System->GetWorld()) return;
 	auto* Controller = System->GetLocalController();
 	if (!Controller || !Controller->PlayerCameraManager || Controller->bShowMouseCursor || Controller->IsLookInputIgnored() || System->GetWorld()->IsPaused()) return;
-	if (System->CopyPlacement && System->CopyPlacement->IsAwaitingConfirmation()) return;
+	if (System->CopyPlacement && System->CopyPlacement->IsExecuting()) return;
 	const FVector Start = Controller->PlayerCameraManager->GetCameraLocation();
 	const FVector End = Start + Controller->PlayerCameraManager->GetCameraRotation().Vector() * 10000.;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(HyperManageCopyPlacement), true);
