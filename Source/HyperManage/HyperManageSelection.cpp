@@ -577,9 +577,9 @@ bool UHyperManageSelection::SetMarkerWithHistory(AActor* Actor, bool Anchor)
 	return Anchor ? SetAnchor(Actor) : SetTarget(Actor);
 }
 
-void UHyperManageSelection::ClearWithoutHistory()
+void UHyperManageSelection::ClearWithoutHistory(bool KeepCopyPreview)
 {
-	if (IsValid(System) && IsValid(System->CopyPreview))
+	if (!KeepCopyPreview && IsValid(System) && IsValid(System->CopyPreview))
 	{
 		System->CopyPreview->Clear();
 	}
@@ -590,7 +590,7 @@ void UHyperManageSelection::ClearWithoutHistory()
 	if (IsValid(SelectionPostProcess)) { SelectionPostProcess->DestroyComponent(); SelectionPostProcess = nullptr; }
 }
 
-bool UHyperManageSelection::SelectPlacedCopies(const TArray<AActor*>& Copies)
+bool UHyperManageSelection::SelectPlacedCopies(const TArray<AActor*>& Copies, bool KeepCopyPreview)
 {
 	if (Copies.IsEmpty() || HasPendingOperations()) return false;
 	TArray<AActor*> Unique;
@@ -609,7 +609,7 @@ bool UHyperManageSelection::SelectPlacedCopies(const TArray<AActor*>& Copies)
 	{
 		System->Undo->PushUndoSelection(Affected);
 	}
-	ClearWithoutHistory();
+	ClearWithoutHistory(KeepCopyPreview);
 	for (auto* Actor : Unique)
 	{
 		SelectActor(Actor);

@@ -138,8 +138,8 @@ public:
 	bool SelectPointedActorForTransform(AActor* Actor);
 	bool SelectPlacedBlueprint(AActor* Actor);
 	bool SetMarkerWithHistory(AActor* Actor, bool Anchor);
-	void ClearWithoutHistory();
-	bool SelectPlacedCopies(const TArray<AActor*>& Copies);
+	void ClearWithoutHistory(bool KeepCopyPreview = false);
+	bool SelectPlacedCopies(const TArray<AActor*>& Copies, bool KeepCopyPreview = false);
 	void RestoreHistory(const struct FUndoInfo& Info);
 	void SaveSelection();
  bool ForgetSelectionSlot();

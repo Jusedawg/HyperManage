@@ -133,6 +133,17 @@ bool UHyperManageCopyPlacement::Preflight(TArray<TArray<FItemAmount>>& Costs, TA
 	return true;
 }
 
+bool UHyperManageCopyPlacement::FinishPreview(const FHyperManageCopyBatchResult& Result)
+{
+	if (!System || !System->CopyPreview) return false;
+	const bool Keep = RepeatPlacement && !Result.Failed && !Result.RefundFailed && Result.Completed > 0 && Result.Completed == System->CopyPreview->GetCount();
+	if (!Keep)
+	{
+		System->CopyPreview->Clear();
+	}
+	return Keep;
+}
+
 void UHyperManageCopyPlacement::Request()
 {
 	if (Executing || !System || !System->UI) return;
@@ -221,11 +232,11 @@ void UHyperManageCopyPlacement::Request()
 		return Crate != nullptr;
 	});
 	Executing = false;
-	System->CopyPreview->Clear();
+	const bool KeepPreview = FinishPreview(Result);
 	FString Message = FString::Printf(TEXT("Placed %d of %d copies. Originals are unchanged. Placement has no HyperManage undo."), Result.Completed, Snapshots.Num());
 	if (SelectCompleted && Result.Completed > 0)
 	{
-		const bool Selected = CopySelectionAvailable && PlacedCopies.Num() == Result.Completed && System->Selection->SelectPlacedCopies(PlacedCopies);
+		const bool Selected = CopySelectionAvailable && PlacedCopies.Num() == Result.Completed && System->Selection->SelectPlacedCopies(PlacedCopies, KeepPreview);
 		Message += Selected ? TEXT(" Completed copies are selected. Undo restores the previous selection; it does not remove the copies.") : TEXT(" Copies were built, but could not all be selected. Your previous selection was kept.");
 	}
 	if (Result.Failed)

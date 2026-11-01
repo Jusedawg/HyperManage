@@ -1,4 +1,5 @@
 #include "HyperManageCopyPreview.h"
+#include "HyperManageCopyPlacement.h"
 #include "HyperManageInput.h"
 #include "HyperManageEquip.h"
 #include "FGPlayerController.h"
@@ -138,9 +139,19 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 			System->LocalController->bShowMouseCursor = false;
 			TestTrue(TEXT("Opposite wheel reverses preview turn"), Input->HandlePreviewWheel(-1.f, false, false, false) && !Preview->HasPlacementRotation());
 		}
+		System->CopyPlacement = InitComponent<UHyperManageCopyPlacement>(System);
+		FHyperManageCopyBatchResult Complete;
+		Complete.Completed = 1;
+		TestTrue(TEXT("Complete placement retains preview by default"), System->CopyPlacement->FinishPreview(Complete));
+		TestTrue(TEXT("Retained preview preserves geometry and input"), Ghost->IsRegistered() && Input->PreviewWheelProcessor.IsValid());
+		System->Config->MMConfig.AutoAnchor = false;
+		TestTrue(TEXT("Select-after-copy can preserve the reusable snapshot"), System->Selection->SelectPlacedCopies({Source}, true));
+		TestEqual(TEXT("Selection replacement leaves reusable snapshot intact"), Preview->GetCount(), 1);
 		Source->Destroy();
 		TestTrue(TEXT("Source deletion leaves snapshot registered"), Ghost->IsRegistered());
-		Preview->Clear();
+		FHyperManageCopyBatchResult Partial;
+		Partial.Completed = 1; Partial.Failed = true;
+		TestFalse(TEXT("Partial failure ends repeat placement"), System->CopyPlacement->FinishPreview(Partial));
 		TestFalse(TEXT("Empty preview cannot reset rotation"), Preview->ResetRotation());
 		TestFalse(TEXT("Empty preview cannot rotate"), Preview->RotatePreview(90));
 		TestFalse(TEXT("Cancel unregisters wheel interception"), Input->PreviewWheelProcessor.IsValid());
@@ -152,6 +163,22 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("Cancel unregisters geometry"), Ghost->IsRegistered());
 		TestFalse(TEXT("Offset update without capture rejected"), Preview->SetOffset(FVector::ZeroVector));
 		Preview->Clear();
+	}
+	auto* AnotherSource = World->SpawnActor<AFGBuildableFoundation>(SourceClass);
+	if (TestNotNull(TEXT("Single-placement source"), AnotherSource))
+	{
+		auto* AnotherMesh = NewObject<UStaticMeshComponent>(AnotherSource);
+		AnotherMesh->SetMobility(EComponentMobility::Movable);
+		AnotherMesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")));
+		AnotherSource->SetRootComponent(AnotherMesh);
+		AnotherSource->AddInstanceComponent(AnotherMesh);
+		AnotherMesh->RegisterComponent();
+		TestTrue(TEXT("Single-placement captures geometry"), Preview->Capture({AnotherSource}, FVector(8, 0, 0), Message));
+		System->CopyPlacement->RepeatPlacement = false;
+		FHyperManageCopyBatchResult Complete;
+		Complete.Completed = 1;
+		TestFalse(TEXT("Single-placement option ends successful preview"), System->CopyPlacement->FinishPreview(Complete));
+		TestEqual(TEXT("Single-placement clears snapshot"), Preview->GetCount(), 0);
 	}
 	World->DestroyWorld(false);
 	return true;

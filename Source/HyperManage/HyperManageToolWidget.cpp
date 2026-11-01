@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.105")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.106")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -433,6 +433,15 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 		CopyKeys->SetText(FText::FromString(PreviewSystem->Config->GetShortcutLabel(CopySelection) + TEXT(" Copy | ") + PreviewSystem->Config->GetShortcutLabel(PlaceCopy) + TEXT(" Place | ") + PreviewSystem->Config->GetShortcutLabel(CancelCopy) + TEXT(" Cancel | ") + PreviewSystem->Config->GetShortcutLabel(ResetCopyRotation) + TEXT(" Reset turns (panel closed)")));
 	}
 	CopyBody->AddChildToVerticalBox(CopyKeys);
+	auto* RepeatCopies = WidgetTree->ConstructWidget<UCheckBox>();
+	RepeatCopies->SetIsChecked(!PreviewSystem || !PreviewSystem->CopyPlacement || PreviewSystem->CopyPlacement->RepeatPlacement);
+	auto* RepeatLabel = WidgetTree->ConstructWidget<UTextBlock>();
+	RepeatLabel->SetText(FText::FromString(TEXT("Keep preview for repeated placement")));
+	RepeatLabel->SetColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.95f, 0.97f)));
+	RepeatCopies->SetContent(RepeatLabel);
+	RepeatCopies->SetToolTipText(FText::FromString(TEXT("After a successful placement, aim elsewhere and click again. Every placement checks materials and duplicate positions. Esc cancels. Failed or partial batches clear the preview. Turning this off places one batch per capture.")));
+	RepeatCopies->OnCheckStateChanged.AddDynamic(this, &UHyperManageToolWidget::ChangeRepeatCopy);
+	CopyBody->AddChildToVerticalBox(RepeatCopies);
 	auto* SelectCopies = WidgetTree->ConstructWidget<UCheckBox>();
 	SelectCopies->SetIsChecked(PreviewSystem && PreviewSystem->CopyPlacement && PreviewSystem->CopyPlacement->SelectAfterPlacement);
 	auto* SelectCopiesLabel = WidgetTree->ConstructWidget<UTextBlock>();
@@ -1225,6 +1234,14 @@ void UHyperManageToolWidget::ChangeCopyFollowMouse(bool Enabled)
 			const FVector Offset = System->CopyPreview->GetPreferredOffsetMeters();
 			CopyX->SetValue(Offset.X); CopyY->SetValue(Offset.Y); CopyZ->SetValue(Offset.Z);
 		}
+	}
+}
+
+void UHyperManageToolWidget::ChangeRepeatCopy(bool Enabled)
+{
+	if (auto* System = UHyperManageSystem::Get(); System && System->CopyPlacement)
+	{
+		System->CopyPlacement->RepeatPlacement = Enabled;
 	}
 }
 
