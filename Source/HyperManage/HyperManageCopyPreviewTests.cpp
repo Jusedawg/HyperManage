@@ -1,5 +1,6 @@
 #include "HyperManageCopyPreview.h"
 #include "HyperManageCopyPlacement.h"
+#include "HyperManageUI.h"
 #include "HyperManageInput.h"
 #include "HyperManageEquip.h"
 #include "FGPlayerController.h"
@@ -140,6 +141,15 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 			TestTrue(TEXT("Opposite wheel reverses preview turn"), Input->HandlePreviewWheel(-1.f, false, false, false) && !Preview->HasPlacementRotation());
 		}
 		System->CopyPlacement = InitComponent<UHyperManageCopyPlacement>(System);
+		System->UI = InitComponent<UHyperManageUI>(System);
+		System->CopyPlacement->Request();
+		TestFalse(TEXT("Rejected placement exposes nonmodal feedback"), System->CopyPlacement->GetPlacementNotice().IsEmpty());
+		TestEqual(TEXT("Rejected placement retains the preview"), Preview->GetCount(), 1);
+		TestTrue(TEXT("Rejected placement retains wheel input"), Input->PreviewWheelProcessor.IsValid());
+		System->CopyPlacement->NoticeExpiresAt = 0.;
+		TestTrue(TEXT("Placement feedback expires"), System->CopyPlacement->GetPlacementNotice().IsEmpty());
+		System->CopyPlacement->Request();
+		TestFalse(TEXT("Repeated attempt replaces expired feedback"), System->CopyPlacement->GetPlacementNotice().IsEmpty());
 		FHyperManageCopyBatchResult Complete;
 		Complete.Completed = 1;
 		TestTrue(TEXT("Complete placement retains preview by default"), System->CopyPlacement->FinishPreview(Complete));
@@ -152,6 +162,7 @@ bool FHyperManageCopyPreviewTest::RunTest(const FString& Parameters)
 		FHyperManageCopyBatchResult Partial;
 		Partial.Completed = 1; Partial.Failed = true;
 		TestFalse(TEXT("Partial failure ends repeat placement"), System->CopyPlacement->FinishPreview(Partial));
+		TestTrue(TEXT("Clearing preview clears stale feedback"), System->CopyPlacement->GetPlacementNotice().IsEmpty());
 		TestFalse(TEXT("Empty preview cannot reset rotation"), Preview->ResetRotation());
 		TestFalse(TEXT("Empty preview cannot rotate"), Preview->RotatePreview(90));
 		TestFalse(TEXT("Cancel unregisters wheel interception"), Input->PreviewWheelProcessor.IsValid());

@@ -19,6 +19,8 @@ class HYPERMANAGE_API UHyperManageCopyPlacement : public UHyperManageComponent
 public:
 	void Request();
 	FString GetMaterialSummary() const;
+	FString GetPlacementNotice() const;
+	void ClearPlacementNotice();
 	bool IsExecuting() const { return Executing; }
 	bool SelectAfterPlacement = false;
 	bool RepeatPlacement = true;
@@ -31,4 +33,6 @@ private:
 	bool FinishPreview(const FHyperManageCopyBatchResult& Result);
 	bool Preflight(TArray<TArray<FItemAmount>>& Costs, TArray<FItemAmount>& Total, FString& Error);
 	bool Executing = false;
+	FString PlacementNotice;
+	double NoticeExpiresAt = 0.;
 };

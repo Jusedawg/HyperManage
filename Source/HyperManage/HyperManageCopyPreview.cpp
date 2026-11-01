@@ -412,6 +412,10 @@ void UHyperManageCopyPreview::TickPlacement()
 
 void UHyperManageCopyPreview::Clear()
 {
+	if (System && System->CopyPlacement)
+	{
+		System->CopyPlacement->ClearPlacementNotice();
+	}
 	if (IsValid(SnapHologram))
 	{
 		SnapHologram->Destroy();

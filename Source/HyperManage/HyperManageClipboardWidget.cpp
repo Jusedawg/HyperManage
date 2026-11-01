@@ -1,6 +1,8 @@
 #include "HyperManageClipboardWidget.h"
 #include "HyperManageSystem.h"
 #include "HyperManageCopyPreview.h"
+#include "HyperManageCopyPlacement.h"
+#include "Components/Border.h"
 #include "HyperManageConfig.h"
 #include "HyperManageSelection.h"
 #include "Blueprint/WidgetTree.h"
@@ -70,6 +72,21 @@ TSharedRef<SWidget> UHyperManageClipboardWidget::RebuildWidget()
 		StatusText = AddText(TEXT("Increment: Medium\nMove: 0.1m  Rotate: 5 deg\nXY: 8m Z: 1m | Group | View"), 56, 489, 296, 60, 9);
 		NotesText = AddText(TEXT("Ctrl+Alt+K  Notes"), 56, 552, 148, 24, 9);
 		DismantleText = AddText(TEXT("Delete  Dismantle"), 212, 552, 140, 24, 9);
+		PlacementNoticeBox = WidgetTree->ConstructWidget<UBorder>();
+		PlacementNoticeBox->SetBrushColor(FLinearColor(0.035f, 0.045f, 0.05f, 0.92f));
+		PlacementNoticeBox->SetPadding(FMargin(14, 10));
+		PlacementNoticeBox->SetVisibility(ESlateVisibility::Collapsed);
+		PlacementNoticeText = WidgetTree->ConstructWidget<UTextBlock>();
+		PlacementNoticeText->SetWrapTextAt(500.f);
+		PlacementNoticeText->SetColorAndOpacity(FSlateColor(FLinearColor(0.95f, 0.82f, 0.56f)));
+		auto NoticeFont = PlacementNoticeText->GetFont(); NoticeFont.Size = 14;
+		PlacementNoticeText->SetFont(NoticeFont);
+		PlacementNoticeBox->SetContent(PlacementNoticeText);
+		auto* NoticeSlot = Root->AddChildToCanvas(PlacementNoticeBox);
+		NoticeSlot->SetAnchors(FAnchors(0.5f, 0.75f));
+		NoticeSlot->SetAlignment(FVector2D(0.5f, 0.f));
+		NoticeSlot->SetPosition(FVector2D::ZeroVector);
+		NoticeSlot->SetAutoSize(true);
 		SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 	return Super::RebuildWidget();
@@ -79,6 +96,12 @@ void UHyperManageClipboardWidget::NativeTick(const FGeometry& Geometry, float De
 {
 	Super::NativeTick(Geometry, DeltaTime);
 	auto* System = UHyperManageSystem::Get();
+	if (PlacementNoticeBox && PlacementNoticeText)
+	{
+		const FString Notice = System && System->CopyPlacement ? System->CopyPlacement->GetPlacementNotice() : FString();
+		PlacementNoticeText->SetText(FText::FromString(Notice));
+		PlacementNoticeBox->SetVisibility(Notice.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+	}
 	if (!System || !System->Config || !System->Selection || !StatusText || !ShortcutsText) return;
 	const auto& Config = System->Config->MMConfig;
 	if (!Config.IncrementSettings.IsValidIndex(Config.IncrementSize)) return;

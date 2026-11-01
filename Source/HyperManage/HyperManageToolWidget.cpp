@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.107")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.108")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -920,9 +920,14 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 		const bool Follow = System->CopyPreview->IsFollowingMouse();
 		CopyFollowMouse->SetIsChecked(Follow);
 		CopyX->SetIsEnabled(!Follow); CopyY->SetIsEnabled(!Follow); CopyZ->SetIsEnabled(!Follow);
-		if (System->CopyPreview->GetCount() > 0 && CopyStatus)
+		const FString PlacementNotice = System->CopyPlacement ? System->CopyPlacement->GetPlacementNotice() : FString();
+		if (CopyStatus && (!PlacementNotice.IsEmpty() || System->CopyPreview->GetCount() > 0))
 		{
-			CopyStatus->SetText(FText::FromString(Follow ? TEXT("Mouse follow: close the panel and aim at a surface. Left-click places; middle-click switches mode.") : TEXT("Exact offset: edit X/Y/Z and Update. Left-click or Ctrl+V places; middle-click switches mode.")));
+			CopyStatus->SetText(FText::FromString(!PlacementNotice.IsEmpty() ? PlacementNotice : Follow ? TEXT("Mouse follow: close the panel and aim at a surface. Left-click places; middle-click switches mode.") : TEXT("Exact offset: edit X/Y/Z and Update. Left-click or Ctrl+V places; middle-click switches mode.")));
+		}
+		else if (CopyStatus && CopyStatus->GetText().ToString().StartsWith(TEXT("Cannot place copies: ")))
+		{
+			CopyStatus->SetText(FText::FromString(TEXT("Capture foundations, ramps or walls; Place builds immediately.")));
 		}
 	}
  if (TrackRefundSelection && System && System->Selection) {

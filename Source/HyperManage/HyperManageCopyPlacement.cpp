@@ -176,17 +176,30 @@ bool UHyperManageCopyPlacement::FinishPreview(const FHyperManageCopyBatchResult&
 	return Keep;
 }
 
+FString UHyperManageCopyPlacement::GetPlacementNotice() const
+{
+	return FPlatformTime::Seconds() < NoticeExpiresAt ? PlacementNotice : FString();
+}
+
+void UHyperManageCopyPlacement::ClearPlacementNotice()
+{
+	PlacementNotice.Reset();
+	NoticeExpiresAt = 0.;
+}
+
 void UHyperManageCopyPlacement::Request()
 {
 	if (Executing || !System || !System->UI) return;
 	FString Error; TArray<TArray<FItemAmount>> Costs; TArray<FItemAmount> Total;
 	if (!Preflight(Costs, Total, Error))
 	{
-		System->UI->ShowPopup(TEXT("Cannot place copies"), Error);
+		PlacementNotice = TEXT("Cannot place copies: ") + Error;
+		NoticeExpiresAt = FPlatformTime::Seconds() + 8.;
 		return;
 	}
 	auto* Controller = System->GetLocalController();
 	auto* Character = Cast<AFGCharacterPlayer>(Controller->GetPawn());
+	ClearPlacementNotice();
 	const bool SelectCompleted = SelectAfterPlacement;
 	Executing = true;
 	const auto Snapshots = System->CopyPreview->GetSnapshots();
