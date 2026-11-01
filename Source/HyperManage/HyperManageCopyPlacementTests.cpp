@@ -1,5 +1,6 @@
 #include "HyperManageCopyPlacement.h"
 #include "Misc/AutomationTest.h"
+#include "Resources/FGBuildingDescriptor.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHyperManageCopyPlacementTest, "HyperManage.Copy.PlacementBatch", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -66,6 +67,61 @@ bool FHyperManageCopyPlacementTest::RunTest(const FString& Parameters)
 	FreePrices.SetNum(51);
 	Result = UHyperManageCopyPlacement::RunBatch(FreePrices, Debit, [](int32) { return true; }, Refund);
 	TestTrue(TEXT("Oversized batch rejected"), Result.Failed);
+	const auto OtherItem = UFGBuildingDescriptor::StaticClass();
+	TArray<FItemAmount> MixedTotal;
+	TestTrue(TEXT("Different material costs aggregate independently"), UHyperManageCopyPlacement::AccumulateCost({FItemAmount(Item, 2), FItemAmount(OtherItem, 3), FItemAmount(Item, 4)}, MixedTotal));
+	TestEqual(TEXT("Two different materials remain separate"), MixedTotal.Num(), 2);
+	TestEqual(TEXT("Repeated first material sums correctly"), MixedTotal[0].Amount, 6);
+	TestEqual(TEXT("Second material keeps its own amount"), MixedTotal[1].Amount, 3);
+	TestFalse(TEXT("Invalid later ingredient rejects the whole addition"), UHyperManageCopyPlacement::AccumulateCost({FItemAmount(Item, 7), FItemAmount(OtherItem, 0)}, MixedTotal));
+	TestEqual(TEXT("Earlier ingredient is not partially added after rejection"), MixedTotal[0].Amount, 6);
+
+	const TArray<TArray<FItemAmount>> MixedPrices = {{FItemAmount(Item, 2), FItemAmount(OtherItem, 3)}, {FItemAmount(Item, 4), FItemAmount(OtherItem, 1)}};
+	TMap<UClass*, int32> Balances = {{Item, 12}, {OtherItem, 8}};
+	int32 MixedCreates = 0, MixedRefunds = 0;
+	auto MixedDebit = [&](const TArray<FItemAmount>& Price, TArray<FItemAmount>& Paid)
+	{
+		for (const auto& Cost : Price)
+		{
+			if (Balances.FindRef(Cost.ItemClass.Get()) < Cost.Amount) return false;
+		}
+		for (const auto& Cost : Price)
+		{
+			Balances.FindOrAdd(Cost.ItemClass.Get()) -= Cost.Amount;
+			Paid.Add(Cost);
+		}
+		return true;
+	};
+	auto MixedRefund = [&](const TArray<FItemAmount>& Paid)
+	{
+		++MixedRefunds;
+		for (const auto& Cost : Paid)
+		{
+			Balances.FindOrAdd(Cost.ItemClass.Get()) += Cost.Amount;
+		}
+		return true;
+	};
+	for (int32 Batch = 0; Batch < 2; ++Batch)
+	{
+		Result = UHyperManageCopyPlacement::RunBatch(MixedPrices, MixedDebit, [&](int32) { ++MixedCreates; return true; }, MixedRefund);
+		TestEqual(TEXT("Repeated mixed-material batch completes"), Result.Completed, 2);
+		TestFalse(TEXT("Repeated mixed-material batch succeeds"), Result.Failed);
+	}
+	TestEqual(TEXT("Two placements charge the first material twice"), Balances.FindRef(Item), 0);
+	TestEqual(TEXT("Two placements charge the second material twice"), Balances.FindRef(OtherItem), 0);
+	Result = UHyperManageCopyPlacement::RunBatch(MixedPrices, MixedDebit, [&](int32) { ++MixedCreates; return true; }, MixedRefund);
+	TestTrue(TEXT("Exhausted materials stop the next batch"), Result.Failed);
+	TestEqual(TEXT("Exhausted materials create no extra buildings"), MixedCreates, 4);
+	TestEqual(TEXT("An unpaid attempt creates no refund"), MixedRefunds, 0);
+
+	Balances = {{Item, 20}, {OtherItem, 20}};
+	Result = UHyperManageCopyPlacement::RunBatch(MixedPrices, MixedDebit, [](int32 Index) { return Index == 0; }, MixedRefund);
+	TestEqual(TEXT("Mixed batch preserves its earlier completed piece"), Result.Completed, 1);
+	TestTrue(TEXT("Mixed batch reports failed construction"), Result.Failed);
+	TestEqual(TEXT("Only completed piece consumes first material"), Balances.FindRef(Item), 18);
+	TestEqual(TEXT("Only completed piece consumes second material"), Balances.FindRef(OtherItem), 17);
+	TestEqual(TEXT("Failed piece refunds all its materials once"), MixedRefunds, 1);
+	TestFalse(TEXT("Successful mixed refund is not reported as lost"), Result.RefundFailed);
 	return true;
 }
 #endif
