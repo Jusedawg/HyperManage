@@ -18,6 +18,7 @@ class HYPERMANAGE_API UHyperManageCopyPlacement : public UHyperManageComponent
 	friend class FHyperManageCopyPreviewTest;
 public:
 	void Request();
+	FString GetMaterialSummary() const;
 	bool IsExecuting() const { return Executing; }
 	bool SelectAfterPlacement = false;
 	bool RepeatPlacement = true;

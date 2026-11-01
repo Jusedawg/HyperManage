@@ -133,6 +133,38 @@ bool UHyperManageCopyPlacement::Preflight(TArray<TArray<FItemAmount>>& Costs, TA
 	return true;
 }
 
+FString UHyperManageCopyPlacement::GetMaterialSummary() const
+{
+	if (!System || !System->CopyPreview || !System->CopyPreview->GetCount()) return TEXT("");
+	auto* Controller = System->GetLocalController();
+	auto* Character = Controller ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
+	auto* Inventory = IsValid(Character) ? Character->GetInventory() : nullptr;
+	if (!IsValid(Inventory)) return TEXT("Materials: player inventory unavailable.");
+	if (Inventory->GetNoBuildCost()) return TEXT("Materials: free (No Build Cost).");
+	TArray<FItemAmount> Total;
+	for (const auto& Snapshot : System->CopyPreview->GetSnapshots())
+	{
+		if (!Snapshot.CanPlace || !IsValid(Snapshot.Recipe)) return TEXT("Materials unavailable: recapture supported pieces.");
+		const auto Ingredients = UFGRecipe::GetIngredients(System->GetWorld(), Snapshot.Recipe);
+		if (Ingredients.IsEmpty() || !AccumulateCost(Ingredients, Total)) return TEXT("Materials unavailable: invalid construction cost.");
+	}
+	TArray<FString> Lines;
+	Lines.Add(TEXT("Materials per placement (need / have):"));
+	for (const auto& Cost : Total)
+	{
+		const int32 Available = Inventory->GetNumItems(Cost.ItemClass);
+		FString Name = UFGItemDescriptor::GetItemName(Cost.ItemClass).ToString();
+		if (Name.IsEmpty())
+		{
+			Name = TEXT("Construction material");
+		}
+		const FString Shortage = Available < Cost.Amount ? FString::Printf(TEXT(" - missing %d"), Cost.Amount - Available) : TEXT("");
+		Lines.Add(FString::Printf(TEXT("%s: %d / %d%s"), *Name, Cost.Amount, Available, *Shortage));
+	}
+	Lines.Add(TEXT("Inventory only; checked again when placing."));
+	return FString::Join(Lines, TEXT("\n"));
+}
+
 bool UHyperManageCopyPlacement::FinishPreview(const FHyperManageCopyBatchResult& Result)
 {
 	if (!System || !System->CopyPreview) return false;

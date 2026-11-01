@@ -252,7 +252,7 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	auto* Rows = WidgetTree->ConstructWidget<UVerticalBox>();
 	auto* Header = WidgetTree->ConstructWidget<UHorizontalBox>();
 	auto* Title = WidgetTree->ConstructWidget<UTextBlock>();
-	Title->SetText(FText::FromString(TEXT("HyperManage | dev.106")));
+	Title->SetText(FText::FromString(TEXT("HyperManage | dev.107")));
 	auto TitleFont = Title->GetFont(); TitleFont.Size = 17; Title->SetFont(TitleFont);
 	Header->AddChildToHorizontalBox(Title)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	auto* Close = WidgetTree->ConstructWidget<UButton>();
@@ -454,6 +454,10 @@ void UHyperManageToolWidget::RepairToolbarLayout()
 	CopyStatus = WidgetTree->ConstructWidget<UTextBlock>(); CopyStatus->SetAutoWrapText(true);
 	CopyStatus->SetText(FText::FromString(Preview && Preview->GetCount() ? TEXT("Preview active. Place builds immediately.") : TEXT("Capture foundations, ramps or walls; Place builds immediately.")));
 	CopyBody->AddChildToVerticalBox(CopyStatus);
+	CopyMaterials = WidgetTree->ConstructWidget<UTextBlock>();
+	CopyMaterials->SetAutoWrapText(true);
+	CopyMaterials->SetText(FText::FromString(PreviewSystem && PreviewSystem->CopyPlacement ? PreviewSystem->CopyPlacement->GetMaterialSummary() : FString()));
+	CopyBody->AddChildToVerticalBox(CopyMaterials);
 	AddCollapsedSection(CopyHeading, CopyBody);
 	auto* OffsetHeading = WidgetTree->ConstructWidget<UTextBlock>();
 	OffsetHeading->SetText(FText::FromString(TEXT("OFFSET (m)")));
@@ -907,6 +911,12 @@ void UHyperManageToolWidget::NativeTick(const FGeometry& Geometry, float DeltaTi
 	auto* System = UHyperManageSystem::Get();
 	if (System && System->CopyPreview && CopyFollowMouse && CopyX && CopyY && CopyZ)
 	{
+		CopyMaterialRefresh -= DeltaTime;
+		if (CopyMaterials && CopyMaterialRefresh <= 0.f)
+		{
+			CopyMaterialRefresh = 0.5f;
+			CopyMaterials->SetText(FText::FromString(System->CopyPlacement ? System->CopyPlacement->GetMaterialSummary() : FString()));
+		}
 		const bool Follow = System->CopyPreview->IsFollowingMouse();
 		CopyFollowMouse->SetIsChecked(Follow);
 		CopyX->SetIsEnabled(!Follow); CopyY->SetIsEnabled(!Follow); CopyZ->SetIsEnabled(!Follow);

@@ -54,6 +54,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<USpinBox> CopyY;
 	UPROPERTY(Transient) TObjectPtr<USpinBox> CopyZ;
 	UPROPERTY(Transient) TObjectPtr<class UTextBlock> CopyStatus;
+	UPROPERTY(Transient) TObjectPtr<class UTextBlock> CopyMaterials;
+	float CopyMaterialRefresh = 0.f;
 	UFUNCTION() void CaptureCopyPreview();
 	UFUNCTION() void UpdateCopyPreview();
 	UFUNCTION() void CancelCopyPreview();
